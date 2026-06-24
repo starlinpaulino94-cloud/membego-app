@@ -1,0 +1,279 @@
+// FIDELIX QR - Plataforma SaaS de fidelización de clientes con códigos QR
+// Multiempresa, multi-tipo de negocio, estrategias de fidelización, QR, integraciones
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// USUARIOS Y SESIONES
+// ============================================================
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String // hash scrypt
+  nombre    String
+  telefono  String?
+  // SUPERADMIN | ADMIN_EMPRESA | EMPLEADO | CLIENTE
+  rol       String
+  // Para ADMIN_EMPRESA y EMPLEADO: empresa a la que pertenece
+  empresaId String?
+  empresa   Empresa? @relation(fields: [empresaId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  sesiones         Session[]
+  transaccionesEmpleado Transaccion[] @relation("TransaccionEmpleado")
+  // Un usuario CLIENTE puede tener varios registros (uno por empresa)
+  perfilesCliente  Cliente[]
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+// ============================================================
+// TIPOS DE NEGOCIO + CAMPOS DINÁMICOS
+// ============================================================
+
+model TipoNegocio {
+  id          String   @id @default(cuid())
+  nombre      String   @unique // Carwash, Restaurante, ...
+  slug        String   @unique
+  descripcion String?
+  icono       String? // nombre de icono lucide
+  color       String? // color hex de acento
+  createdAt   DateTime @default(now())
+
+  empresas    Empresa[]
+  estrategias Estrategia[]
+  clientes    Cliente[]
+  camposDef   CampoDef[]
+}
+
+// Definición de campos personalizados por tipo de negocio
+model CampoDef {
+  id            String   @id @default(cuid())
+  tipoNegocioId String
+  tipoNegocio   TipoNegocio @relation(fields: [tipoNegocioId], references: [id], onDelete: Cascade)
+  clave         String // "marca", "placa", "preferencias"
+  etiqueta      String // "Marca del vehículo"
+  tipo          String // text | number | date | select | textarea
+  requerido     Boolean  @default(false)
+  orden         Int      @default(0)
+  opciones      String? // JSON array para select
+  createdAt     DateTime @default(now())
+}
+
+// ============================================================
+// EMPRESAS
+// ============================================================
+
+model Empresa {
+  id            String   @id @default(cuid())
+  nombre        String
+  tipoNegocioId String
+  tipoNegocio   TipoNegocio @relation(fields: [tipoNegocioId], references: [id])
+  logo          String?
+  telefono      String?
+  direccion     String?
+  // ACTIVA | INACTIVA | SUSPENDIDA
+  estado        String   @default("ACTIVA")
+  configuracion String? // JSON
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  usuarios             User[]
+  clientes             Cliente[]
+  estrategias          Estrategia[]
+  qrTokens             QrToken[]
+  transacciones        Transaccion[]
+  integraciones        Integracion[]
+  clienteEstrategias   ClienteEstrategia[]
+}
+
+// ============================================================
+// CLIENTES + CAMPOS DINÁMICOS
+// ============================================================
+
+model Cliente {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  nombre          String
+  telefono        String?
+  email           String?
+  fechaNacimiento DateTime?
+  empresaId       String
+  empresa         Empresa  @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  tipoNegocioId   String
+  tipoNegocio     TipoNegocio @relation(fields: [tipoNegocioId], references: [id])
+  // ACTIVO | INACTIVO
+  estado          String   @default("ACTIVO")
+  createdAt       DateTime @default(now())
+
+  camposDinamicos     ClienteCampo[]
+  estrategias         ClienteEstrategia[]
+  qrTokens            QrToken[]
+  transacciones       Transaccion[]
+}
+
+model ClienteCampo {
+  id        String   @id @default(cuid())
+  clienteId String
+  cliente   Cliente  @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  clave     String
+  valor     String
+  createdAt DateTime @default(now())
+}
+
+// ============================================================
+// ESTRATEGIAS DE FIDELIZACIÓN
+// ============================================================
+
+model Estrategia {
+  id             String   @id @default(cuid())
+  empresaId      String
+  empresa        Empresa  @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  tipoNegocioId  String
+  tipoNegocio    TipoNegocio @relation(fields: [tipoNegocioId], references: [id])
+  nombre         String
+  // MEMBRESIA | CONTEO_VISITAS | PUNTOS | CUPON | PROMOCION_TIEMPO
+  tipoEstrategia String
+  descripcion    String?
+  requierePago   Boolean  @default(false)
+  precio         Float    @default(0)
+  duracionDias   Int      @default(30)
+  // Para membresía: cantidad de usos incluidos en el periodo
+  cantidadUsos   Int      @default(0)
+  // Para conteo: cuántas visitas para ganar recompensa
+  metaVisitas    Int      @default(0)
+  // Puntos generados por consumo
+  puntosPorConsumo Int    @default(0)
+  // monto de referencia para puntos (cada RD$X = N puntos)
+  puntosPorMonto Float    @default(0)
+  recompensa     String?
+  // Porcentaje de descuento para cupón / promoción
+  descuentoPct   Float    @default(0)
+  fechaInicio    DateTime?
+  fechaFin       DateTime?
+  // ACTIVA | INACTIVA
+  estado         String   @default("ACTIVA")
+  createdAt      DateTime @default(now())
+
+  clienteEstrategias ClienteEstrategia[]
+  transacciones      Transaccion[]
+}
+
+model ClienteEstrategia {
+  id               String   @id @default(cuid())
+  clienteId        String
+  cliente          Cliente  @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  estrategiaId     String
+  estrategia       Estrategia @relation(fields: [estrategiaId], references: [id])
+  empresaId        String
+  empresa          Empresa  @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  // PENDIENTE | ACTIVA | VENCIDA | CANCELADA
+  estado           String   @default("PENDIENTE")
+  fechaInicio      DateTime?
+  fechaVencimiento DateTime?
+  usosDisponibles  Int      @default(0)
+  usosConsumidos   Int      @default(0)
+  // conteo de visitas acumuladas para estrategias de conteo
+  visitasAcumuladas Int     @default(0)
+  puntosAcumulados Float    @default(0)
+  pagoConfirmado   Boolean  @default(false)
+  montoPagado      Float    @default(0)
+  createdAt        DateTime @default(now())
+
+  transacciones    Transaccion[]
+}
+
+// ============================================================
+// QR
+// ============================================================
+
+model QrToken {
+  id        String   @id @default(cuid())
+  clienteId String
+  cliente   Cliente  @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  empresaId String
+  empresa   Empresa  @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  token     String   @unique // UUID seguro
+  activo    Boolean  @default(true)
+  createdAt DateTime @default(now())
+}
+
+// ============================================================
+// TRANSACCIONES (historial de consumos)
+// ============================================================
+
+model Transaccion {
+  id                  String   @id @default(cuid())
+  clienteId           String
+  cliente             Cliente  @relation(fields: [clienteId], references: [id])
+  empresaId           String
+  empresa             Empresa  @relation(fields: [empresaId], references: [id])
+  estrategiaId        String?
+  estrategia          Estrategia? @relation(fields: [estrategiaId], references: [id])
+  clienteEstrategiaId String?
+  clienteEstrategia   ClienteEstrategia? @relation(fields: [clienteEstrategiaId], references: [id])
+  tipoConsumo         String // "Lavado básico", "Almuerzo", ...
+  montoConsumo        Float    @default(0)
+  puntosGenerados     Float    @default(0)
+  beneficioAplicado   String?
+  usosDescontados     Int      @default(0)
+  empleadoId          String?
+  empleado            User?    @relation("TransaccionEmpleado", fields: [empleadoId], references: [id])
+  fechaTransaccion    DateTime @default(now())
+  createdAt           DateTime @default(now())
+}
+
+// ============================================================
+// INTEGRACIONES + LOGS
+// ============================================================
+
+model Integracion {
+  id                String   @id @default(cuid())
+  empresaId         String
+  empresa           Empresa  @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  // API_REST | WEBHOOK | CSV | MANUAL
+  tipoIntegracion   String
+  apiUrl            String?
+  apiKey            String?
+  webhookUrl        String?
+  tokenSecreto      String?
+  eventos           String? // JSON array de eventos a sincronizar
+  // ACTIVA | INACTIVA
+  estado            String   @default("ACTIVA")
+  ultimaSincronizacion DateTime?
+  createdAt         DateTime @default(now())
+
+  logs              IntegrationLog[]
+}
+
+model IntegrationLog {
+  id            String   @id @default(cuid())
+  integracionId String
+  integracion   Integracion @relation(fields: [integracionId], references: [id], onDelete: Cascade)
+  empresaId     String
+  evento        String
+  payload       String? // JSON
+  respuesta     String? // JSON
+  // EXITOSO | ERROR | PENDIENTE
+  estado        String   @default("EXITOSO")
+  error         String?
+  createdAt     DateTime @default(now())
+}
