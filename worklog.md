@@ -107,3 +107,80 @@ Stage Summary:
 - Nota: el comando `click` de agent-browser no siempre dispara el onClick de React en este entorno; se usó JS click (element.click()) para verificación de navegación, confirmando que la app funciona correctamente.
 - Sin errores de runtime/hydration en consola. Lint limpio. Dev server estable.
 - FIDELIX QR está completo y funcional.
+
+---
+Task ID: 6 (refactor Club de Beneficios QR)
+Agent: main
+Task: Refactor backend + store + routing para separar landing pública (cliente) de panel admin oculto. Rebrand a "Club de Beneficios QR", empresas con identidad propia, solo 3 tipos de beneficio visibles.
+
+Work Log:
+- Schema: añadidos campos de branding a Empresa (whatsapp, ciudad, colorPrincipal, colorSecundario, descripcionPublica, imagenPortada, horario, redesSociales, urlPersonalizada, textoBienvenida, terminosCondiciones). Añadido `terminos` a Estrategia. db:push OK (aditivo).
+- Seed reescrito: empresas con identidad propia (CARTOWN Wash & Detailing azul #1e40af / Sabor Dominicano naranja #ea580c) con branding completo; campos restaurante corregidos (preferencia_alimentaria + fecha_cumpleanos en vez de frecuencia/mesa_favorita); solo 3 tipos de beneficio (MEMBRESIA, CONTEO_VISITAS, CUPON) con términos; integración webhook de ejemplo. DB reseteada y re-seedeada (requirió reiniciar dev server por conexión Prisma stale).
+- Constants: TIPOS_BENEFICIO (3 visibles) reemplaza TIPOS_ESTRATEGIA en UI; EVENTOS_SINCRONIZACION simplificado a 5 eventos (CLIENTE_CREADO, QR_GENERADO, BENEFICIO_ACTIVADO, USO_CONFIRMADO, PAGO_CONFIRMADO).
+- API empresas: POST/PATCH aceptan todos los campos de branding via pickEmpresaFields. API estrategias: POST/PATCH aceptan `terminos`. API reportes: añadidos `usosHoy` y `promocionesMasUsadas`.
+- Store reescrito con routing por hash: Route = landing | registro | cliente-login | cliente-app | admin-login | admin-app. navigate() actualiza hash + estado. hashchange listener para botones atrás/adelante. AdminSections: dashboard, empresas, clientes, beneficios, pagos, escanear, usos, reportes, configuracion. ClienteSections: mi-qr, mis-empresas, historial.
+- api-client: Empresa con todos los campos de branding; Estrategia con `terminos`.
+- AppRoot reescrito: routing por hash con separación landing/admin oculto. Admin solo accesible via #admin-login / #admin (no linkeado desde landing). Cliente via #mi-qr.
+
+Stage Summary:
+- Contrato frontend fijado: store (useStore con navigate/setRoute/setAdminSection/setClienteSection), api-client (tipos Empresa/Estrategia/Cliente/etc), constants (TIPOS_BENEFICIO, EVENTOS_SINCRONIZACION).
+- Credenciales unchanged: superadmin@fidelix.com/admin123, admin.carwash@fidelix.com/admin123, cliente@fidelix.com/cliente123.
+- Próximo: delegar a subagents (A) frontend público (Landing/Register/ClientLogin/ClienteShell) y (B) frontend admin (AdminLogin/AdminShell/EmpresaForm/BeneficiosForm/Dashboard).
+
+---
+Task ID: 7-A
+Agent: frontend-public
+Task: Reescribir el frontend público del cliente (Landing + ClientLogin + RegisterScreen + ClienteShell) para "Club de Beneficios QR", sin lenguaje SaaS/fidelización ni acceso al panel admin desde la UI pública.
+
+Work Log:
+- AuthScreens.tsx reescrito (~960 líneas): eliminados `Landing` viejo (con botón "Acceder al panel"), `Login` genérico y `Register`. Nuevos exports: `Landing`, `ClientLogin`, `RegisterScreen`.
+  - Landing: header con logo + "Club de Beneficios QR" + botón "Ver mi QR" (→ cliente-login). Hero con badge "Beneficios exclusivos", H1 y subtítulo del brief, CTAs "Registrarme ahora" + "Ver beneficios disponibles" (scroll suave). Sección "Cómo funciona" 6 pasos. Sección "Negocios disponibles" agrupada por tipoNegocio con cards usando colorPrincipal + logo o ícono. Sección "Beneficios disponibles" grid iterando empresas.estrategias con tipo via TIPOS_BENEFICIO, precio o "Gratis", términos. FAQ con Accordion de shadcn (5 preguntas). Footer sticky.
+  - ClientLogin (NUEVO): card centrada "Ver mi QR", form email+password, al submit POST /api/auth. Si user.rol !== "CLIENTE" → POST /api/auth/logout + toast error "Esta cuenta no es de cliente" (sin navegar). Si cliente → navigate("cliente-app"). Links "Registrarme ahora" y "← Volver". Caja demo cliente@fidelix.com/cliente123.
+  - RegisterScreen (renombrado): header con logo + "← Volver" → landing (sin botón admin). 3 pasos: tipo de negocio → empresa+promoción opcional → datos (nombre*, teléfono*, email* con nota "lo usarás para ver tu QR", contraseña*, fecha nacimiento opcional, campos dinámicos desde tipoNegocio.camposDef). Botón "Completar registro". Al éxito: toast + navigate("cliente-app").
+- ClienteShell.tsx NUEVO (~620 líneas): shell dedicado para clientes (no usa AppShell). Header con logo + "Club de Beneficios QR" + user + Badge "Cliente" + logout. Sidebar desktop w-60 + drawer móvil. 3 vistas internas: MiQrView (selector empresa + QrDisplay + tarjeta beneficio activo con progreso/usos/descuento), MisEmpresasView (grid con color principal, click → setClienteSection mi-qr), HistorialView (lista transacciones con scroll). Footer sticky. Copy adaptado: "Estrategia" → "Beneficio", eliminada mención a "fidelización".
+- Colores: base slate/zinc + acentos con colorPrincipal de cada empresa (style inline). Emerald como CTA de marca (reemplaza el viejo sky). Sin indigo/blue. Responsive mobile-first. Sticky footer con min-h-screen flex flex-col + mt-auto en las 4 pantallas.
+- Lint: mis 2 archivos con 0 errores y 0 warnings (verificado con npx eslint). Los 3 errores restantes de `bun run lint` están en AdminShell.tsx (Task 7-B), fuera de mi scope.
+- Dev log: GET /api/datos-publicos 200 repetido (Landing renderizando y cargando datos OK), sin errores runtime.
+
+Stage Summary:
+- Frontend público completo y autocontenido. AppRoot ya importa correctamente Landing/RegisterScreen/ClientLogin desde ./AuthScreens y ClienteShell desde ./ClienteShell (no requiere cambios en AppRoot).
+- Credenciales unchanged: cliente@fidelix.com/cliente123.
+- Pendiente Task 7-B: AdminLogin + AdminShell (con sus errores de lint: setState en effect y NavList creada dentro de render) + EmpresaForm/BeneficiosForm/Dashboard.
+
+---
+Task ID: 7-B
+Agent: admin-frontend (subagent B)
+Task: Refactor frontend del panel administrativo — AdminLogin, AdminShell, SuperadminPanel, EmpresaPanel, EmpleadoPanel, ScannerFlow. Rebrand a "Club de Beneficios QR", separar landing pública de panel admin oculto, empresa con branding completo, solo 3 tipos de beneficio (MEMBRESIA/CONTEO_VISITAS/CUPON) con términos, renames "Estrategias"→"Beneficios" y "Historial"→"Usos registrados", integraciones bajo "Configuración", dashboard con usosHoy/promocionesMasUsadas.
+
+Work Log:
+- CREADO `src/components/fidelix/AdminLogin.tsx`: pantalla login admin oculta. Card centrada, título "Acceso administrativo", subtítulo "Panel interno — solo personal autorizado". POST /api/auth; si user.rol === "CLIENTE" → toast error + logout (no permite acceso admin). Sin credenciales demo visibles. Link discreto "← Sitio público" → navigate("landing").
+- CREADO `src/components/fidelix/AdminShell.tsx`: header (logo "Club de Beneficios QR" + badge "Panel interno" + nombre/rol user + logout) + sidebar desktop + drawer móvil. NAV_BY_ROLE: SUPERADMIN (9 secciones), ADMIN_EMPRESA (8 secciones), EMPLEADO (2 secciones). Mapea adminSection → panel. Footer sticky mt-auto. NavList extraído fuera del componente para cumplir regla react-hooks/static-components. Lee useStore().adminSection + setAdminSection.
+- ACTUALIZADO `src/components/fidelix/panels/SuperadminPanel.tsx`: dashboard global con 6 métricas (Empresas activas, Clientes registrados, Beneficios activos, Beneficios pendientes de pago, Usos registrados hoy, Transacciones totales). Agregación de reportes por empresa para beneficios activos/pendientes/usosHoy. EmpresasManager con EmpresaForm (branding completo). EmpresaSelector interno para secciones que requieren empresa. Renombrado "Estrategias"→"Beneficios" en toda la UI. Sección Configuración con tabs Integraciones/Info. Removidos TiposManager y UsuariosManager del router (no en nav spec).
+- ACTUALIZADO `src/components/fidelix/panels/EmpresaPanel.tsx`: reescrito. EmpresaDashboard usa usosHoy y promocionesMasUsadas. BeneficiosManager + BeneficioForm con solo 3 tipos (TIPOS_BENEFICIO) + campo términos en todos los tipos. UsosManager (rename de Historial). ConfiguracionManager = IntegracionesManager. EmpresaForm exportado con todos los campos de branding en 4 secciones: Información básica, Identidad visual (color pickers + hex inputs + preview logo/portada), Contacto y ubicación, Textos públicos. Exporta ClientesManager/BeneficiosManager/PagosManager/UsosManager/EmpresaForm para reutilización desde SuperadminPanel.
+- ACTUALIZADO `src/components/fidelix/panels/EmpleadoPanel.tsx`: simplificado. Solo 2 secciones (escanear/usos). Usa UsosManager de EmpresaPanel con empleadoId para filtrar.
+- ACTUALIZADO `src/components/fidelix/panels/ScannerFlow.tsx`: cambios de copy "Estrategias"→"Beneficios", "Confirmar consumo"→"Confirmar uso", "Consumo registrado"→"Uso registrado", "Consumo confirmado"→"Uso confirmado", "Últimos consumos"→"Últimos usos". Lógica intacta.
+- Worklog del agente en `/agent-ctx/7-B-admin-frontend.md`.
+
+Stage Summary:
+- `bun run lint` pasa limpio para todos los archivos del agente B (sin errores/warnings).
+- Dev server compila limpio (sin module-not-found para AdminShell/AdminLogin).
+- Restante: `./ClienteShell` Module not found — responsabilidad de Agent A (ClienteShell no creado todavía).
+- Pendiente: Agent A debe crear/refactor AuthScreens (Landing/Register/ClientLogin), ClienteShell y page.tsx para completar la separación landing/admin oculto.
+
+---
+Task ID: 8
+Agent: main
+Task: Verificación end-to-end con Agent Browser del refactor Club de Beneficios QR.
+
+Work Log:
+- Landing pública: muestra "Club de Beneficios QR", H1 "Aprovecha beneficios exclusivos con tu código QR", subtítulo correcto, botones "Registrarme ahora" + "Ver beneficios disponibles" + "Ver mi QR". Secciones: Cómo funciona (6 pasos), Negocios disponibles (CARTOWN Wash & Detailing azul, Sabor Dominicano naranja con descripciones y horarios), Beneficios disponibles (grid de estrategias activas), FAQ (5 preguntas). Cero menciones de admin/panel/fidelización/SaaS verificadas. NO hay link al panel admin.
+- Acceso admin oculto: `#admin-login` muestra "Acceso administrativo — Panel interno — solo personal autorizado". Login superadmin → redirige a `#admin` Dashboard con métricas (empresas activas 2, clientes 2, beneficios activos 6, pendientes pago 1, usos hoy 0, promociones más usadas).
+- Módulo Empresas: form con branding completo (color principal, portada, horario, whatsapp, términos verificados).
+- Módulo Beneficios: select muestra SOLO 3 tipos (Membresía por usos, Conteo de visitas, Cupón simple) — Puntos y Promoción eliminados de la UI.
+- Escáner QR (admin carwash): token de Pedro validado → muestra cliente, vehículo (Toyota Corolla 2021 Blanco A123456), beneficios (Conteo 3/6, Plan Silver 2 usos). Confirmar uso con Plan Silver + Lavado básico → "Uso confirmado: Incluido en membresía (Plan Silver)". BD verificada: usos disponibles 2→1.
+- Panel cliente (via "Ver mi QR" → #mi-qr): login navega a Mi QR mostrando código QR personal, datos del vehículo, beneficio activo con progreso.
+- Bug corregido: ClientLogin y RegisterScreen no llamaban setUser antes de navigate("cliente-app"), por lo que AppRoot no detectaba la sesión. Añadido useStore.getState().setUser(res.user) en ambos.
+- Responsive móvil (390px): drawer de menú presente. Lint limpio. Sin errores de runtime.
+
+Stage Summary:
+- Refactor completo y verificado. Landing 100% enfocada al cliente sin exposición del panel. Admin oculto via hash routing (#admin-login/#admin). Empresas con identidad propia (branding completo). Solo 3 tipos de beneficio visibles. Escáner + confirmación de uso funcionando end-to-end con decremento verificado en BD.

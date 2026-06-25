@@ -64,7 +64,18 @@ export type Empresa = {
   tipoNegocioId: string;
   logo: string | null;
   telefono: string | null;
+  whatsapp: string | null;
   direccion: string | null;
+  ciudad: string | null;
+  colorPrincipal: string | null;
+  colorSecundario: string | null;
+  descripcionPublica: string | null;
+  imagenPortada: string | null;
+  horario: string | null;
+  redesSociales: string | null;
+  urlPersonalizada: string | null;
+  textoBienvenida: string | null;
+  terminosCondiciones: string | null;
   estado: string;
   tipoNegocio?: TipoNegocio;
   estrategias?: Estrategia[];
@@ -88,6 +99,7 @@ export type Estrategia = {
   descuentoPct: number;
   fechaInicio: string | null;
   fechaFin: string | null;
+  terminos: string | null;
   estado: string;
   tipoNegocio?: TipoNegocio;
   empresa?: Empresa;

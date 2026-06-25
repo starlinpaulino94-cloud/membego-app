@@ -60,7 +60,7 @@ export function ScannerFlow() {
       });
       // Necesitamos el token: lo guardamos al escanear. Recuperamos del último scan.
       setConfirmed({ beneficio: r.beneficioAplicado });
-      showToast("Consumo registrado", "success");
+      showToast("Uso registrado", "success");
     } catch (e) {
       showToast(e instanceof Error ? e.message : "Error al confirmar", "error");
     } finally {
@@ -81,7 +81,7 @@ export function ScannerFlow() {
   if (confirmed) {
     return (
       <div>
-        <SectionHeader title="Consumo confirmado" />
+        <SectionHeader title="Uso confirmado" />
         <Card className="border-emerald-200 bg-emerald-50">
           <CardContent className="py-10 flex flex-col items-center text-center">
             <CheckCircle2 className="h-14 w-14 text-emerald-600 mb-3" />
@@ -96,7 +96,7 @@ export function ScannerFlow() {
 
   return (
     <div>
-      <SectionHeader title="Escanear QR" description="Valida el QR del cliente y confirma el consumo. El escaneo NO consume beneficios." />
+      <SectionHeader title="Escanear QR" description="Valida el QR del cliente y confirma el uso. El escaneo NO consume beneficios." />
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
@@ -135,9 +135,9 @@ export function ScannerFlow() {
               </Card>
 
               <Card>
-                <CardHeader><CardTitle className="text-base flex items-center gap-2"><Sparkles className="h-4 w-4" /> Estrategias</CardTitle></CardHeader>
+                <CardHeader><CardTitle className="text-base flex items-center gap-2"><Sparkles className="h-4 w-4" /> Beneficios</CardTitle></CardHeader>
                 <CardContent className="space-y-2">
-                  {result.estrategias.length === 0 && <p className="text-sm text-muted-foreground">Sin estrategias asignadas.</p>}
+                  {result.estrategias.length === 0 && <p className="text-sm text-muted-foreground">Sin beneficios asignados.</p>}
                   {result.estrategias.map((e) => (
                     <button key={e.id} onClick={() => e.estado === "ACTIVA" && setSelectedCE(e.id)} disabled={e.estado !== "ACTIVA"}
                       className={cn("w-full text-left rounded-lg border p-3 transition", selectedCE === e.id ? "border-sky-500 bg-sky-50" : "border-slate-200 bg-white", e.estado !== "ACTIVA" && "opacity-50 cursor-not-allowed")}>
@@ -157,7 +157,7 @@ export function ScannerFlow() {
               </Card>
 
               <Card>
-                <CardHeader><CardTitle className="text-base">Confirmar consumo</CardTitle></CardHeader>
+                <CardHeader><CardTitle className="text-base">Confirmar uso</CardTitle></CardHeader>
                 <CardContent className="space-y-3">
                   <div className="space-y-1.5">
                     <Label>Tipo de consumo *</Label>
@@ -172,15 +172,15 @@ export function ScannerFlow() {
                     <Input type="number" value={monto} onChange={(e) => setMonto(e.target.value)} placeholder="0" />
                   </div>
                   <Button className="w-full" onClick={confirm} disabled={confirming || !tipoConsumo}>
-                    {confirming ? "Confirmando..." : <><CheckCircle2 className="mr-1.5 h-4 w-4" /> Confirmar consumo</>}
+                    {confirming ? "Confirmando..." : <><CheckCircle2 className="mr-1.5 h-4 w-4" /> Confirmar uso</>}
                   </Button>
-                  <p className="text-xs text-muted-foreground text-center">Solo al confirmar se descuentan usos/puntos.</p>
+                  <p className="text-xs text-muted-foreground text-center">Solo al confirmar se descuenta el uso del beneficio.</p>
                 </CardContent>
               </Card>
 
               {result.historial.length > 0 && (
                 <Card>
-                  <CardHeader><CardTitle className="text-base flex items-center gap-2"><History className="h-4 w-4" /> Últimos consumos</CardTitle></CardHeader>
+                  <CardHeader><CardTitle className="text-base flex items-center gap-2"><History className="h-4 w-4" /> Últimos usos</CardTitle></CardHeader>
                   <CardContent className="space-y-1.5 max-h-48 overflow-y-auto">
                     {result.historial.map((t) => (
                       <div key={t.id} className="flex justify-between text-sm border-b last:border-0 pb-1.5 last:pb-0">

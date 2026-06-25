@@ -57,19 +57,12 @@ export async function POST(req: NextRequest) {
   try {
     const user = await requireRol("SUPERADMIN");
     const body = await req.json();
-    const { nombre, tipoNegocioId, logo, telefono, direccion, estado } = body;
-    if (!nombre || !tipoNegocioId) return err("Nombre y tipo de negocio son obligatorios", 422);
-    const tipo = await db.tipoNegocio.findUnique({ where: { id: tipoNegocioId } });
+    const data = pickEmpresaFields(body);
+    if (!data.nombre || !data.tipoNegocioId) return err("Nombre y tipo de negocio son obligatorios", 422);
+    const tipo = await db.tipoNegocio.findUnique({ where: { id: data.tipoNegocioId } });
     if (!tipo) return err("Tipo de negocio inválido", 422);
     const empresa = await db.empresa.create({
-      data: {
-        nombre,
-        tipoNegocioId,
-        logo: logo || null,
-        telefono: telefono || null,
-        direccion: direccion || null,
-        estado: estado || "ACTIVA",
-      },
+      data: { ...data, estado: body.estado || "ACTIVA" },
       include: { tipoNegocio: true },
     });
     void user;
@@ -77,4 +70,17 @@ export async function POST(req: NextRequest) {
   } catch (e) {
     return apiError(e);
   }
+}
+
+function pickEmpresaFields(body: any) {
+  const out: Record<string, unknown> = {};
+  const allowed = [
+    "nombre", "tipoNegocioId", "logo", "telefono", "whatsapp", "direccion", "ciudad",
+    "colorPrincipal", "colorSecundario", "descripcionPublica", "imagenPortada", "horario",
+    "redesSociales", "urlPersonalizada", "textoBienvenida", "terminosCondiciones", "estado",
+  ];
+  for (const k of allowed) {
+    if (body[k] !== undefined) out[k] = body[k] === "" ? null : body[k];
+  }
+  return out;
 }

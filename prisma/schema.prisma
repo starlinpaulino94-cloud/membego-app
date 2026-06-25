@@ -88,10 +88,22 @@ model Empresa {
   tipoNegocio   TipoNegocio @relation(fields: [tipoNegocioId], references: [id])
   logo          String?
   telefono      String?
+  whatsapp      String?
   direccion     String?
+  ciudad        String?
+  // Identidad visual de la empresa
+  colorPrincipal   String? // hex
+  colorSecundario  String? // hex
+  descripcionPublica String?
+  imagenPortada  String? // URL
+  horario        String?
+  redesSociales  String? // JSON {instagram, facebook, ...}
+  urlPersonalizada String?
+  textoBienvenida String?
+  terminosCondiciones String?
   // ACTIVA | INACTIVA | SUSPENDIDA
   estado        String   @default("ACTIVA")
-  configuracion String? // JSON
+  configuracion String? // JSON interno
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
@@ -169,6 +181,8 @@ model Estrategia {
   descuentoPct   Float    @default(0)
   fechaInicio    DateTime?
   fechaFin       DateTime?
+  // Términos y condiciones del beneficio (texto público)
+  terminos       String?
   // ACTIVA | INACTIVA
   estado         String   @default("ACTIVA")
   createdAt      DateTime @default(now())

@@ -129,6 +129,25 @@ export async function GET(req: NextRequest) {
       vencidas: ces.filter((c) => c.estado === "VENCIDA").length,
     };
 
+    // usos registrados hoy
+    const inicioHoy = new Date();
+    inicioHoy.setHours(0, 0, 0, 0);
+    const usosHoy = await db.transaccion.count({ where: { empresaId, fechaTransaccion: { gte: inicioHoy } } });
+
+    // promociones más usadas (por nº de transacciones vinculadas a cada estrategia)
+    const estrIds = [...new Set(txs.map((t) => t).filter((t) => t.beneficioAplicado).map((t) => (t as any).estrategiaId).filter(Boolean))] as string[];
+    // txs no incluye estrategiaId; lo consultamos aparte
+    const txsConEstr = await db.transaccion.findMany({ where: { empresaId, estrategiaId: { not: null } }, select: { estrategiaId: true } });
+    const porEstr: Record<string, number> = {};
+    for (const t of txsConEstr) if (t.estrategiaId) porEstr[t.estrategiaId] = (porEstr[t.estrategiaId] || 0) + 1;
+    const topEstrIds = Object.entries(porEstr).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([id]) => id);
+    const topEstrInfo = await db.estrategia.findMany({ where: { id: { in: topEstrIds } } });
+    const promocionesMasUsadas = topEstrIds.map((id) => {
+      const e = topEstrInfo.find((x) => x.id === id);
+      return { nombre: e?.nombre || "?", tipo: e?.tipoEstrategia || "?", total: porEstr[id] };
+    });
+    void estrIds;
+
     return ok({
       tipo: "empresa",
       empresaId,
@@ -137,6 +156,7 @@ export async function GET(req: NextRequest) {
       clientesInactivos,
       estrategiasActivas,
       totalConsumos,
+      usosHoy,
       beneficiosUsados,
       ingresosMembresias: ingresosRaw._sum.montoPagado || 0,
       erroresSync,
@@ -144,6 +164,7 @@ export async function GET(req: NextRequest) {
       consumosPorTipo: Object.entries(porTipo).map(([tipo, total]) => ({ tipo, total })),
       transaccionesPorDia: Object.entries(porDia).map(([fecha, total]) => ({ fecha, total })),
       estrategiasClienteEstado,
+      promocionesMasUsadas,
     });
   } catch (e) {
     return apiError(e);

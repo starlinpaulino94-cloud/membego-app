@@ -14,10 +14,10 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "FIDELIX QR — Plataforma de fidelización de clientes",
-  description: "Plataforma SaaS multiempresa de fidelización de clientes con códigos QR. Carwash, restaurante y más.",
-  keywords: ["FIDELIX", "QR", "fidelización", "clientes", "carwash", "restaurante", "membresías", "lealtad"],
-  authors: [{ name: "FIDELIX QR" }],
+  title: "Club de Beneficios QR — Beneficios exclusivos con tu código QR",
+  description: "Regístrate, elige una promoción disponible y recibe tu código QR para aprovechar beneficios en nuestros negocios participantes.",
+  keywords: ["Club de Beneficios", "QR", "beneficios", "promociones", "carwash", "restaurante", "membresías"],
+  authors: [{ name: "Club de Beneficios QR" }],
 };
 
 export default function RootLayout({

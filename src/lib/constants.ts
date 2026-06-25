@@ -14,17 +14,20 @@ export const ROL_LABEL: Record<Rol, string> = {
 export type TipoEstrategia =
   | "MEMBRESIA"
   | "CONTEO_VISITAS"
-  | "PUNTOS"
   | "CUPON"
+  | "PUNTOS"
   | "PROMOCION_TIEMPO";
 
-export const TIPOS_ESTRATEGIA: { value: TipoEstrategia; label: string; descripcion: string }[] = [
-  { value: "MEMBRESIA", label: "Membresía", descripcion: "Plan mensual con usos incluidos (ej. 4 lavados al mes)" },
-  { value: "CONTEO_VISITAS", label: "Conteo de visitas", descripcion: "Lava/compra N veces y la siguiente es gratis o con descuento" },
-  { value: "PUNTOS", label: "Programa de puntos", descripcion: "Acumula puntos por consumo, canjeables por recompensas" },
-  { value: "CUPON", label: "Cupón digital", descripcion: "Descuento directo en próxima compra" },
-  { value: "PROMOCION_TIEMPO", label: "Promoción por tiempo", descripcion: "Descuento válido en un rango de fechas" },
+// Tipos de beneficio visibles en la interfaz (fase actual).
+// PUNTOS y PROMOCION_TIEMPO se mantienen en el backend para fases futuras pero no se muestran.
+export const TIPOS_BENEFICIO: { value: TipoEstrategia; label: string; descripcion: string }[] = [
+  { value: "MEMBRESIA", label: "Membresía por usos", descripcion: "Plan con cantidad de usos incluidos (ej. 4 lavados al mes por RD$999)" },
+  { value: "CONTEO_VISITAS", label: "Conteo de visitas", descripcion: "Acumula N visitas y la siguiente es gratis o con descuento" },
+  { value: "CUPON", label: "Cupón simple", descripcion: "Descuento directo en próxima visita" },
 ];
+
+// Lista completa interna (incluye tipos de fases futuras)
+export const TIPOS_ESTRATEGIA = TIPOS_BENEFICIO;
 
 export type TipoIntegracion = "API_REST" | "WEBHOOK" | "CSV" | "MANUAL";
 
@@ -37,14 +40,10 @@ export const TIPOS_INTEGRACION: { value: TipoIntegracion; label: string }[] = [
 
 export const EVENTOS_SINCRONIZACION: { value: string; label: string }[] = [
   { value: "CLIENTE_CREADO", label: "Cliente creado" },
-  { value: "CLIENTE_ACTUALIZADO", label: "Cliente actualizado" },
   { value: "QR_GENERADO", label: "QR generado" },
-  { value: "MEMBRESIA_ACTIVADA", label: "Membresía activada" },
-  { value: "BENEFICIO_USADO", label: "Beneficio usado" },
-  { value: "VISITA_REGISTRADA", label: "Visita registrada" },
+  { value: "BENEFICIO_ACTIVADO", label: "Beneficio activado" },
+  { value: "USO_CONFIRMADO", label: "Uso confirmado" },
   { value: "PAGO_CONFIRMADO", label: "Pago confirmado" },
-  { value: "ESTRATEGIA_RENOVADA", label: "Estrategia renovada" },
-  { value: "ESTRATEGIA_VENCIDA", label: "Estrategia vencida" },
 ];
 
 // Servicios/consumos por tipo de negocio

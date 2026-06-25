@@ -1,0 +1,617 @@
+     1→"use client";
+     2→import { useEffect, useState, useCallback } from "react";
+     3→import { useStore, fmtMonto, fmtFecha, fmtFechaHora, type AppSection } from "../store";
+     4→import { api, type Cliente, type Estrategia, type ClienteEstrategia, type Transaccion, type Integracion, type IntegrationLog, type TipoNegocio } from "../api-client";
+     5→import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+     6→import { Button } from "@/components/ui/button";
+     7→import { Input } from "@/components/ui/input";
+     8→import { Label } from "@/components/ui/label";
+     9→import { Textarea } from "@/components/ui/textarea";
+    10→import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+    11→import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+    12→import { Switch } from "@/components/ui/switch";
+    13→import { SectionHeader, EstadoBadge, TipoEstrategiaBadge, StatCard, EmptyState, RolBadge } from "../shared";
+    14→import { TIPOS_ESTRATEGIA, TIPOS_INTEGRACION, EVENTOS_SINCRONIZACION, SERVICIOS_NEGOCIO } from "@/lib/constants";
+    15→import { Users, Sparkles, CreditCard, History, Plug, BarChart3, Plus, Search, QrCode, DollarSign, TrendingUp, AlertTriangle, CheckCircle2, Trash2, RotateCcw, Gift } from "lucide-react";
+    16→import { ScannerFlow } from "./ScannerFlow";
+    17→import { cn } from "@/lib/utils";
+    18→
+    19→export function EmpresaPanel({ section }: { section: AppSection }) {
+    20→  const { user } = useStore();
+    21→  const empresaId = user?.empresaId;
+    22→
+    23→  if (section === "escanear") return <ScannerFlow />;
+    24→  if (section === "dashboard") return <EmpresaDashboard empresaId={empresaId!} />;
+    25→  if (section === "clientes") return <ClientesManager empresaId={empresaId!} />;
+    26→  if (section === "estrategias") return <EstrategiasManager empresaId={empresaId!} />;
+    27→  if (section === "pagos") return <PagosManager empresaId={empresaId!} />;
+    28→  if (section === "historial") return <HistorialManager empresaId={empresaId!} />;
+    29→  if (section === "integraciones") return <IntegracionesManager empresaId={empresaId!} />;
+    30→  if (section === "reportes") return <ReportesEmpresa empresaId={empresaId!} />;
+    31→  return null;
+    32→}
+    33→
+    34→function useEmpresaTipo(empresaId: string) {
+    35→  const [tipo, setTipo] = useState<TipoNegocio | null>(null);
+    36→  useEffect(() => {
+    37→    api.get<{ empresa: any }>(`/api/empresas/${empresaId}`).then((r) => setTipo(r.empresa.tipoNegocio)).catch(() => {});
+    38→  }, [empresaId]);
+    39→  return tipo;
+    40→}
+    41→
+    42→function EmpresaDashboard({ empresaId }: { empresaId: string }) {
+    43→  const [rep, setRep] = useState<any>(null);
+    44→  useEffect(() => {
+    45→    api.get(`/api/reportes?tipo=empresa&empresaId=${empresaId}`).then((r) => setRep(r)).catch(() => {});
+    46→  }, [empresaId]);
+    47→  if (!rep) return <p className="text-muted-foreground">Cargando dashboard...</p>;
+    48→  return (
+    49→    <div>
+    50→      <SectionHeader title="Dashboard" description="Resumen de tu empresa" />
+    51→      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    52→        <StatCard label="Clientes registrados" value={rep.clientesRegistrados} icon={<Users className="h-5 w-5" />} accent="text-sky-600 bg-sky-50" />
+    53→        <StatCard label="Clientes activos" value={rep.clientesActivos} icon={<CheckCircle2 className="h-5 w-5" />} accent="text-emerald-600 bg-emerald-50" />
+    54→        <StatCard label="Estrategias activas" value={rep.estrategiasActivas} icon={<Sparkles className="h-5 w-5" />} accent="text-violet-600 bg-violet-50" />
+    55→        <StatCard label="Consumos totales" value={rep.totalConsumos} icon={<TrendingUp className="h-5 w-5" />} accent="text-amber-600 bg-amber-50" />
+    56→        <StatCard label="Ingresos membresías" value={fmtMonto(rep.ingresosMembresias)} icon={<DollarSign className="h-5 w-5" />} accent="text-emerald-600 bg-emerald-50" />
+    57→        <StatCard label="Beneficios usados" value={rep.beneficiosUsados} icon={<Gift />} accent="text-pink-600 bg-pink-50" />
+    58→        <StatCard label="Pagos pendientes" value={rep.estrategiasClienteEstado.pendientes} icon={<CreditCard className="h-5 w-5" />} accent="text-amber-600 bg-amber-50" />
+    59→        <StatCard label="Errores sync" value={rep.erroresSync} icon={<AlertTriangle className="h-5 w-5" />} accent="text-red-600 bg-red-50" />
+    60→      </div>
+    61→
+    62→      <div className="mt-6 grid gap-4 lg:grid-cols-2">
+    63→        <Card>
+    64→          <CardHeader><CardTitle className="text-sm">Consumos últimos 14 días</CardTitle></CardHeader>
+    65→          <CardContent>
+    66→            <div className="flex items-end gap-1 h-32">
+    67→              {rep.transaccionesPorDia.map((d: any) => (
+    68→                <div key={d.fecha} className="flex-1 flex flex-col items-center gap-1">
+    69→                  <div className="w-full bg-sky-500 rounded-t" style={{ height: `${Math.max(2, (d.total / Math.max(...rep.transaccionesPorDia.map((x: any) => x.total))) * 100)}%` }} />
+    70→                  <span className="text-[9px] text-muted-foreground">{d.fecha.slice(5)}</span>
+    71→                </div>
+    72→              ))}
+    73→            </div>
+    74→          </CardContent>
+    75→        </Card>
+    76→        <Card>
+    77→          <CardHeader><CardTitle className="text-sm">Consumos por tipo</CardTitle></CardHeader>
+    78→          <CardContent className="space-y-2">
+    79→            {rep.consumosPorTipo.length === 0 && <p className="text-sm text-muted-foreground">Sin datos</p>}
+    80→            {rep.consumosPorTipo.map((c: any) => (
+    81→              <div key={c.tipo} className="flex items-center justify-between text-sm">
+    82→                <span>{c.tipo}</span>
+    83→                <div className="flex items-center gap-2">
+    84→                  <div className="w-24 h-2 rounded-full bg-slate-100 overflow-hidden"><div className="h-full bg-slate-700" style={{ width: `${(c.total / Math.max(1, ...rep.consumosPorTipo.map((x: any) => x.total))) * 100}%` }} /></div>
+    85→                  <span className="font-medium w-6 text-right">{c.total}</span>
+    86→                </div>
+    87→              </div>
+    88→            ))}
+    89→          </CardContent>
+    90→        </Card>
+    91→      </div>
+    92→
+    93→      <Card className="mt-4">
+    94→        <CardHeader><CardTitle className="text-sm">Clientes frecuentes</CardTitle></CardHeader>
+    95→        <CardContent>
+    96→          {rep.clientesFrecuentes.length === 0 ? <p className="text-sm text-muted-foreground">Sin datos</p> : (
+    97→            <div className="space-y-1">
+    98→              {rep.clientesFrecuentes.map((c: any, i: number) => (
+    99→                <div key={i} className="flex items-center justify-between text-sm py-1.5 border-b last:border-0">
+   100→                  <span className="flex items-center gap-2"><span className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-100 text-xs font-bold">{i + 1}</span> {c.nombre}</span>
+   101→                  <span className="text-muted-foreground">{c.visitas} visitas</span>
+   102→                </div>
+   103→              ))}
+   104→            </div>
+   105→          )}
+   106→        </CardContent>
+   107→      </Card>
+   108→    </div>
+   109→  );
+   110→}
+   111→
+   112→function ClientesManager({ empresaId }: { empresaId: string }) {
+   113→  const { showToast } = useStore();
+   114→  const tipo = useEmpresaTipo(empresaId);
+   115→  const [clientes, setClientes] = useState<Cliente[]>([]);
+   116→  const [q, setQ] = useState("");
+   117→  const [loading, setLoading] = useState(true);
+   118→  const [open, setOpen] = useState(false);
+   119→  const [selected, setSelected] = useState<Cliente | null>(null);
+   120→  const [detailOpen, setDetailOpen] = useState(false);
+   121→
+   122→  const load = useCallback(() => {
+   123→    setLoading(true);
+   124→    api.get<{ clientes: Cliente[] }>(`/api/clientes?empresaId=${empresaId}${q ? `&q=${q}` : ""}`).then((r) => setClientes(r.clientes)).catch(() => showToast("Error al cargar clientes", "error")).finally(() => setLoading(false));
+   125→  }, [empresaId, q, showToast]);
+   126→  // eslint-disable-next-line react-hooks/set-state-in-effect
+   127→  useEffect(load, [load]);
+   128→
+   129→  return (
+   130→    <div>
+   131→      <SectionHeader title="Clientes" description="Gestiona los clientes de tu empresa" action={<Button onClick={() => setOpen(true)}><Plus className="mr-1.5 h-4 w-4" /> Nuevo cliente</Button>} />
+   132→      <div className="mb-4 relative max-w-sm">
+   133→        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+   134→        <Input placeholder="Buscar por nombre, email, teléfono..." value={q} onChange={(e) => setQ(e.target.value)} className="pl-8" />
+   135→      </div>
+   136→      {loading ? <p className="text-muted-foreground">Cargando...</p> : clientes.length === 0 ? (
+   137→        <EmptyState title="Sin clientes" description="Crea el primer cliente de tu empresa" icon={<Users className="h-10 w-10" />} />
+   138→      ) : (
+   139→        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+   140→          {clientes.map((c) => (
+   141→            <Card key={c.id} className="hover:shadow-md transition cursor-pointer" >
+   142→              <CardContent className="p-4" onClick={() => { setSelected(c); setDetailOpen(true); }}>
+   143→                <div className="flex items-start justify-between">
+   144→                  <div className="min-w-0">
+   145→                    <p className="font-semibold truncate">{c.nombre}</p>
+   146→                    <p className="text-xs text-muted-foreground truncate">{c.email || c.telefono || "Sin contacto"}</p>
+   147→                  </div>
+   148→                  <EstadoBadge estado={c.estado} />
+   149→                </div>
+   150→                <div className="mt-2 flex flex-wrap gap-1">
+   151→                  {c.estrategias?.slice(0, 2).map((e) => <TipoEstrategiaBadge key={e.id} tipo={e.estrategia.tipoEstrategia} />)}
+   152→                  {c.qrTokens && c.qrTokens[0] && <span className="inline-flex items-center gap-0.5 text-xs text-slate-500"><QrCode className="h-3 w-3" /> QR</span>}
+   153→                </div>
+   154→              </CardContent>
+   155→            </Card>
+   156→          ))}
+   157→        </div>
+   158→      )}
+   159→      {open && tipo && <ClienteForm empresaId={empresaId} tipo={tipo} onClose={() => setOpen(false)} onSaved={() => { setOpen(false); load(); }} />}
+   160→      {detailOpen && selected && <ClienteDetail cliente={selected} empresaId={empresaId} onClose={() => setDetailOpen(false)} />}
+   161→    </div>
+   162→  );
+   163→}
+   164→
+   165→function ClienteForm({ empresaId, tipo, onClose, onSaved }: { empresaId: string; tipo: TipoNegocio; onClose: () => void; onSaved: () => void }) {
+   166→  const { showToast } = useStore();
+   167→  const [form, setForm] = useState<any>({ nombre: "", telefono: "", email: "", fechaNacimiento: "", crearUsuario: true, password: "", campos: {} });
+   168→  const [saving, setSaving] = useState(false);
+   169→
+   170→  async function save() {
+   171→    if (!form.nombre) { showToast("Nombre obligatorio", "error"); return; }
+   172→    setSaving(true);
+   173→    try {
+   174→      await api.post("/api/clientes", { ...form, empresaId, tipoNegocioId: tipo.id });
+   175→      showToast("Cliente creado", "success");
+   176→      onSaved();
+   177→    } catch (e) { showToast(e instanceof Error ? e.message : "Error", "error"); }
+   178→    finally { setSaving(false); }
+   179→  }
+   180→
+   181→  return (
+   182→    <Dialog open onOpenChange={(o) => !o && onClose()}>
+   183→      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+   184→        <DialogHeader><DialogTitle>Nuevo cliente</DialogTitle></DialogHeader>
+   185→        <div className="grid gap-3 sm:grid-cols-2">
+   186→          <div><Label>Nombre *</Label><Input value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })} /></div>
+   187→          <div><Label>Teléfono</Label><Input value={form.telefono} onChange={(e) => setForm({ ...form, telefono: e.target.value })} /></div>
+   188→          <div><Label>Email</Label><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
+   189→          <div><Label>Fecha nacimiento</Label><Input type="date" value={form.fechaNacimiento} onChange={(e) => setForm({ ...form, fechaNacimiento: e.target.value })} /></div>
+   190→        </div>
+   191→        {tipo.camposDef.length > 0 && (
+   192→          <div className="grid gap-3 sm:grid-cols-2 pt-2 border-t">
+   193→            <p className="col-span-full text-sm font-medium">Datos de {tipo.nombre}</p>
+   194→            {tipo.camposDef.map((c) => (
+   195→              <div key={c.clave}>
+   196→                <Label>{c.etiqueta}{c.requerido ? " *" : ""}</Label>
+   197→                {c.tipo === "textarea" ? (
+   198→                  <Textarea value={form.campos[c.clave] || ""} onChange={(e) => setForm({ ...form, campos: { ...form.campos, [c.clave]: e.target.value } })} />
+   199→                ) : c.tipo === "select" ? (
+   200→                  <Select value={form.campos[c.clave] || ""} onValueChange={(v) => setForm({ ...form, campos: { ...form.campos, [c.clave]: v } })}>
+   201→                    <SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
+   202→                    <SelectContent>{(c.opciones ? JSON.parse(c.opciones) : []).map((o: string) => <SelectItem key={o} value={o}>{o}</SelectItem>)}</SelectContent>
+   203→                  </Select>
+   204→                ) : (
+   205→                  <Input type={c.tipo === "number" ? "number" : "text"} value={form.campos[c.clave] || ""} onChange={(e) => setForm({ ...form, campos: { ...form.campos, [c.clave]: e.target.value } })} />
+   206→                )}
+   207→              </div>
+   208→            ))}
+   209→          </div>
+   210→        )}
+   211→        <div className="flex items-center gap-2 pt-2 border-t">
+   212→          <Switch checked={form.crearUsuario} onCheckedChange={(v) => setForm({ ...form, crearUsuario: v })} />
+   213→          <Label>Crear cuenta de acceso para el cliente (requiere email)</Label>
+   214→        </div>
+   215→        {form.crearUsuario && <div><Label>Contraseña temporal</Label><Input value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} placeholder="Se genera una si se deja vacío" /></div>}
+   216→        <DialogFooter><Button variant="outline" onClick={onClose}>Cancelar</Button><Button onClick={save} disabled={saving}>{saving ? "Guardando..." : "Crear cliente"}</Button></DialogFooter>
+   217→      </DialogContent>
+   218→    </Dialog>
+   219→  );
+   220→}
+   221→
+   222→function ClienteDetail({ cliente, empresaId, onClose }: { cliente: Cliente; empresaId: string; onClose: () => void }) {
+   223→  const { showToast } = useStore();
+   224→  const [estrategias, setEstrategias] = useState<Estrategia[]>([]);
+   225→  const [assignOpen, setAssignOpen] = useState(false);
+   226→  useEffect(() => {
+   227→    api.get<{ estrategias: Estrategia[] }>(`/api/estrategias?empresaId=${empresaId}`).then((r) => setEstrategias(r.estrategias)).catch(() => {});
+   228→  }, [empresaId]);
+   229→  async function asignar(estrategiaId: string) {
+   230→    try {
+   231→      await api.post("/api/cliente-estrategias", { clienteId: cliente.id, estrategiaId });
+   232→      showToast("Estrategia asignada", "success");
+   233→      setAssignOpen(false);
+   234→    } catch (e) { showToast(e instanceof Error ? e.message : "Error", "error"); }
+   235→  }
+   236→  return (
+   237→    <Dialog open onOpenChange={(o) => !o && onClose()}>
+   238→      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+   239→        <DialogHeader><DialogTitle>{cliente.nombre}</DialogTitle></DialogHeader>
+   240→        <div className="space-y-3 text-sm">
+   241→          <div className="grid grid-cols-2 gap-2">
+   242→            <p><span className="text-muted-foreground">Email:</span> {cliente.email || "—"}</p>
+   243→            <p><span className="text-muted-foreground">Tel:</span> {cliente.telefono || "—"}</p>
+   244→            <p><span className="text-muted-foreground">Estado:</span> <EstadoBadge estado={cliente.estado} /></p>
+   245→            <p><span className="text-muted-foreground">Registro:</span> {fmtFecha(cliente.fechaNacimiento)}</p>
+   246→          </div>
+   247→          {cliente.camposDinamicos && cliente.camposDinamicos.length > 0 && (
+   248→            <div className="bg-slate-50 rounded-lg p-3">
+   249→              {cliente.camposDinamicos.map((c) => <p key={c.id}><span className="text-muted-foreground capitalize">{c.clave}:</span> {c.valor}</p>)}
+   250→            </div>
+   251→          )}
+   252→          <div>
+   253→            <div className="flex items-center justify-between mb-2">
+   254→              <p className="font-medium">Estrategias</p>
+   255→              <Button size="sm" variant="outline" onClick={() => setAssignOpen(true)}><Plus className="mr-1 h-3 w-3" /> Asignar</Button>
+   256→            </div>
+   257→            <div className="space-y-1.5">
+   258→              {cliente.estrategias?.map((e) => (
+   259→                <div key={e.id} className="flex items-center justify-between rounded-lg border p-2 text-sm">
+   260→                  <div><p className="font-medium">{e.estrategia.nombre}</p><p className="text-xs text-muted-foreground">{e.estrategia.tipoEstrategia}</p></div>
+   261→                  <div className="flex items-center gap-2"><EstadoBadge estado={e.estado} /></div>
+   262→                </div>
+   263→              )) || <p className="text-muted-foreground text-xs">Sin estrategias</p>}
+   264→            </div>
+   265→          </div>
+   266→          {cliente.qrTokens && cliente.qrTokens[0] && (
+   267→            <div className="bg-slate-900 text-white rounded-lg p-3 font-mono text-xs break-all">{cliente.qrTokens[0].token}</div>
+   268→          )}
+   269→        </div>
+   270→        {assignOpen && (
+   271→          <div className="border-t pt-3 space-y-1.5">
+   272→            <p className="text-sm font-medium">Asignar estrategia:</p>
+   273→            {estrategias.filter((e) => !cliente.estrategias?.some((ce) => ce.estrategiaId === e.id)).map((e) => (
+   274→              <button key={e.id} onClick={() => asignar(e.id)} className="w-full text-left rounded-lg border p-2 hover:bg-slate-50 text-sm">
+   275→                <span className="font-medium">{e.nombre}</span> <span className="text-xs text-muted-foreground">· {e.tipoEstrategia}</span>
+   276→              </button>
+   277→            ))}
+   278→          </div>
+   279→        )}
+   280→      </DialogContent>
+   281→    </Dialog>
+   282→  );
+   283→}
+   284→
+   285→function EstrategiasManager({ empresaId }: { empresaId: string }) {
+   286→  const { showToast } = useStore();
+   287→  const tipo = useEmpresaTipo(empresaId);
+   288→  const [estrategias, setEstrategias] = useState<Estrategia[]>([]);
+   289→  const [loading, setLoading] = useState(true);
+   290→  const [open, setOpen] = useState(false);
+   291→  const [edit, setEdit] = useState<Estrategia | null>(null);
+   292→
+   293→  const load = useCallback(() => {
+   294→    setLoading(true);
+   295→    api.get<{ estrategias: Estrategia[] }>(`/api/estrategias?empresaId=${empresaId}`).then((r) => setEstrategias(r.estrategias)).catch(() => showToast("Error", "error")).finally(() => setLoading(false));
+   296→  }, [empresaId, showToast]);
+   297→  // eslint-disable-next-line react-hooks/set-state-in-effect
+   298→  useEffect(load, [load]);
+   299→
+   300→  async function toggle(e: Estrategia) {
+   301→    try { await api.patch(`/api/estrategias/${e.id}`, { estado: e.estado === "ACTIVA" ? "INACTIVA" : "ACTIVA" }); load(); showToast("Actualizado", "success"); } catch (err) { showToast(err instanceof Error ? err.message : "Error", "error"); }
+   302→  }
+   303→
+   304→  return (
+   305→    <div>
+   306→      <SectionHeader title="Estrategias de fidelización" description="Crea y administra promociones y membresías" action={<Button onClick={() => { setEdit(null); setOpen(true); }}><Plus className="mr-1.5 h-4 w-4" /> Nueva estrategia</Button>} />
+   307→      {loading ? <p className="text-muted-foreground">Cargando...</p> : estrategias.length === 0 ? (
+   308→        <EmptyState title="Sin estrategias" description="Crea tu primera estrategia de fidelización" icon={<Sparkles className="h-10 w-10" />} />
+   309→      ) : (
+   310→        <div className="grid gap-3 sm:grid-cols-2">
+   311→          {estrategias.map((e) => (
+   312→            <Card key={e.id}>
+   313→              <CardContent className="p-4">
+   314→                <div className="flex items-start justify-between gap-2">
+   315→                  <div className="min-w-0">
+   316→                    <div className="flex items-center gap-2 flex-wrap">
+   317→                      <p className="font-semibold">{e.nombre}</p>
+   318→                      <TipoEstrategiaBadge tipo={e.tipoEstrategia} />
+   319→                    </div>
+   320→                    <p className="text-xs text-muted-foreground mt-1">{e.descripcion}</p>
+   321→                  </div>
+   322→                  <EstadoBadge estado={e.estado} />
+   323→                </div>
+   324→                <div className="mt-3 flex flex-wrap gap-3 text-xs text-muted-foreground">
+   325→                  {e.requierePago && <span className="font-semibold text-slate-700">{fmtMonto(e.precio)}</span>}
+   326→                  {e.duracionDias > 0 && <span>{e.duracionDias} días</span>}
+   327→                  {e.tipoEstrategia === "MEMBRESIA" && <span>{e.cantidadUsos} usos</span>}
+   328→                  {e.tipoEstrategia === "CONTEO_VISITAS" && <span>Meta: {e.metaVisitas}</span>}
+   329→                  {e.tipoEstrategia === "PUNTOS" && <span>+{e.puntosPorConsumo} pts/consumo</span>}
+   330→                  {(e.tipoEstrategia === "CUPON" || e.tipoEstrategia === "PROMOCION_TIEMPO") && <span>{e.descuentoPct}% desc.</span>}
+   331→                </div>
+   332→                <div className="mt-3 flex gap-2">
+   333→                  <Button size="sm" variant="outline" onClick={() => { setEdit(e); setOpen(true); }}>Editar</Button>
+   334→                  <Button size="sm" variant="ghost" onClick={() => toggle(e)}>{e.estado === "ACTIVA" ? "Desactivar" : "Activar"}</Button>
+   335→                </div>
+   336→              </CardContent>
+   337→            </Card>
+   338→          ))}
+   339→        </div>
+   340→      )}
+   341→      {open && tipo && <EstrategiaForm empresaId={empresaId} tipoId={tipo.id} edit={edit} onClose={() => setOpen(false)} onSaved={() => { setOpen(false); load(); }} />}
+   342→    </div>
+   343→  );
+   344→}
+   345→
+   346→function EstrategiaForm({ empresaId, tipoId, edit, onClose, onSaved }: { empresaId: string; tipoId: string; edit: Estrategia | null; onClose: () => void; onSaved: () => void }) {
+   347→  const { showToast } = useStore();
+   348→  const [f, setF] = useState<any>(edit ? { ...edit } : { nombre: "", tipoEstrategia: "MEMBRESIA", descripcion: "", requierePago: false, precio: 0, duracionDias: 30, cantidadUsos: 0, metaVisitas: 0, puntosPorConsumo: 0, puntosPorMonto: 0, descuentoPct: 0, recompensa: "", estado: "ACTIVA" });
+   349→  const [saving, setSaving] = useState(false);
+   350→
+   351→  async function save() {
+   352→    if (!f.nombre) { showToast("Nombre obligatorio", "error"); return; }
+   353→    setSaving(true);
+   354→    try {
+   355→      if (edit) await api.patch(`/api/estrategias/${edit.id}`, f);
+   356→      else await api.post("/api/estrategias", { ...f, empresaId, tipoNegocioId: tipoId });
+   357→      showToast("Estrategia guardada", "success");
+   358→      onSaved();
+   359→    } catch (e) { showToast(e instanceof Error ? e.message : "Error", "error"); }
+   360→    finally { setSaving(false); }
+   361→  }
+   362→
+   363→  return (
+   364→    <Dialog open onOpenChange={(o) => !o && onClose()}>
+   365→      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+   366→        <DialogHeader><DialogTitle>{edit ? "Editar estrategia" : "Nueva estrategia"}</DialogTitle></DialogHeader>
+   367→        <div className="grid gap-3 sm:grid-cols-2">
+   368→          <div className="sm:col-span-2"><Label>Nombre *</Label><Input value={f.nombre} onChange={(e) => setF({ ...f, nombre: e.target.value })} /></div>
+   369→          <div><Label>Tipo de estrategia</Label>
+   370→            <Select value={f.tipoEstrategia} onValueChange={(v) => setF({ ...f, tipoEstrategia: v })}>
+   371→              <SelectTrigger><SelectValue /></SelectTrigger>
+   372→              <SelectContent>{TIPOS_ESTRATEGIA.map((t) => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}</SelectContent>
+   373→            </Select>
+   374→          </div>
+   375→          <div><Label>Estado</Label>
+   376→            <Select value={f.estado} onValueChange={(v) => setF({ ...f, estado: v })}>
+   377→              <SelectTrigger><SelectValue /></SelectTrigger>
+   378→              <SelectContent><SelectItem value="ACTIVA">Activa</SelectItem><SelectItem value="INACTIVA">Inactiva</SelectItem></SelectContent>
+   379→            </Select>
+   380→          </div>
+   381→          <div className="sm:col-span-2"><Label>Descripción</Label><Textarea value={f.descripcion} onChange={(e) => setF({ ...f, descripcion: e.target.value })} /></div>
+   382→          <div className="sm:col-span-2 flex items-center gap-2"><Switch checked={f.requierePago} onCheckedChange={(v) => setF({ ...f, requierePago: v })} /><Label>Requiere pago</Label></div>
+   383→          {f.requierePago && <div><Label>Precio (RD$)</Label><Input type="number" value={f.precio} onChange={(e) => setF({ ...f, precio: Number(e.target.value) })} /></div>}
+   384→          <div><Label>Duración (días)</Label><Input type="number" value={f.duracionDias} onChange={(e) => setF({ ...f, duracionDias: Number(e.target.value) })} /></div>
+   385→          {f.tipoEstrategia === "MEMBRESIA" && <div><Label>Cantidad de usos incluidos</Label><Input type="number" value={f.cantidadUsos} onChange={(e) => setF({ ...f, cantidadUsos: Number(e.target.value) })} /></div>}
+   386→          {f.tipoEstrategia === "CONTEO_VISITAS" && <>
+   387→            <div><Label>Meta de visitas</Label><Input type="number" value={f.metaVisitas} onChange={(e) => setF({ ...f, metaVisitas: Number(e.target.value) })} /></div>
+   388→            <div><Label>Descuento al alcanzar (%)</Label><Input type="number" value={f.descuentoPct} onChange={(e) => setF({ ...f, descuentoPct: Number(e.target.value) })} /></div>
+   389→          </>}
+   390→          {f.tipoEstrategia === "PUNTOS" && <>
+   391→            <div><Label>Puntos por consumo</Label><Input type="number" value={f.puntosPorConsumo} onChange={(e) => setF({ ...f, puntosPorConsumo: Number(e.target.value) })} /></div>
+   392→            <div><Label>1 punto por cada RD$</Label><Input type="number" value={f.puntosPorMonto} onChange={(e) => setF({ ...f, puntosPorMonto: Number(e.target.value) })} /></div>
+   393→          </>}
+   394→          {(f.tipoEstrategia === "CUPON" || f.tipoEstrategia === "PROMOCION_TIEMPO") && <div><Label>Descuento (%)</Label><Input type="number" value={f.descuentoPct} onChange={(e) => setF({ ...f, descuentoPct: Number(e.target.value) })} /></div>}
+   395→          {f.tipoEstrategia === "PROMOCION_TIEMPO" && <>
+   396→            <div><Label>Inicio</Label><Input type="date" value={f.fechaInicio ? String(f.fechaInicio).slice(0, 10) : ""} onChange={(e) => setF({ ...f, fechaInicio: e.target.value })} /></div>
+   397→            <div><Label>Fin</Label><Input type="date" value={f.fechaFin ? String(f.fechaFin).slice(0, 10) : ""} onChange={(e) => setF({ ...f, fechaFin: e.target.value })} /></div>
+   398→          </>}
+   399→          <div className="sm:col-span-2"><Label>Recompensa (descripción)</Label><Input value={f.recompensa || ""} onChange={(e) => setF({ ...f, recompensa: e.target.value })} /></div>
+   400→        </div>
+   401→        <DialogFooter><Button variant="outline" onClick={onClose}>Cancelar</Button><Button onClick={save} disabled={saving}>{saving ? "Guardando..." : "Guardar"}</Button></DialogFooter>
+   402→      </DialogContent>
+   403→    </Dialog>
+   404→  );
+   405→}
+   406→
+   407→function PagosManager({ empresaId }: { empresaId: string }) {
+   408→  const { showToast } = useStore();
+   409→  const [items, setItems] = useState<(ClienteEstrategia & { cliente?: Cliente; estrategia?: Estrategia })[]>([]);
+   410→  const [loading, setLoading] = useState(true);
+   411→  const load = useCallback(() => {
+   412→    setLoading(true);
+   413→    api.get<{ clienteEstrategias: any[] }>(`/api/cliente-estrategias?empresaId=${empresaId}&estado=PENDIENTE`).then((r) => setItems(r.clienteEstrategias)).catch(() => {}).finally(() => setLoading(false));
+   414→  }, [empresaId]);
+   415→  // eslint-disable-next-line react-hooks/set-state-in-effect
+   416→  useEffect(load, [load]);
+   417→  async function confirmar(id: string) {
+   418→    try { await api.post(`/api/cliente-estrategias/${id}/confirmar-pago`, {}); showToast("Pago confirmado y membresía activada", "success"); load(); } catch (e) { showToast(e instanceof Error ? e.message : "Error", "error"); }
+   419→  }
+   420→  return (
+   421→    <div>
+   422→      <SectionHeader title="Pagos pendientes" description="Confirma pagos para activar membresías pendientes" />
+   423→      {loading ? <p className="text-muted-foreground">Cargando...</p> : items.length === 0 ? (
+   424→        <EmptyState title="Sin pagos pendientes" icon={<CheckCircle2 className="h-10 w-10" />} />
+   425→      ) : (
+   426→        <div className="space-y-3">
+   427→          {items.map((ce) => (
+   428→            <Card key={ce.id}><CardContent className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+   429→              <div>
+   430→                <p className="font-semibold">{ce.cliente?.nombre}</p>
+   431→                <p className="text-sm text-muted-foreground">{ce.estrategia?.nombre} · {fmtMonto(ce.estrategia?.precio)}</p>
+   432→                <p className="text-xs text-muted-foreground">Solicitado: {fmtFecha(ce.createdAt)}</p>
+   433→              </div>
+   434→              <Button onClick={() => confirmar(ce.id)}><CheckCircle2 className="mr-1.5 h-4 w-4" /> Confirmar pago</Button>
+   435→            </CardContent></Card>
+   436→          ))}
+   437→        </div>
+   438→      )}
+   439→    </div>
+   440→  );
+   441→}
+   442→
+   443→function HistorialManager({ empresaId }: { empresaId: string }) {
+   444→  const [transacciones, setTransacciones] = useState<Transaccion[]>([]);
+   445→  const [loading, setLoading] = useState(true);
+   446→  useEffect(() => {
+   447→    api.get<{ transacciones: Transaccion[] }>(`/api/transacciones?empresaId=${empresaId}&limit=200`).then((r) => setTransacciones(r.transacciones)).catch(() => {}).finally(() => setLoading(false));
+   448→  }, [empresaId]);
+   449→  return (
+   450→    <div>
+   451→      <SectionHeader title="Historial de consumos" description="Todas las transacciones registradas" />
+   452→      {loading ? <p className="text-muted-foreground">Cargando...</p> : transacciones.length === 0 ? (
+   453→        <EmptyState title="Sin transacciones" icon={<History className="h-10 w-10" />} />
+   454→      ) : (
+   455→        <Card>
+   456→          <CardContent className="p-0">
+   457→            <div className="max-h-[70vh] overflow-y-auto">
+   458→              <table className="w-full text-sm">
+   459→                <thead className="sticky top-0 bg-slate-50 border-b">
+   460→                  <tr>
+   461→                    <th className="text-left p-3 font-medium">Fecha</th>
+   462→                    <th className="text-left p-3 font-medium">Cliente</th>
+   463→                    <th className="text-left p-3 font-medium">Consumo</th>
+   464→                    <th className="text-left p-3 font-medium">Beneficio</th>
+   465→                    <th className="text-right p-3 font-medium">Monto</th>
+   466→                    <th className="text-left p-3 font-medium">Empleado</th>
+   467→                  </tr>
+   468→                </thead>
+   469→                <tbody>
+   470→                  {transacciones.map((t) => (
+   471→                    <tr key={t.id} className="border-b last:border-0 hover:bg-slate-50">
+   472→                      <td className="p-3 text-xs text-muted-foreground">{fmtFechaHora(t.fechaTransaccion)}</td>
+   473→                      <td className="p-3 font-medium">{t.cliente?.nombre || "—"}</td>
+   474→                      <td className="p-3">{t.tipoConsumo}</td>
+   475→                      <td className="p-3 text-xs">{t.beneficioAplicado || "—"}</td>
+   476→                      <td className="p-3 text-right">{t.montoConsumo > 0 ? fmtMonto(t.montoConsumo) : "—"}</td>
+   477→                      <td className="p-3 text-xs text-muted-foreground">{t.empleado?.nombre || "—"}</td>
+   478→                    </tr>
+   479→                  ))}
+   480→                </tbody>
+   481→              </table>
+   482→            </div>
+   483→          </CardContent>
+   484→        </Card>
+   485→      )}
+   486→    </div>
+   487→  );
+   488→}
+   489→
+   490→function IntegracionesManager({ empresaId }: { empresaId: string }) {
+   491→  const { showToast } = useStore();
+   492→  const [items, setItems] = useState<Integracion[]>([]);
+   493→  const [open, setOpen] = useState(false);
+   494→  const [logsFor, setLogsFor] = useState<Integracion | null>(null);
+   495→  const [logs, setLogs] = useState<IntegrationLog[]>([]);
+   496→  const [loading, setLoading] = useState(true);
+   497→
+   498→  const load = useCallback(() => {
+   499→    setLoading(true);
+   500→    api.get<{ integraciones: Integracion[] }>(`/api/integraciones?empresaId=${empresaId}`).then((r) => setItems(r.integraciones)).catch(() => {}).finally(() => setLoading(false));
+   501→  }, [empresaId]);
+   502→  // eslint-disable-next-line react-hooks/set-state-in-effect
+   503→  useEffect(load, [load]);
+   504→
+   505→  async function viewLogs(integ: Integracion) {
+   506→    setLogsFor(integ);
+   507→    const r = await api.get<{ logs: IntegrationLog[] }>(`/api/integraciones/${integ.id}/logs?limit=100`);
+   508→    setLogs(r.logs);
+   509→  }
+   510→  async function retry(log: IntegrationLog) {
+   511→    try { await api.post(`/api/integration-logs/${log.id}/retry`); showToast("Reintento enviado", "success"); if (logsFor) viewLogs(logsFor); } catch (e) { showToast("Error", "error"); }
+   512→  }
+   513→  async function toggle(integ: Integracion) {
+   514→    try { await api.patch(`/api/integraciones/${integ.id}`, { estado: integ.estado === "ACTIVA" ? "INACTIVA" : "ACTIVA" }); load(); } catch (e) { showToast("Error", "error"); }
+   515→  }
+   516→  async function remove(id: string) {
+   517→    try { await api.del(`/api/integraciones/${id}`); showToast("Eliminada", "success"); load(); } catch (e) { showToast("Error", "error"); }
+   518→  }
+   519→
+   520→  return (
+   521→    <div>
+   522→      <SectionHeader title="Integraciones" description="Sincroniza con el sistema externo de tu negocio" action={<Button onClick={() => setOpen(true)}><Plus className="mr-1.5 h-4 w-4" /> Nueva integración</Button>} />
+   523→      {loading ? <p className="text-muted-foreground">Cargando...</p> : items.length === 0 ? (
+   524→        <EmptyState title="Sin integraciones" description="Configura la sincronización con tu sistema externo" icon={<Plug className="h-10 w-10" />} />
+   525→      ) : (
+   526→        <div className="grid gap-3 sm:grid-cols-2">
+   527→          {items.map((i) => (
+   528→            <Card key={i.id}><CardContent className="p-4">
+   529→              <div className="flex items-start justify-between">
+   530→                <div>
+   531→                  <p className="font-semibold flex items-center gap-2"><Plug className="h-4 w-4 text-violet-600" /> {TIPOS_INTEGRACION.find((t) => t.value === i.tipoIntegracion)?.label || i.tipoIntegracion}</p>
+   532→                  <p className="text-xs text-muted-foreground mt-1">{i.webhookUrl || i.apiUrl || "Sin URL"}</p>
+   533→                </div>
+   534→                <EstadoBadge estado={i.estado} />
+   535→              </div>
+   536→              <div className="mt-2 flex flex-wrap gap-1">
+   537→                {(i.eventos ? JSON.parse(i.eventos) : []).map((ev: string) => <span key={ev} className="text-[10px] bg-violet-100 text-violet-700 rounded px-1.5 py-0.5">{EVENTOS_SINCRONIZACION.find((e) => e.value === ev)?.label || ev}</span>)}
+   538→              </div>
+   539→              {i.ultimaSincronizacion && <p className="text-xs text-muted-foreground mt-2">Última sync: {fmtFechaHora(i.ultimaSincronizacion)}</p>}
+   540→              <div className="mt-3 flex gap-2 flex-wrap">
+   541→                <Button size="sm" variant="outline" onClick={() => viewLogs(i)}>Ver logs ({i._count?.logs || 0})</Button>
+   542→                <Button size="sm" variant="ghost" onClick={() => toggle(i)}>{i.estado === "ACTIVA" ? "Pausar" : "Activar"}</Button>
+   543→                <Button size="sm" variant="ghost" onClick={() => remove(i.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
+   544→              </div>
+   545→            </CardContent></Card>
+   546→          ))}
+   547→        </div>
+   548→      )}
+   549→      {open && <IntegracionForm empresaId={empresaId} onClose={() => setOpen(false)} onSaved={() => { setOpen(false); load(); }} />}
+   550→      {logsFor && (
+   551→        <Dialog open onOpenChange={(o) => !o && setLogsFor(null)}>
+   552→          <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+   553→            <DialogHeader><DialogTitle>Logs de sincronización</DialogTitle></DialogHeader>
+   554→            <div className="space-y-2">
+   555→              {logs.length === 0 && <p className="text-sm text-muted-foreground">Sin logs</p>}
+   556→              {logs.map((l) => (
+   557→                <div key={l.id} className="rounded-lg border p-3 text-sm">
+   558→                  <div className="flex items-center justify-between mb-1">
+   559→                    <span className="font-medium">{l.evento}</span>
+   560→                    <div className="flex items-center gap-2"><EstadoBadge estado={l.estado} />{l.estado === "ERROR" && <Button size="sm" variant="ghost" onClick={() => retry(l)}><RotateCcw className="h-3 w-3" /></Button>}</div>
+   561→                  </div>
+   562→                  <p className="text-xs text-muted-foreground">{fmtFechaHora(l.createdAt)}</p>
+   563→                  {l.error && <p className="text-xs text-red-600 mt-1">{l.error}</p>}
+   564→                  {l.respuesta && <pre className="text-[10px] bg-slate-50 p-2 rounded mt-1 overflow-x-auto max-h-24">{l.respuesta}</pre>}
+   565→                </div>
+   566→              ))}
+   567→            </div>
+   568→          </DialogContent>
+   569→        </Dialog>
+   570→      )}
+   571→    </div>
+   572→  );
+   573→}
+   574→
+   575→function IntegracionForm({ empresaId, onClose, onSaved }: { empresaId: string; onClose: () => void; onSaved: () => void }) {
+   576→  const { showToast } = useStore();
+   577→  const [f, setF] = useState<any>({ tipoIntegracion: "WEBHOOK", apiUrl: "", webhookUrl: "", apiKey: "", tokenSecreto: "", eventos: [] });
+   578→  const [saving, setSaving] = useState(false);
+   579→  function toggleEv(ev: string) { setF({ ...f, eventos: f.eventos.includes(ev) ? f.eventos.filter((e: string) => e !== ev) : [...f.eventos, ev] }); }
+   580→  async function save() {
+   581→    setSaving(true);
+   582→    try { await api.post("/api/integraciones", { ...f, empresaId }); showToast("Integración creada", "success"); onSaved(); } catch (e) { showToast(e instanceof Error ? e.message : "Error", "error"); } finally { setSaving(false); }
+   583→  }
+   584→  return (
+   585→    <Dialog open onOpenChange={(o) => !o && onClose()}>
+   586→      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+   587→        <DialogHeader><DialogTitle>Nueva integración</DialogTitle></DialogHeader>
+   588→        <div className="space-y-3">
+   589→          <div><Label>Tipo</Label><Select value={f.tipoIntegracion} onValueChange={(v) => setF({ ...f, tipoIntegracion: v })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{TIPOS_INTEGRACION.map((t) => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}</SelectContent></Select></div>
+   590→          {(f.tipoIntegracion === "WEBHOOK") && <div><Label>Webhook URL</Label><Input value={f.webhookUrl} onChange={(e) => setF({ ...f, webhookUrl: e.target.value })} placeholder="https://..." /></div>}
+   591→          {(f.tipoIntegracion === "API_REST") && <div><Label>API URL</Label><Input value={f.apiUrl} onChange={(e) => setF({ ...f, apiUrl: e.target.value })} placeholder="https://..." /></div>}
+   592→          <div><Label>API Key</Label><Input value={f.apiKey} onChange={(e) => setF({ ...f, apiKey: e.target.value })} /></div>
+   593→          <div><Label>Token secreto</Label><Input value={f.tokenSecreto} onChange={(e) => setF({ ...f, tokenSecreto: e.target.value })} /></div>
+   594→          <div>
+   595→            <Label>Eventos a sincronizar</Label>
+   596→            <div className="grid grid-cols-2 gap-1.5 mt-1 max-h-48 overflow-y-auto">
+   597→              {EVENTOS_SINCRONIZACION.map((e) => (
+   598→                <label key={e.value} className="flex items-center gap-2 text-sm rounded border p-1.5 cursor-pointer">
+   599→                  <input type="checkbox" checked={f.eventos.includes(e.value)} onChange={() => toggleEv(e.value)} /> {e.label}
+   600→                </label>
+   601→              ))}
+   602→            </div>
+   603→          </div>
+   604→        </div>
+   605→        <DialogFooter><Button variant="outline" onClick={onClose}>Cancelar</Button><Button onClick={save} disabled={saving}>{saving ? "Guardando..." : "Guardar"}</Button></DialogFooter>
+   606→      </DialogContent>
+   607→    </Dialog>
+   608→  );
+   609→}
+   610→
+   611→function ReportesEmpresa({ empresaId }: { empresaId: string }) {
+   612→  const [rep, setRep] = useState<any>(null);
+   613→  useEffect(() => { api.get(`/api/reportes?tipo=empresa&empresaId=${empresaId}`).then(setRep).catch(() => {}); }, [empresaId]);
+   614→  if (!rep) return <p className="text-muted-foreground">Cargando...</p>;
+   615→  return <EmpresaDashboard empresaId={empresaId} />;
+   616→}
+   617→

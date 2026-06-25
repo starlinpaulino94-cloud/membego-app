@@ -1,7 +1,7 @@
 import { db } from "@/lib/db";
 import { hashPassword } from "@/lib/auth";
 
-// Seed idempotente: crea tipos de negocio, empresas, estrategias, usuarios y cliente de prueba.
+// Seed idempotente: crea tipos de negocio, empresas con branding, beneficios, usuarios y clientes de prueba.
 export async function runSeed(): Promise<{ seeded: boolean; message: string }> {
   const existing = await db.tipoNegocio.count();
   if (existing > 0) return { seeded: false, message: "La base de datos ya tiene datos. Seed omitido." };
@@ -35,23 +35,30 @@ export async function runSeed(): Promise<{ seeded: boolean; message: string }> {
       color: "#f97316",
       camposDef: {
         create: [
-          { clave: "preferencias", etiqueta: "Preferencias alimenticias", tipo: "textarea", requerido: false, orden: 1 },
-          { clave: "frecuencia", etiqueta: "Frecuencia de visita", tipo: "select", requerido: false, orden: 2, opciones: JSON.stringify(["Diaria", "Semanal", "Quincenal", "Mensual"]) },
-          { clave: "mesa_favorita", etiqueta: "Mesa favorita (opcional)", tipo: "text", requerido: false, orden: 3 },
+          { clave: "preferencia_alimentaria", etiqueta: "Preferencia alimentaria (opcional)", tipo: "textarea", requerido: false, orden: 1 },
+          { clave: "fecha_cumpleanos", etiqueta: "Fecha de cumpleaños (opcional)", tipo: "date", requerido: false, orden: 2 },
         ],
       },
     },
   });
 
-  // 2. Empresas
+  // 2. Empresas con identidad propia
   const empCarwash = await db.empresa.create({
     data: {
-      nombre: "AutoBrillo Carwash",
+      nombre: "CARTOWN Wash & Detailing",
       tipoNegocioId: carwash.id,
       telefono: "809-555-0100",
-      direccion: "Av. 27 de Febrero #100, Santiago",
+      whatsapp: "809-555-0100",
+      direccion: "Av. 27 de Febrero #100",
+      ciudad: "Santiago",
+      colorPrincipal: "#1e40af",
+      colorSecundario: "#0ea5e9",
+      descripcionPublica: "El mejor lavado y detallado de vehículos de la ciudad. Servicios básicos, premium y especializados con productos de alta calidad.",
+      horario: "Lun a Dom · 8:00 AM - 8:00 PM",
+      redesSociales: JSON.stringify({ instagram: "@cartown.do", facebook: "CARTOWNdo" }),
+      textoBienvenida: "¡Bienvenido a CARTOWN! Cuida tu vehículo con nosotros y aprovecha beneficios exclusivos.",
+      terminosCondiciones: "Los beneficios son personales e intransferibles. Vence según la duración del plan.",
       estado: "ACTIVA",
-      configuracion: JSON.stringify({ horario: "Lun-Dom 8:00-20:00" }),
     },
   });
   const empRestaurante = await db.empresa.create({
@@ -59,9 +66,17 @@ export async function runSeed(): Promise<{ seeded: boolean; message: string }> {
       nombre: "Sabor Dominicano",
       tipoNegocioId: restaurante.id,
       telefono: "809-555-0200",
-      direccion: "Calle El Sol #45, Santo Domingo",
+      whatsapp: "809-555-0200",
+      direccion: "Calle El Sol #45",
+      ciudad: "Santo Domingo",
+      colorPrincipal: "#ea580c",
+      colorSecundario: "#f97316",
+      descripcionPublica: "Auténtica comida dominicana. Almuerzos ejecutivos, desayunos y cenas en un ambiente familiar.",
+      horario: "Lun a Dom · 11:00 AM - 11:00 PM",
+      redesSociales: JSON.stringify({ instagram: "@sabordominicano", facebook: "SaborDominicanoDO" }),
+      textoBienvenida: "¡Disfruta el verdadero sabor dominano! Te esperamos con beneficios especiales.",
+      terminosCondiciones: "Las promociones aplican solo en el local. No acumulable con otras ofertas.",
       estado: "ACTIVA",
-      configuracion: JSON.stringify({ horario: "Lun-Dom 11:00-23:00" }),
     },
   });
 
@@ -88,35 +103,26 @@ export async function runSeed(): Promise<{ seeded: boolean; message: string }> {
     data: { email: "ana@fidelix.com", password: hashPassword("cliente123"), nombre: "Ana Comensal", rol: "CLIENTE", telefono: "809-666-6666" },
   });
 
-  // 4. Estrategias Carwash
-  const estrSilver = await db.estrategia.create({
-    data: { empresaId: empCarwash.id, tipoNegocioId: carwash.id, nombre: "Membresía Silver", tipoEstrategia: "MEMBRESIA", descripcion: "4 lavados básicos al mes incluidos", requierePago: true, precio: 999, duracionDias: 30, cantidadUsos: 4, estado: "ACTIVA" },
+  // 4. Beneficios Carwash (solo Membresía, Conteo, Cupón)
+  const benSilver = await db.estrategia.create({
+    data: { empresaId: empCarwash.id, tipoNegocioId: carwash.id, nombre: "Plan Silver", tipoEstrategia: "MEMBRESIA", descripcion: "Incluye 4 lavados básicos al mes", requierePago: true, precio: 999, duracionDias: 30, cantidadUsos: 4, terminos: "Válido por 30 días. Solo lavado básico. Intransferible.", estado: "ACTIVA" },
   });
-  const estrGold = await db.estrategia.create({
-    data: { empresaId: empCarwash.id, tipoNegocioId: carwash.id, nombre: "Membresía Gold", tipoEstrategia: "MEMBRESIA", descripcion: "4 lavados premium al mes incluidos", requierePago: true, precio: 1499, duracionDias: 30, cantidadUsos: 4, estado: "ACTIVA" },
+  const benGold = await db.estrategia.create({
+    data: { empresaId: empCarwash.id, tipoNegocioId: carwash.id, nombre: "Plan Gold", tipoEstrategia: "MEMBRESIA", descripcion: "Incluye 4 lavados premium al mes", requierePago: true, precio: 1499, duracionDias: 30, cantidadUsos: 4, terminos: "Válido por 30 días. Solo lavado premium. Intransferible.", estado: "ACTIVA" },
   });
-  const estrConteoCar = await db.estrategia.create({
-    data: { empresaId: empCarwash.id, tipoNegocioId: carwash.id, nombre: "Lava 5 y la 6ta GRATIS", tipoEstrategia: "CONTEO_VISITAS", descripcion: "Acumula 5 lavados y el 6to es gratis", requierePago: false, duracionDias: 365, metaVisitas: 6, descuentoPct: 100, recompensa: "6to lavado gratis", estado: "ACTIVA" },
-  });
-  const estrPuntosCar = await db.estrategia.create({
-    data: { empresaId: empCarwash.id, tipoNegocioId: carwash.id, nombre: "Puntos AutoBrillo", tipoEstrategia: "PUNTOS", descripcion: "Gana 10 puntos por lavado + 1 punto por cada RD$100", requierePago: false, duracionDias: 365, puntosPorConsumo: 10, puntosPorMonto: 100, estado: "ACTIVA" },
+  const benConteoCar = await db.estrategia.create({
+    data: { empresaId: empCarwash.id, tipoNegocioId: carwash.id, nombre: "Lava 5 y la 6ta GRATIS", tipoEstrategia: "CONTEO_VISITAS", descripcion: "Acumula 5 lavados y el 6to es gratis", requierePago: false, duracionDias: 365, metaVisitas: 6, descuentoPct: 100, recompensa: "6to lavado gratis", terminos: "Válido por 1 año. El lavado gratis aplica al servicio básico.", estado: "ACTIVA" },
   });
 
-  // 5. Estrategias Restaurante
-  const estrAlmuerzo = await db.estrategia.create({
-    data: { empresaId: empRestaurante.id, tipoNegocioId: restaurante.id, nombre: "Almuerzo Ejecutivo", tipoEstrategia: "MEMBRESIA", descripcion: "5 almuerzos al mes incluidos", requierePago: true, precio: 1999, duracionDias: 30, cantidadUsos: 5, estado: "ACTIVA" },
+  // 5. Beneficios Restaurante
+  const benAlmuerzo = await db.estrategia.create({
+    data: { empresaId: empRestaurante.id, tipoNegocioId: restaurante.id, nombre: "Almuerzo Ejecutivo", tipoEstrategia: "MEMBRESIA", descripcion: "Incluye 5 almuerzos al mes", requierePago: true, precio: 1999, duracionDias: 30, cantidadUsos: 5, terminos: "Válido por 30 días. Menú ejecutivo de lunes a viernes.", estado: "ACTIVA" },
   });
-  const estrConteoRest = await db.estrategia.create({
-    data: { empresaId: empRestaurante.id, tipoNegocioId: restaurante.id, nombre: "Compra 5 y la 6ta 50% descuento", tipoEstrategia: "CONTEO_VISITAS", descripcion: "Acumula 5 comidas y la 6ta con 50% de descuento", requierePago: false, duracionDias: 365, metaVisitas: 6, descuentoPct: 50, recompensa: "50% de descuento", estado: "ACTIVA" },
+  const benConteoRest = await db.estrategia.create({
+    data: { empresaId: empRestaurante.id, tipoNegocioId: restaurante.id, nombre: "Compra 5 y la 6ta 50% descuento", tipoEstrategia: "CONTEO_VISITAS", descripcion: "Acumula 5 comidas y la 6ta con 50% de descuento", requierePago: false, duracionDias: 365, metaVisitas: 6, descuentoPct: 50, recompensa: "50% de descuento", terminos: "Válido por 1 año. Descuento sobre el plato de menor valor.", estado: "ACTIVA" },
   });
-  const estrCuponRest = await db.estrategia.create({
-    data: { empresaId: empRestaurante.id, tipoNegocioId: restaurante.id, nombre: "Cupón 10% próxima visita", tipoEstrategia: "CUPON", descripcion: "10% de descuento en tu próxima compra", requierePago: false, duracionDias: 30, descuentoPct: 10, estado: "ACTIVA" },
-  });
-  const estrPuntosRest = await db.estrategia.create({
-    data: { empresaId: empRestaurante.id, tipoNegocioId: restaurante.id, nombre: "Puntos Sabor", tipoEstrategia: "PUNTOS", descripcion: "5 puntos por consumo + 1 punto por cada RD$100", requierePago: false, duracionDias: 365, puntosPorConsumo: 5, puntosPorMonto: 100, estado: "ACTIVA" },
-  });
-  const estrPromoRest = await db.estrategia.create({
-    data: { empresaId: empRestaurante.id, tipoNegocioId: restaurante.id, nombre: "Promo Mitad de Mes", tipoEstrategia: "PROMOCION_TIEMPO", descripcion: "15% de descuento del 1 al 15 del mes", requierePago: false, duracionDias: 15, descuentoPct: 15, fechaInicio: new Date(new Date().getFullYear(), new Date().getMonth(), 1), fechaFin: new Date(new Date().getFullYear(), new Date().getMonth(), 15, 23, 59), estado: "ACTIVA" },
+  const benCuponRest = await db.estrategia.create({
+    data: { empresaId: empRestaurante.id, tipoNegocioId: restaurante.id, nombre: "Cupón 10% próxima visita", tipoEstrategia: "CUPON", descripcion: "10% de descuento en tu próxima visita", requierePago: false, duracionDias: 30, cantidadUsos: 1, descuentoPct: 10, terminos: "Un solo uso. Vence en 30 días. No acumulable.", estado: "ACTIVA" },
   });
 
   // 6. Clientes de prueba
@@ -151,7 +157,7 @@ export async function runSeed(): Promise<{ seeded: boolean; message: string }> {
       empresaId: empRestaurante.id,
       tipoNegocioId: restaurante.id,
       estado: "ACTIVO",
-      camposDinamicos: { create: [{ clave: "preferencias", valor: "Vegetariana" }, { clave: "frecuencia", valor: "Semanal" }] },
+      camposDinamicos: { create: [{ clave: "preferencia_alimentaria", valor: "Vegetariana" }, { clave: "fecha_cumpleanos", valor: "1995-09-20" }] },
     },
   });
 
@@ -160,35 +166,32 @@ export async function runSeed(): Promise<{ seeded: boolean; message: string }> {
   await db.qrToken.create({ data: { clienteId: clientePedro.id, empresaId: empCarwash.id, token: randomUUID(), activo: true } });
   await db.qrToken.create({ data: { clienteId: clienteAna.id, empresaId: empRestaurante.id, token: randomUUID(), activo: true } });
 
-  // Asignar membresía Silver ACTIVA a Pedro (pago confirmado) + estrategia de conteo
+  // Asignar Plan Silver ACTIVO a Pedro (pago confirmado) + conteo
   await db.clienteEstrategia.create({
     data: {
-      clienteId: clientePedro.id, estrategiaId: estrSilver.id, empresaId: empCarwash.id, estado: "ACTIVA",
+      clienteId: clientePedro.id, estrategiaId: benSilver.id, empresaId: empCarwash.id, estado: "ACTIVA",
       fechaInicio: new Date(), fechaVencimiento: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
       usosDisponibles: 2, usosConsumidos: 2, pagoConfirmado: true, montoPagado: 999,
     },
   });
   await db.clienteEstrategia.create({
-    data: { clienteId: clientePedro.id, estrategiaId: estrConteoCar.id, empresaId: empCarwash.id, estado: "ACTIVA", fechaInicio: new Date(), fechaVencimiento: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), visitasAcumuladas: 3 },
+    data: { clienteId: clientePedro.id, estrategiaId: benConteoCar.id, empresaId: empCarwash.id, estado: "ACTIVA", fechaInicio: new Date(), fechaVencimiento: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), visitasAcumuladas: 3 },
   });
-  // Ana: membresía almuerzo pendiente de pago
+  // Ana: Almuerzo Ejecutivo pendiente de pago
   await db.clienteEstrategia.create({
-    data: { clienteId: clienteAna.id, estrategiaId: estrAlmuerzo.id, empresaId: empRestaurante.id, estado: "PENDIENTE", pagoConfirmado: false, montoPagado: 0 },
+    data: { clienteId: clienteAna.id, estrategiaId: benAlmuerzo.id, empresaId: empRestaurante.id, estado: "PENDIENTE", pagoConfirmado: false, montoPagado: 0 },
   });
 
   // Transacciones de historial para Pedro
-  await db.transaccion.create({ data: { clienteId: clientePedro.id, empresaId: empCarwash.id, estrategiaId: estrSilver.id, tipoConsumo: "Lavado básico", montoConsumo: 0, beneficioAplicado: "Incluido en membresía (Membresía Silver)", usosDescontados: 1, empleadoId: empleadoCarwash.id, fechaTransaccion: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000) } });
-  await db.transaccion.create({ data: { clienteId: clientePedro.id, empresaId: empCarwash.id, estrategiaId: estrSilver.id, tipoConsumo: "Lavado básico", montoConsumo: 0, beneficioAplicado: "Incluido en membresía (Membresía Silver)", usosDescontados: 1, empleadoId: empleadoCarwash.id, fechaTransaccion: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000) } });
+  await db.transaccion.create({ data: { clienteId: clientePedro.id, empresaId: empCarwash.id, estrategiaId: benSilver.id, tipoConsumo: "Lavado básico", montoConsumo: 0, beneficioAplicado: "Incluido en Plan Silver", usosDescontados: 1, empleadoId: empleadoCarwash.id, fechaTransaccion: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000) } });
+  await db.transaccion.create({ data: { clienteId: clientePedro.id, empresaId: empCarwash.id, estrategiaId: benSilver.id, tipoConsumo: "Lavado básico", montoConsumo: 0, beneficioAplicado: "Incluido en Plan Silver", usosDescontados: 1, empleadoId: empleadoCarwash.id, fechaTransaccion: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000) } });
 
-  // 7. Integraciones de ejemplo (webhook a URL de prueba)
+  // 7. Integraciones de ejemplo (webhook a URL de prueba) — módulo interno, no público
   await db.integracion.create({
-    data: { empresaId: empCarwash.id, tipoIntegracion: "WEBHOOK", webhookUrl: "https://httpbin.org/post", apiKey: "fx_key_carwash_123", tokenSecreto: "fx_secret_carwash", eventos: JSON.stringify(["CLIENTE_CREADO", "VISITA_REGISTRADA", "MEMBRESIA_ACTIVADA", "PAGO_CONFIRMADO"]), estado: "ACTIVA", ultimaSincronizacion: new Date() },
-  });
-  await db.integracion.create({
-    data: { empresaId: empRestaurante.id, tipoIntegracion: "API_REST", apiUrl: "https://httpbin.org/post", apiKey: "fx_key_rest_123", tokenSecreto: "fx_secret_rest", eventos: JSON.stringify(["CLIENTE_CREADO", "BENEFICIO_USADO", "VISITA_REGISTRADA"]), estado: "ACTIVA" },
+    data: { empresaId: empCarwash.id, tipoIntegracion: "WEBHOOK", webhookUrl: "https://httpbin.org/post", apiKey: "fx_key_cartown_123", tokenSecreto: "fx_secret_cartown", eventos: JSON.stringify(["CLIENTE_CREADO", "QR_GENERADO", "BENEFICIO_ACTIVADO", "USO_CONFIRMADO", "PAGO_CONFIRMADO"]), estado: "ACTIVA", ultimaSincronizacion: new Date() },
   });
 
-  void superadmin; void adminCarwash; void adminRestaurante; void estrGold; void estrPuntosCar; void estrConteoRest; void estrCuponRest; void estrPuntosRest; void estrPromoRest;
+  void superadmin; void adminCarwash; void adminRestaurante; void benGold; void benConteoRest; void benCuponRest;
 
-  return { seeded: true, message: "Seed completado: 2 tipos de negocio, 2 empresas, estrategias, 7 usuarios y 2 clientes de prueba." };
+  return { seeded: true, message: "Seed completado: 2 tipos de negocio, 2 empresas con branding, 6 beneficios, 7 usuarios y 2 clientes de prueba." };
 }

@@ -29,16 +29,18 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     const user = await requireRol("SUPERADMIN", "ADMIN_EMPRESA");
     assertEmpresaAccess(user, id);
     const body = await req.json();
-    const { nombre, logo, telefono, direccion, estado } = body;
+    const allowed = [
+      "nombre", "tipoNegocioId", "logo", "telefono", "whatsapp", "direccion", "ciudad",
+      "colorPrincipal", "colorSecundario", "descripcionPublica", "imagenPortada", "horario",
+      "redesSociales", "urlPersonalizada", "textoBienvenida", "terminosCondiciones", "estado",
+    ];
+    const data: Record<string, unknown> = {};
+    for (const k of allowed) {
+      if (body[k] !== undefined) data[k] = body[k] === "" ? null : body[k];
+    }
     const empresa = await db.empresa.update({
       where: { id },
-      data: {
-        ...(nombre !== undefined ? { nombre } : {}),
-        ...(logo !== undefined ? { logo } : {}),
-        ...(telefono !== undefined ? { telefono } : {}),
-        ...(direccion !== undefined ? { direccion } : {}),
-        ...(estado !== undefined ? { estado } : {}),
-      },
+      data,
       include: { tipoNegocio: true },
     });
     return ok({ empresa });

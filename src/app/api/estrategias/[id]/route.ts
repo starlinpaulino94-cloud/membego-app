@@ -32,7 +32,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     const allowed = [
       "nombre", "tipoEstrategia", "descripcion", "requierePago", "precio", "duracionDias",
       "cantidadUsos", "metaVisitas", "puntosPorConsumo", "puntosPorMonto", "recompensa", "descuentoPct",
-      "fechaInicio", "fechaFin", "estado",
+      "fechaInicio", "fechaFin", "terminos", "estado",
     ];
     const data: Record<string, unknown> = {};
     for (const k of allowed) {

@@ -56,7 +56,7 @@ export async function POST(req: NextRequest) {
     const {
       nombre, tipoEstrategia, descripcion, requierePago, precio, duracionDias,
       cantidadUsos, metaVisitas, puntosPorConsumo, puntosPorMonto, recompensa, descuentoPct,
-      fechaInicio, fechaFin, estado, empresaId, tipoNegocioId,
+      fechaInicio, fechaFin, terminos, estado, empresaId, tipoNegocioId,
     } = body;
     const empId = empresaId || user.empresaId;
     if (!empId) return err("empresaId es obligatorio", 422);
@@ -84,6 +84,7 @@ export async function POST(req: NextRequest) {
         descuentoPct: Number(descuentoPct) || 0,
         fechaInicio: fechaInicio ? new Date(fechaInicio) : null,
         fechaFin: fechaFin ? new Date(fechaFin) : null,
+        terminos: terminos || null,
         estado: estado || "ACTIVA",
       },
       include: { tipoNegocio: true },
