@@ -33,14 +33,16 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
       "nombre", "tipoEstrategia", "descripcion", "requierePago", "precio", "duracionDias",
       "cantidadUsos", "metaVisitas", "puntosPorConsumo", "puntosPorMonto", "recompensa", "descuentoPct",
       "fechaInicio", "fechaFin", "terminos", "estado",
+      "incluye", "limiteCupos", "cuposDisponibles", "destacada", "escasezTipo",
     ];
     const data: Record<string, unknown> = {};
     for (const k of allowed) {
       if (body[k] !== undefined) {
         if (k === "fechaInicio" || k === "fechaFin") data[k] = body[k] ? new Date(body[k]) : null;
         else if (["precio", "puntosPorMonto", "descuentoPct"].includes(k)) data[k] = Number(body[k]) || 0;
-        else if (["duracionDias", "cantidadUsos", "metaVisitas", "puntosPorConsumo"].includes(k)) data[k] = Number(body[k]) || 0;
-        else if (k === "requierePago") data[k] = !!body[k];
+        else if (["duracionDias", "cantidadUsos", "metaVisitas", "puntosPorConsumo", "limiteCupos", "cuposDisponibles"].includes(k)) data[k] = Number(body[k]) || 0;
+        else if (k === "requierePago" || k === "destacada") data[k] = !!body[k];
+        else if (k === "incluye") data[k] = body[k] ? (typeof body[k] === "string" ? body[k] : JSON.stringify(body[k])) : null;
         else data[k] = body[k];
       }
     }

@@ -76,6 +76,10 @@ export type Empresa = {
   urlPersonalizada: string | null;
   textoBienvenida: string | null;
   terminosCondiciones: string | null;
+  calificacion: number | null;
+  servicios: string | null;
+  galeria: string | null;
+  destacada: boolean;
   estado: string;
   tipoNegocio?: TipoNegocio;
   estrategias?: Estrategia[];
@@ -100,9 +104,25 @@ export type Estrategia = {
   fechaInicio: string | null;
   fechaFin: string | null;
   terminos: string | null;
+  incluye: string | null;
+  limiteCupos: number;
+  cuposDisponibles: number;
+  destacada: boolean;
+  escasezTipo: string | null;
   estado: string;
   tipoNegocio?: TipoNegocio;
   empresa?: Empresa;
+};
+
+export type Config = {
+  id: number;
+  socialClientes: number;
+  socialVisitas: number;
+  socialPromociones: number;
+  socialNegocios: number;
+  socialVehiculos: number;
+  heroTitulo: string | null;
+  heroSubtitulo: string | null;
 };
 export type Cliente = {
   id: string;

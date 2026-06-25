@@ -11,6 +11,7 @@ import {
   type IntegrationLog,
   type TipoNegocio,
   type Empresa,
+  type Config,
 } from "../api-client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -32,6 +33,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { Separator } from "@/components/ui/separator";
 import {
   SectionHeader,
   EstadoBadge,
@@ -44,6 +46,7 @@ import {
   TIPOS_BENEFICIO,
   TIPOS_INTEGRACION,
   EVENTOS_SINCRONIZACION,
+  ESCASEZ_TIPOS,
 } from "@/lib/constants";
 import {
   Users,
@@ -65,6 +68,11 @@ import {
   ArrowLeft,
   Building2,
   Settings,
+  Star,
+  Image as ImageIcon,
+  List,
+  Flame,
+  Save,
 } from "lucide-react";
 import { ScannerFlow } from "./ScannerFlow";
 import { cn } from "@/lib/utils";
@@ -118,6 +126,33 @@ function estadoEmpresaLabel(estado: string): string {
   if (estado === "INACTIVA") return "Inactiva";
   if (estado === "SUSPENDIDA") return "Suspendida";
   return estado;
+}
+
+// Convierte un valor JSON (string o array) almacenado en la BD a texto multilinea
+// para editar en un textarea. Cada linea es un elemento.
+function jsonArrayToText(v: unknown): string {
+  if (v == null) return "";
+  if (Array.isArray(v)) return v.map((s) => String(s)).join("\n");
+  if (typeof v === "string") {
+    if (v.trim() === "") return "";
+    try {
+      const parsed = JSON.parse(v);
+      if (Array.isArray(parsed)) return parsed.map((s: unknown) => String(s)).join("\n");
+      return v;
+    } catch {
+      return v;
+    }
+  }
+  return "";
+}
+
+// Convierte el texto de un textarea (una linea por elemento) a un string JSON array.
+function textToJsonArrayString(text: string): string {
+  const arr = text
+    .split("\n")
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+  return JSON.stringify(arr);
 }
 
 /* ──────────────────────────────────────────────────────────
@@ -854,7 +889,12 @@ function BeneficioForm({
   const { showToast } = useStore();
   const [f, setF] = useState<any>(
     edit
-      ? { ...edit, fechaFin: edit.fechaFin ? String(edit.fechaFin).slice(0, 10) : "" }
+      ? {
+          ...edit,
+          fechaFin: edit.fechaFin ? String(edit.fechaFin).slice(0, 10) : "",
+          incluye: jsonArrayToText(edit.incluye),
+          escasezTipo: edit.escasezTipo || "none",
+        }
       : {
           nombre: "",
           tipoEstrategia: "MEMBRESIA",
@@ -868,6 +908,11 @@ function BeneficioForm({
           recompensa: "",
           fechaFin: "",
           terminos: "",
+          incluye: "",
+          limiteCupos: 0,
+          cuposDisponibles: 0,
+          destacada: false,
+          escasezTipo: "none",
           estado: "ACTIVA",
         }
   );
@@ -881,7 +926,15 @@ function BeneficioForm({
       return;
     }
     // Limpiar campos irrelevantes según tipo
-    const payload: any = { ...f };
+    const payload: any = {
+      ...f,
+      incluye: textToJsonArrayString(String(f.incluye ?? "")),
+      limiteCupos: Number(f.limiteCupos) || 0,
+      cuposDisponibles: Number(f.cuposDisponibles) || 0,
+      destacada: !!f.destacada,
+      escasezTipo:
+        f.escasezTipo && f.escasezTipo !== "none" ? f.escasezTipo : null,
+    };
     if (payload.fechaFin === "") payload.fechaFin = null;
     setSaving(true);
     try {
@@ -1063,6 +1116,89 @@ function BeneficioForm({
               rows={3}
               placeholder="Términos visibles al cliente (vigencia, restricciones, etc.)"
             />
+          </div>
+
+          <div className="sm:col-span-2 mt-2 pt-3 border-t">
+            <p className="text-sm font-semibold flex items-center gap-1.5">
+              <Flame className="h-3.5 w-3.5 text-amber-600" />
+              Presentacion en la landing (conversion)
+            </p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Optimiza como se muestra este beneficio en la pagina publica para impulsar la conversion.
+            </p>
+          </div>
+          <div className="sm:col-span-2">
+            <Label>Incluye (lista de bullets)</Label>
+            <Textarea
+              value={String(f.incluye ?? "")}
+              onChange={(e) => setF({ ...f, incluye: e.target.value })}
+              rows={4}
+              placeholder={"Un bullet por linea\nEj: 4 lavados basicos al mes\nPrioridad en agenda"}
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              Lista con ticks verdes que se muestra en la tarjeta de la promocion. Vende la experiencia.
+            </p>
+          </div>
+          <div className="flex items-center gap-2 sm:col-span-2">
+            <Switch
+              checked={!!f.destacada}
+              onCheckedChange={(v) => setF({ ...f, destacada: v })}
+            />
+            <Label className="font-normal">
+              Marcar como "La favorita de nuestros clientes" (badge dorado en la landing)
+            </Label>
+          </div>
+          <div>
+            <Label className="flex items-center gap-1.5">
+              <TrendingUp className="h-3.5 w-3.5 text-slate-500" />
+              Limite de cupos
+            </Label>
+            <Input
+              type="number"
+              min={0}
+              value={String(f.limiteCupos ?? 0)}
+              onChange={(e) => setF({ ...f, limiteCupos: Number(e.target.value) })}
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              0 = ilimitado. Si &gt; 0, se muestra como escasez.
+            </p>
+          </div>
+          <div>
+            <Label>Cupos disponibles</Label>
+            <Input
+              type="number"
+              min={0}
+              value={String(f.cuposDisponibles ?? 0)}
+              onChange={(e) => setF({ ...f, cuposDisponibles: Number(e.target.value) })}
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              Cupos restantes. Se muestra cuando hay limite.
+            </p>
+          </div>
+          <div className="sm:col-span-2">
+            <Label className="flex items-center gap-1.5">
+              <AlertTriangle className="h-3.5 w-3.5 text-amber-600" />
+              Tipo de escasez
+            </Label>
+            <Select
+              value={String(f.escasezTipo ?? "none")}
+              onValueChange={(v) => setF({ ...f, escasezTipo: v })}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Ninguna" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Ninguna</SelectItem>
+                {ESCASEZ_TIPOS.map((t) => (
+                  <SelectItem key={t.value} value={t.value}>
+                    {t.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground mt-1">
+              Mensaje de urgencia que aparece en la tarjeta.
+            </p>
           </div>
         </div>
         <DialogFooter>
@@ -1251,6 +1387,174 @@ export function UsosManager({
    Configuración = Integraciones (admin empresa)
    ────────────────────────────────────────────────────────── */
 
+export function SocialProofConfig() {
+  const { showToast } = useStore();
+  const [f, setF] = useState<{
+    socialClientes: string;
+    socialVisitas: string;
+    socialPromociones: string;
+    socialNegocios: string;
+    socialVehiculos: string;
+    heroTitulo: string;
+    heroSubtitulo: string;
+  }>({
+    socialClientes: "0",
+    socialVisitas: "0",
+    socialPromociones: "0",
+    socialNegocios: "0",
+    socialVehiculos: "0",
+    heroTitulo: "",
+    heroSubtitulo: "",
+  });
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    api
+      .get<{ config: Config }>("/api/config")
+      .then((r) => {
+        const c = r.config;
+        setF({
+          socialClientes: String(c.socialClientes ?? 0),
+          socialVisitas: String(c.socialVisitas ?? 0),
+          socialPromociones: String(c.socialPromociones ?? 0),
+          socialNegocios: String(c.socialNegocios ?? 0),
+          socialVehiculos: String(c.socialVehiculos ?? 0),
+          heroTitulo: c.heroTitulo ?? "",
+          heroSubtitulo: c.heroSubtitulo ?? "",
+        });
+      })
+      .catch(() => showToast("Error al cargar la configuracion", "error"))
+      .finally(() => setLoading(false));
+  }, [showToast]);
+
+  async function save() {
+    setSaving(true);
+    try {
+      await api.patch("/api/config", {
+        socialClientes: Number(f.socialClientes) || 0,
+        socialVisitas: Number(f.socialVisitas) || 0,
+        socialPromociones: Number(f.socialPromociones) || 0,
+        socialNegocios: Number(f.socialNegocios) || 0,
+        socialVehiculos: Number(f.socialVehiculos) || 0,
+        heroTitulo: f.heroTitulo || null,
+        heroSubtitulo: f.heroSubtitulo || null,
+      });
+      showToast("Prueba social actualizada", "success");
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : "Error", "error");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (loading) {
+    return <p className="text-muted-foreground">Cargando configuracion...</p>;
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-sm flex items-center gap-2">
+          <Users className="h-4 w-4 text-emerald-600" />
+          Prueba social (numeros visibles en la landing)
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div>
+            <Label>Clientes registrados</Label>
+            <Input
+              type="number"
+              min={0}
+              value={f.socialClientes}
+              onChange={(e) => setF({ ...f, socialClientes: e.target.value })}
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              Texto: "Mas de X clientes registrados".
+            </p>
+          </div>
+          <div>
+            <Label>Promociones utilizadas</Label>
+            <Input
+              type="number"
+              min={0}
+              value={f.socialPromociones}
+              onChange={(e) => setF({ ...f, socialPromociones: e.target.value })}
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              Texto: "Miles de promociones ya utilizadas".
+            </p>
+          </div>
+          <div>
+            <Label>Visitas registradas</Label>
+            <Input
+              type="number"
+              min={0}
+              value={f.socialVisitas}
+              onChange={(e) => setF({ ...f, socialVisitas: e.target.value })}
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              Usado para la barra social de la landing.
+            </p>
+          </div>
+          <div>
+            <Label>Negocios participantes</Label>
+            <Input
+              type="number"
+              min={0}
+              value={f.socialNegocios}
+              onChange={(e) => setF({ ...f, socialNegocios: e.target.value })}
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              Cantidad de negocios que aparecen en la landing.
+            </p>
+          </div>
+          <div>
+            <Label>Vehiculos atendidos</Label>
+            <Input
+              type="number"
+              min={0}
+              value={f.socialVehiculos}
+              onChange={(e) => setF({ ...f, socialVehiculos: e.target.value })}
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              Texto: "Mas de X vehiculos atendidos".
+            </p>
+          </div>
+        </div>
+        <Separator />
+        <div>
+          <Label>Titulo del hero (opcional)</Label>
+          <Input
+            value={f.heroTitulo}
+            onChange={(e) => setF({ ...f, heroTitulo: e.target.value })}
+            placeholder="Tu Pase Digital abre la puerta a promociones privadas"
+          />
+          <p className="text-xs text-muted-foreground mt-1">
+            Si lo dejas vacio, se usa el texto por defecto.
+          </p>
+        </div>
+        <div>
+          <Label>Subtitulo del hero (opcional)</Label>
+          <Textarea
+            value={f.heroSubtitulo}
+            onChange={(e) => setF({ ...f, heroSubtitulo: e.target.value })}
+            rows={2}
+            placeholder="Subtitulo que acompana al titulo principal de la landing."
+          />
+        </div>
+        <div className="flex justify-end">
+          <Button onClick={save} disabled={saving}>
+            <Save className="mr-1.5 h-4 w-4" />
+            {saving ? "Guardando..." : "Guardar"}
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export function ConfiguracionManager({
   empresaId,
   onBack,
@@ -1262,7 +1566,7 @@ export function ConfiguracionManager({
     <div>
       <SectionHeader
         title="Configuración"
-        description="Integraciones con sistemas externos y sincronización"
+        description="Prueba social, integraciones con sistemas externos y sincronización"
         action={
           onBack && (
             <Button variant="outline" onClick={onBack}>
@@ -1271,7 +1575,10 @@ export function ConfiguracionManager({
           )
         }
       />
-      <IntegracionesManager empresaId={empresaId} />
+      <div className="space-y-6">
+        <SocialProofConfig />
+        <IntegracionesManager empresaId={empresaId} />
+      </div>
     </div>
   );
 }
@@ -1638,6 +1945,10 @@ export function EmpresaForm({
           descripcionPublica: edit.descripcionPublica || "",
           textoBienvenida: edit.textoBienvenida || "",
           terminosCondiciones: edit.terminosCondiciones || "",
+          calificacion: edit.calificacion ?? 0,
+          servicios: jsonArrayToText(edit.servicios),
+          galeria: jsonArrayToText(edit.galeria),
+          destacada: !!edit.destacada,
           urlPersonalizada: edit.urlPersonalizada || "",
         }
       : {
@@ -1658,6 +1969,10 @@ export function EmpresaForm({
           descripcionPublica: "",
           textoBienvenida: "",
           terminosCondiciones: "",
+          calificacion: 0,
+          servicios: "",
+          galeria: "",
+          destacada: false,
           urlPersonalizada: "",
         }
   );
@@ -1689,6 +2004,10 @@ export function EmpresaForm({
       descripcionPublica: f.descripcionPublica || null,
       textoBienvenida: f.textoBienvenida || null,
       terminosCondiciones: f.terminosCondiciones || null,
+      calificacion: Number(f.calificacion) || 0,
+      servicios: textToJsonArrayString(String(f.servicios ?? "")),
+      galeria: textToJsonArrayString(String(f.galeria ?? "")),
+      destacada: !!f.destacada,
       urlPersonalizada: f.urlPersonalizada || null,
     };
     setSaving(true);
@@ -1833,6 +2152,61 @@ export function EmpresaForm({
               )}
             </div>
           )}
+
+          <FieldLabel>Perfil premium (autoridad y prueba social)</FieldLabel>
+          <div>
+            <Label className="flex items-center gap-1.5">
+              <Star className="h-3.5 w-3.5 text-amber-500" /> Calificacion
+            </Label>
+            <Input
+              type="number"
+              step={0.1}
+              min={0}
+              max={5}
+              value={String(f.calificacion ?? 0)}
+              onChange={(e) => setF({ ...f, calificacion: e.target.value })}
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              Calificacion visible en la landing (0-5 estrellas).
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Switch
+              checked={!!f.destacada}
+              onCheckedChange={(v) => setF({ ...f, destacada: v })}
+            />
+            <Label className="font-normal">
+              Marcar como establecimiento destacado (aparece primero en la landing)
+            </Label>
+          </div>
+          <div className="sm:col-span-2">
+            <Label className="flex items-center gap-1.5">
+              <List className="h-3.5 w-3.5 text-slate-500" /> Servicios
+            </Label>
+            <Textarea
+              value={String(f.servicios ?? "")}
+              onChange={(e) => setF({ ...f, servicios: e.target.value })}
+              rows={4}
+              placeholder={"Un servicio por linea\nEj: Lavado basico\nLavado premium"}
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              Servicios que se muestran como chips en la tarjeta del establecimiento. Un servicio por linea.
+            </p>
+          </div>
+          <div className="sm:col-span-2">
+            <Label className="flex items-center gap-1.5">
+              <ImageIcon className="h-3.5 w-3.5 text-slate-500" /> Galeria (URLs de imagenes, opcional)
+            </Label>
+            <Textarea
+              value={String(f.galeria ?? "")}
+              onChange={(e) => setF({ ...f, galeria: e.target.value })}
+              rows={3}
+              placeholder={"Una URL por linea\nhttps://..."}
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              Opcional. Una URL de imagen por linea. Se muestra como carrusel en la tarjeta.
+            </p>
+          </div>
 
           <FieldLabel>Contacto y ubicación</FieldLabel>
           <div>

@@ -52,6 +52,13 @@ export const SERVICIOS_NEGOCIO: Record<string, string[]> = {
   restaurante: ["Desayuno", "Almuerzo", "Cena", "Combo", "Bebida", "Otro"],
 };
 
+// Tipos de escasez configurables (Cialdini - Escasez)
+export const ESCASEZ_TIPOS: { value: string; label: string; mensaje: string }[] = [
+  { value: "tiempo_limitado", label: "Por tiempo limitado", mensaje: "Disponible por tiempo limitado" },
+  { value: "este_mes", label: "Solo este mes", mensaje: "Solo por este mes" },
+  { value: "ultimos_cupos", label: "Últimos cupos", mensaje: "Últimos cupos disponibles" },
+];
+
 export const ESTADO_LABEL: Record<string, string> = {
   ACTIVA: "Activa",
   ACTIVO: "Activo",

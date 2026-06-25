@@ -1,7 +1,14 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useStore } from "./store";
-import { api, type TipoNegocio, type Empresa, type Estrategia, type SessionUser } from "./api-client";
+import {
+  api,
+  type TipoNegocio,
+  type Empresa,
+  type Estrategia,
+  type SessionUser,
+  type Config,
+} from "./api-client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -21,24 +28,29 @@ import {
   UtensilsCrossed,
   Building2,
   ShieldCheck,
-  Zap,
-  CheckCircle2,
   Sparkles,
   Gift,
-  UserPlus,
-  ScanLine,
   MapPin,
   Clock,
-  Tag,
-  Coins,
+  Users,
+  Store,
+  Ticket,
+  Star,
+  Flame,
+  Check,
+  Crown,
+  TrendingUp,
   CalendarDays,
   Lock,
   Mail,
   Phone,
   User as UserIcon,
+  ChevronDown,
+  ChevronRight,
+  KeyRound,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { TIPOS_BENEFICIO } from "@/lib/constants";
+import { TIPOS_BENEFICIO, ESCASEZ_TIPOS } from "@/lib/constants";
 
 const ICONS: Record<string, React.ReactNode> = {
   Car: <Car className="h-5 w-5" />,
@@ -49,254 +61,387 @@ function tipoLabel(tipo: string): string {
   return TIPOS_BENEFICIO.find((t) => t.value === tipo)?.label || tipo;
 }
 
+function parseJsonArray<T = string>(value: string | null | undefined, fallback: T[] = []): T[] {
+  if (!value) return fallback;
+  try {
+    const parsed = JSON.parse(value);
+    if (Array.isArray(parsed)) return parsed as T[];
+    return fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function escasezMensaje(tipo: string | null): string | null {
+  if (!tipo) return null;
+  return ESCASEZ_TIPOS.find((e) => e.value === tipo)?.mensaje || null;
+}
+
+// Count-up animation hook (Cialdini - Prueba Social)
+function useCountUp(target: number, durationMs = 1200): number {
+  const [val, setVal] = useState(0);
+  useEffect(() => {
+    let raf = 0;
+    const t0 = performance.now();
+    const tick = (now: number) => {
+      const p = Math.min(1, (now - t0) / durationMs);
+      const eased = 1 - Math.pow(1 - p, 3);
+      setVal(Math.round(target * eased));
+      if (p < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [target, durationMs]);
+  return val;
+}
+
+function StatPill({
+  value,
+  label,
+  icon,
+  suffix = "+",
+}: {
+  value: number;
+  label: string;
+  icon: React.ReactNode;
+  suffix?: string;
+}) {
+  const n = useCountUp(value);
+  return (
+    <div className="flex items-center gap-3 rounded-xl border border-amber-200/70 bg-white/85 px-4 py-3 shadow-sm backdrop-blur transition hover:shadow-md">
+      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-amber-50 text-amber-700">
+        {icon}
+      </span>
+      <div className="min-w-0">
+        <p className="text-lg font-extrabold tracking-tight text-slate-900">
+          {n.toLocaleString("es-DO")}
+          {suffix}
+        </p>
+        <p className="text-xs text-muted-foreground leading-tight">{label}</p>
+      </div>
+    </div>
+  );
+}
+
+function scrollToPromociones() {
+  if (typeof document !== "undefined") {
+    const el = document.getElementById("promociones");
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+}
+
 // ===================== LANDING =====================
 export function Landing() {
   const { navigate } = useStore();
   const [tipos, setTipos] = useState<TipoNegocio[]>([]);
   const [empresas, setEmpresas] = useState<Empresa[]>([]);
+  const [usosPorEstr, setUsosPorEstr] = useState<Record<string, number>>({});
+  const [config, setConfig] = useState<Config | null>(null);
 
   useEffect(() => {
     api
-      .get<{ tipos: TipoNegocio[]; empresas: Empresa[] }>("/api/datos-publicos")
+      .get<{
+        tipos: TipoNegocio[];
+        empresas: Empresa[];
+        usosPorEstr: Record<string, number>;
+        config: Config;
+        clientesReales: number;
+      }>("/api/datos-publicos")
       .then((r) => {
         setTipos(r.tipos || []);
         setEmpresas(r.empresas || []);
+        setUsosPorEstr(r.usosPorEstr || {});
+        setConfig(r.config);
       })
       .catch(() => {});
   }, []);
 
-  const beneficios: { empresa: Empresa; estrategia: Estrategia }[] = [];
+  const promociones: { empresa: Empresa; estrategia: Estrategia }[] = [];
   for (const emp of empresas) {
     for (const est of emp.estrategias || []) {
-      beneficios.push({ empresa: emp, estrategia: est });
+      promociones.push({ empresa: emp, estrategia: est });
     }
   }
 
-  function scrollToBeneficios() {
-    if (typeof document !== "undefined") {
-      const el = document.getElementById("beneficios");
-      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
-  }
+  const hasCarwash = empresas.some(
+    (e) => e.tipoNegocio?.slug === "carwash" || e.tipoNegocio?.icono === "Car"
+  );
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-b from-slate-50 to-white">
+    <div className="flex min-h-screen flex-col bg-gradient-to-b from-white via-white to-amber-50/40">
       {/* Header */}
-      <header className="sticky top-0 z-30 border-b bg-white/85 backdrop-blur">
+      <header className="sticky top-0 z-30 border-b border-amber-100/60 bg-white/85 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
-          <div className="flex items-center gap-2">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-900 text-white">
-              <QrCode className="h-5 w-5" />
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500 to-amber-700 text-white shadow-sm">
+              <KeyRound className="h-5 w-5" />
             </div>
             <div>
-              <p className="font-bold leading-none tracking-tight">Club de Beneficios QR</p>
-              <p className="text-[11px] text-muted-foreground">Beneficios exclusivos</p>
+              <p className="font-extrabold leading-none tracking-tight">PASE DIGITAL</p>
+              <p className="text-[11px] text-amber-700/80">Acceso Exclusivo</p>
             </div>
           </div>
-          <Button variant="outline" onClick={() => navigate("cliente-login")}>
-            <QrCode className="mr-1.5 h-4 w-4" /> Ver mi QR
+          <Button
+            variant="outline"
+            onClick={() => navigate("cliente-login")}
+            className="border-amber-300 text-amber-800 hover:bg-amber-50 hover:text-amber-900"
+          >
+            <QrCode className="mr-1.5 h-4 w-4" /> Acceder a mi Pase
           </Button>
         </div>
       </header>
 
-      <main className="flex-1 w-full">
+      <main className="w-full flex-1">
         {/* Hero */}
-        <section className="mx-auto max-w-6xl px-4 py-10 sm:py-16 lg:py-20">
-          <div className="grid gap-10 lg:grid-cols-2 lg:items-center">
-            <div>
-              <span className="inline-flex items-center gap-1.5 rounded-full border bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700">
-                <Sparkles className="h-3.5 w-3.5" /> Beneficios exclusivos
-              </span>
-              <h1 className="mt-4 text-3xl font-extrabold tracking-tight sm:text-4xl lg:text-5xl">
-                Aprovecha beneficios exclusivos con tu <span className="text-emerald-600">código QR</span>
-              </h1>
-              <p className="mt-4 text-muted-foreground text-base sm:text-lg">
-                Regístrate gratis, elige una promoción disponible y recibe tu código QR personal
-                para aprovechar beneficios en nuestros negocios participantes.
-              </p>
-              <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-                <Button size="lg" onClick={() => navigate("registro")} className="text-base">
-                  Registrarme ahora <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
-                <Button size="lg" variant="outline" onClick={scrollToBeneficios} className="text-base">
-                  Ver beneficios disponibles
-                </Button>
-              </div>
-              <div className="mt-8 grid grid-cols-3 gap-4">
-                {[
-                  { icon: <Building2 className="h-5 w-5" />, t: "Varios negocios" },
-                  { icon: <ShieldCheck className="h-5 w-5" />, t: "QR seguro" },
-                  { icon: <Zap className="h-5 w-5" />, t: "Al instante" },
-                ].map((f) => (
-                  <div
-                    key={f.t}
-                    className="flex flex-col items-center gap-1.5 rounded-lg border bg-white p-3 text-center"
-                  >
-                    <span className="text-emerald-600">{f.icon}</span>
-                    <span className="text-xs font-medium">{f.t}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Cómo funciona */}
-            <Card className="overflow-hidden border-slate-200 shadow-xl">
-              <div className="bg-gradient-to-br from-slate-900 to-slate-700 p-6 text-white">
-                <p className="text-sm text-slate-300">¿Cómo funciona?</p>
-                <p className="mt-1 text-lg font-semibold">Tu beneficio en 6 pasos</p>
-              </div>
-              <CardContent className="p-6">
-                <ol className="space-y-3.5">
-                  {[
-                    { icon: <Building2 className="h-3.5 w-3.5" />, t: "Elige el negocio" },
-                    { icon: <Sparkles className="h-3.5 w-3.5" />, t: "Selecciona una promoción disponible" },
-                    { icon: <UserPlus className="h-3.5 w-3.5" />, t: "Regístrate con tus datos" },
-                    { icon: <QrCode className="h-3.5 w-3.5" />, t: "Recibe tu código QR" },
-                    { icon: <ScanLine className="h-3.5 w-3.5" />, t: "Presenta tu QR cuando visites el negocio" },
-                    { icon: <Gift className="h-3.5 w-3.5" />, t: "Aprovecha tu beneficio" },
-                  ].map((s, i) => (
-                    <li key={i} className="flex gap-3">
-                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-xs font-bold text-white">
-                        {i + 1}
-                      </span>
-                      <span className="text-sm text-slate-700 pt-0.5 flex items-center gap-2">
-                        <span className="text-emerald-600">{s.icon}</span>
-                        {s.t}
-                      </span>
-                    </li>
-                  ))}
-                </ol>
-              </CardContent>
-            </Card>
-          </div>
-        </section>
-
-        {/* Negocios disponibles */}
-        <section className="border-y bg-white" id="negocios">
-          <div className="mx-auto max-w-6xl px-4 py-12 sm:py-16">
-            <div className="text-center max-w-2xl mx-auto">
-              <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">Negocios disponibles</h2>
-              <p className="mt-2 text-muted-foreground">
-                Conoce los negocios participantes y aprovecha sus beneficios.
-              </p>
-            </div>
-
-            {tipos.length === 0 ? (
-              <p className="mt-10 text-center text-sm text-muted-foreground">
-                Aún no hay negocios disponibles. Vuelve pronto.
-              </p>
+        <section className="mx-auto max-w-4xl px-4 py-12 text-center sm:py-16 lg:py-24">
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-800">
+            <Crown className="h-3.5 w-3.5" /> Acceso exclusivo para clientes registrados
+          </span>
+          <h1 className="mt-5 text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl lg:text-5xl">
+            {config?.heroTitulo ? (
+              config.heroTitulo
             ) : (
-              <div className="mt-10 space-y-10">
-                {tipos.map((tipo) => {
-                  const empresasTipo = empresas.filter((e) => e.tipoNegocioId === tipo.id);
-                  return (
-                    <div key={tipo.id}>
-                      <div className="flex items-center gap-2 mb-4">
-                        <span
-                          className="flex h-8 w-8 items-center justify-center rounded-lg"
-                          style={{
-                            backgroundColor: (tipo.color || "#0f766e") + "22",
-                            color: tipo.color || "#0f766e",
-                          }}
-                        >
-                          {ICONS[tipo.icono || ""] || <Building2 className="h-4 w-4" />}
-                        </span>
-                        <h3 className="text-lg font-semibold">{tipo.nombre}</h3>
-                        {tipo.descripcion && (
-                          <span className="text-sm text-muted-foreground hidden sm:inline">
-                            · {tipo.descripcion}
-                          </span>
-                        )}
-                      </div>
-                      {empresasTipo.length === 0 ? (
-                        <p className="text-sm text-muted-foreground pl-10">
-                          Próximamente negocios disponibles aquí.
-                        </p>
-                      ) : (
-                        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                          {empresasTipo.map((emp) => (
-                            <EmpresaCard key={emp.id} empresa={emp} />
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
+              <>
+                Tu <span className="text-amber-700">Pase Digital</span> abre la puerta a
+                promociones privadas
+              </>
             )}
+          </h1>
+          <p className="mx-auto mt-5 max-w-2xl text-base text-muted-foreground sm:text-lg">
+            {config?.heroSubtitulo ||
+              "Regístrate gratuitamente, activa tu Pase Digital y comienza a disfrutar promociones exclusivas en nuestros establecimientos participantes."}
+          </p>
+          <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">
+            <Button
+              size="lg"
+              onClick={() => navigate("registro")}
+              className="bg-amber-600 text-base text-white shadow-md hover:bg-amber-700"
+            >
+              <Sparkles className="mr-2 h-4 w-4" /> Quiero mi Pase Digital
+            </Button>
+            <Button
+              size="lg"
+              variant="outline"
+              onClick={scrollToPromociones}
+              className="border-amber-300 text-base text-amber-800 hover:bg-amber-50"
+            >
+              Descubrir promociones <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
+          </div>
+          <p className="mt-4 text-xs italic text-amber-700/80">
+            Algunas promociones solo están disponibles para clientes registrados.
+          </p>
+        </section>
+
+        {/* Social proof bar */}
+        {config && (
+          <section className="mx-auto max-w-5xl px-4 pb-12">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <StatPill
+                value={config.socialClientes}
+                label="Clientes registrados"
+                icon={<Users className="h-5 w-5" />}
+                suffix="+"
+              />
+              <StatPill
+                value={config.socialVisitas}
+                label="Promociones ya utilizadas"
+                icon={<Ticket className="h-5 w-5" />}
+                suffix="+"
+              />
+              <StatPill
+                value={config.socialNegocios}
+                label="Negocios participantes"
+                icon={<Store className="h-5 w-5" />}
+                suffix=""
+              />
+              {hasCarwash && (
+                <StatPill
+                  value={config.socialVehiculos}
+                  label="Vehículos atendidos"
+                  icon={<Car className="h-5 w-5" />}
+                  suffix="+"
+                />
+              )}
+            </div>
+          </section>
+        )}
+
+        {/* Cómo funciona */}
+        <section className="border-y border-amber-100/60 bg-white">
+          <div className="mx-auto max-w-6xl px-4 py-12 sm:py-16">
+            <div className="mx-auto mb-10 max-w-2xl text-center">
+              <span className="mb-3 inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-800">
+                <Sparkles className="h-3.5 w-3.5" /> 5 pasos
+              </span>
+              <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">
+                Activa tu Pase Digital en 5 pasos
+              </h2>
+              <p className="mt-2 text-muted-foreground">
+                Tu acceso exclusivo está listo en minutos. Sin complicaciones.
+              </p>
+            </div>
+            <ol className="grid gap-4 sm:grid-cols-3 lg:grid-cols-5">
+              {[
+                {
+                  icon: <KeyRound className="h-5 w-5" />,
+                  t: "Activa tu Pase Digital",
+                  d: "Registro gratuito en minutos",
+                },
+                {
+                  icon: <Store className="h-5 w-5" />,
+                  t: "Elige tu establecimiento",
+                  d: "Entre nuestras opciones participantes",
+                },
+                {
+                  icon: <Gift className="h-5 w-5" />,
+                  t: "Descubre las promociones",
+                  d: "Explora oportunidades exclusivas",
+                },
+                {
+                  icon: <QrCode className="h-5 w-5" />,
+                  t: "Presenta tu Pase QR",
+                  d: "Al momento de tu visita",
+                },
+                {
+                  icon: <Crown className="h-5 w-5" />,
+                  t: "Disfruta la experiencia",
+                  d: "Vive ventajas exclusivas",
+                },
+              ].map((s, i) => (
+                <li
+                  key={i}
+                  className="rounded-2xl border border-amber-100 bg-gradient-to-b from-white to-amber-50/40 p-5 text-center transition hover:shadow-md"
+                >
+                  <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-amber-600 text-sm font-bold text-white">
+                    {i + 1}
+                  </div>
+                  <div className="mt-3 flex justify-center text-amber-700">{s.icon}</div>
+                  <p className="mt-2 text-sm font-semibold text-slate-900">{s.t}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">{s.d}</p>
+                </li>
+              ))}
+            </ol>
           </div>
         </section>
 
-        {/* Beneficios disponibles */}
-        <section className="bg-slate-50" id="beneficios">
+        {/* Establecimientos participantes */}
+        <section className="bg-gradient-to-b from-amber-50/30 to-white" id="establecimientos">
           <div className="mx-auto max-w-6xl px-4 py-12 sm:py-16">
-            <div className="text-center max-w-2xl mx-auto">
-              <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">Beneficios disponibles</h2>
+            <div className="mx-auto mb-10 max-w-2xl text-center">
+              <span className="mb-3 inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-800">
+                <Store className="h-3.5 w-3.5" /> Establecimientos
+              </span>
+              <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">
+                Establecimientos participantes
+              </h2>
               <p className="mt-2 text-muted-foreground">
-                Promociones activas que puedes aprovechar hoy mismo.
+                Negocios cuidadosamente seleccionados para ofrecerte las mejores experiencias.
               </p>
             </div>
 
-            {beneficios.length === 0 ? (
-              <div className="mt-10 rounded-lg border border-dashed py-12 text-center">
-                <Gift className="mx-auto h-10 w-10 text-muted-foreground" />
-                <p className="mt-3 font-medium">Próximamente nuevos beneficios</p>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Estamos preparando promociones especiales para ti. Vuelve pronto.
-                </p>
-              </div>
+            {empresas.length === 0 ? (
+              <p className="mt-10 text-center text-sm text-muted-foreground">
+                Aún no hay establecimientos disponibles. Vuelve pronto.
+              </p>
             ) : (
-              <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {beneficios.map(({ empresa, estrategia }) => (
-                  <BeneficioCard
-                    key={estrategia.id}
-                    empresa={empresa}
-                    estrategia={estrategia}
+              <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                {empresas.map((emp) => (
+                  <EmpresaPremiumCard
+                    key={emp.id}
+                    empresa={emp}
+                    onVerPromociones={scrollToPromociones}
                   />
                 ))}
               </div>
             )}
+          </div>
+        </section>
 
-            <div className="mt-10 text-center">
-              <Button size="lg" onClick={() => navigate("registro")}>
-                Registrarme ahora <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
+        {/* Promociones disponibles */}
+        <section className="bg-white" id="promociones">
+          <div className="mx-auto max-w-6xl px-4 py-12 sm:py-16">
+            <div className="mx-auto mb-10 max-w-2xl text-center">
+              <span className="mb-3 inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-800">
+                <Ticket className="h-3.5 w-3.5" /> Oportunidades exclusivas
+              </span>
+              <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">
+                Promociones disponibles
+              </h2>
+              <p className="mt-2 text-muted-foreground">
+                Oportunidades exclusivas para titulares del Pase Digital
+              </p>
             </div>
+
+            {promociones.length === 0 ? (
+              <div className="mt-10 rounded-2xl border border-dashed border-amber-200 py-12 text-center">
+                <Gift className="mx-auto h-10 w-10 text-amber-400" />
+                <p className="mt-3 font-medium text-slate-900">Próximamente nuevas promociones</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Estamos preparando oportunidades especiales para ti. Vuelve pronto.
+                </p>
+              </div>
+            ) : (
+              <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                {promociones.map(({ empresa, estrategia }) => (
+                  <PromocionCard
+                    key={estrategia.id}
+                    empresa={empresa}
+                    estrategia={estrategia}
+                    usos={usosPorEstr[estrategia.id] || 0}
+                    onObtener={() => navigate("registro")}
+                  />
+                ))}
+              </div>
+            )}
           </div>
         </section>
 
         {/* FAQ */}
-        <section className="bg-white">
+        <section className="bg-gradient-to-b from-white to-amber-50/40">
           <div className="mx-auto max-w-3xl px-4 py-12 sm:py-16">
-            <div className="text-center mb-8">
+            <div className="mb-8 text-center">
+              <span className="mb-3 inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-800">
+                <ShieldCheck className="h-3.5 w-3.5" /> Confianza
+              </span>
               <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">Preguntas frecuentes</h2>
-              <p className="mt-2 text-muted-foreground">Todo lo que necesitas saber para aprovechar tu QR.</p>
+              <p className="mt-2 text-muted-foreground">
+                Todo lo que necesitas saber sobre tu Pase Digital.
+              </p>
             </div>
-            <Accordion type="single" collapsible className="rounded-lg border bg-white px-4">
+            <Accordion
+              type="single"
+              collapsible
+              className="rounded-2xl border border-amber-100 bg-white px-4 shadow-sm"
+            >
               {[
                 {
-                  q: "¿Cómo obtengo mi código QR?",
-                  a: "Regístrate, elige una promoción y recibes tu QR al instante.",
+                  q: "¿Cómo obtengo mi Pase Digital?",
+                  a: "Regístrate, elige tu establecimiento y una promoción disponible. Tu Pase Digital se activa al instante.",
                 },
                 {
                   q: "¿El registro tiene costo?",
-                  a: "El registro es gratis. Algunas promociones como membresías tienen costo y se activan al confirmar el pago.",
+                  a: "Activar tu Pase Digital es gratis. Algunas promociones premium tienen costo y se activan al confirmar el pago.",
                 },
                 {
-                  q: "¿Dónde puedo usar mi QR?",
-                  a: "En cualquiera de nuestros negocios participantes.",
+                  q: "¿Dónde puedo usar mi Pase?",
+                  a: "En cualquiera de nuestros establecimientos participantes. Tu Pase funciona en todos.",
                 },
                 {
-                  q: "¿Puedo tener beneficios en varios negocios?",
-                  a: "¡Sí! Puedes registrarte en cada negocio que desees.",
+                  q: "¿Puedo tener acceso en varios establecimientos?",
+                  a: "Por supuesto. Cuantos más establecimientos elijas, más oportunidades exclusivas acumulas.",
                 },
                 {
                   q: "¿Mis datos están seguros?",
-                  a: "Tu QR contiene un código seguro, no tus datos personales.",
+                  a: "Tu Pase Digital contiene un identificador seguro, nunca tus datos personales.",
                 },
               ].map((item, i) => (
-                <AccordionItem key={i} value={`item-${i}`}>
-                  <AccordionTrigger className="text-left font-medium">
+                <AccordionItem
+                  key={i}
+                  value={`item-${i}`}
+                  className="border-amber-50 last:border-0"
+                >
+                  <AccordionTrigger className="text-left font-semibold text-slate-900">
                     {item.q}
                   </AccordionTrigger>
                   <AccordionContent className="text-muted-foreground">{item.a}</AccordionContent>
@@ -307,111 +452,259 @@ export function Landing() {
         </section>
       </main>
 
-      <footer className="mt-auto border-t bg-white">
+      <footer className="mt-auto border-t border-amber-100 bg-white">
         <div className="mx-auto max-w-6xl px-4 py-6 text-center text-sm text-muted-foreground">
-          Club de Beneficios QR · Beneficios exclusivos para nuestros clientes
+          Pase Digital · Acceso Exclusivo a promociones privadas · {new Date().getFullYear()}
         </div>
       </footer>
     </div>
   );
 }
 
-function EmpresaCard({ empresa }: { empresa: Empresa }) {
-  const color = empresa.colorPrincipal || "#0f766e";
+function EmpresaPremiumCard({
+  empresa,
+  onVerPromociones,
+}: {
+  empresa: Empresa;
+  onVerPromociones: () => void;
+}) {
+  const color = empresa.colorPrincipal || "#b45309";
+  const color2 = empresa.colorSecundario || empresa.colorPrincipal || "#92400e";
+  const servicios = parseJsonArray<string>(empresa.servicios).slice(0, 4);
+  const rating = empresa.calificacion || 0;
+  const clientesCount = empresa._count?.clientes;
+
   return (
-    <Card
-      className="overflow-hidden transition hover:shadow-md"
-      style={{ borderColor: color + "33" }}
-    >
-      <div className="h-1.5 w-full" style={{ backgroundColor: color }} />
-      <CardContent className="p-4">
-        <div className="flex items-start gap-3">
+    <Card className="group overflow-hidden rounded-2xl border border-amber-100/60 shadow-sm transition hover:-translate-y-1 hover:shadow-xl">
+      {/* Cover */}
+      <div
+        className="relative h-24 w-full"
+        style={{
+          background: empresa.imagenPortada
+            ? `url(${empresa.imagenPortada}) center/cover`
+            : `linear-gradient(135deg, ${color} 0%, ${color2} 100%)`,
+        }}
+      >
+        <div className="absolute inset-0 bg-black/10" />
+        {empresa.destacada && (
+          <span className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-full bg-white/95 px-2 py-0.5 text-[11px] font-bold text-amber-700 shadow-sm">
+            <Star className="h-3 w-3 fill-amber-500 text-amber-500" /> Destacado
+          </span>
+        )}
+      </div>
+      <CardContent className="p-5 pt-0">
+        {/* Logo */}
+        <div className="-mt-8 mb-3 flex items-end justify-between">
           {empresa.logo ? (
             <img
               src={empresa.logo}
               alt={empresa.nombre}
-              className="h-11 w-11 rounded-lg object-cover"
+              className="h-14 w-14 rounded-xl border-4 border-white bg-white object-cover shadow-md"
             />
           ) : (
             <div
-              className="flex h-11 w-11 items-center justify-center rounded-lg"
-              style={{ backgroundColor: color + "22", color }}
+              className="flex h-14 w-14 items-center justify-center rounded-xl border-4 border-white text-xl font-extrabold text-white shadow-md"
+              style={{ backgroundColor: color }}
             >
-              {ICONS[empresa.tipoNegocio?.icono || ""] || <Building2 className="h-5 w-5" />}
+              {empresa.nombre.charAt(0).toUpperCase()}
             </div>
           )}
-          <div className="min-w-0 flex-1">
-            <p className="font-semibold leading-tight truncate">{empresa.nombre}</p>
-            {empresa.tipoNegocio && (
-              <p className="text-xs text-muted-foreground">{empresa.tipoNegocio.nombre}</p>
-            )}
-          </div>
+          {rating > 0 && (
+            <span className="mb-1 inline-flex items-center gap-1 rounded-lg bg-amber-50 px-2 py-1 text-xs font-bold text-amber-800">
+              <Star className="h-3.5 w-3.5 fill-amber-500 text-amber-500" /> {rating.toFixed(1)}/5
+            </span>
+          )}
         </div>
+        <p className="font-bold leading-tight text-slate-900">{empresa.nombre}</p>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <MapPin className="h-3 w-3" />
+          {empresa.ciudad || empresa.direccion || "Ubicación"}
+          {empresa.direccion && empresa.ciudad
+            ? ` · ${empresa.direccion.split(",")[0]}`
+            : ""}
+        </p>
+
         {empresa.descripcionPublica && (
-          <p className="mt-3 text-sm text-muted-foreground line-clamp-2">{empresa.descripcionPublica}</p>
+          <p className="mt-3 line-clamp-2 text-sm text-muted-foreground">
+            {empresa.descripcionPublica}
+          </p>
         )}
-        <div className="mt-3 space-y-1 text-xs text-muted-foreground">
-          {empresa.direccion && (
-            <p className="flex items-start gap-1.5">
-              <MapPin className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-              <span>
-                {empresa.direccion}
-                {empresa.ciudad ? ` · ${empresa.ciudad}` : ""}
+
+        {servicios.length > 0 && (
+          <div className="mt-3 flex flex-wrap gap-1.5">
+            {servicios.map((s) => (
+              <span
+                key={s}
+                className="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium"
+                style={{ backgroundColor: color + "1a", color }}
+              >
+                {s}
               </span>
-            </p>
-          )}
+            ))}
+          </div>
+        )}
+
+        <div className="mt-3 space-y-1 text-xs text-muted-foreground">
           {empresa.horario && (
-            <p className="flex items-start gap-1.5">
-              <Clock className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-              <span>{empresa.horario}</span>
+            <p className="flex items-center gap-1.5">
+              <Clock className="h-3.5 w-3.5 text-amber-700" /> {empresa.horario}
             </p>
           )}
+          <p className="flex items-center gap-1.5">
+            <Users className="h-3.5 w-3.5 text-amber-700" />
+            {clientesCount && clientesCount > 0
+              ? `${clientesCount.toLocaleString("es-DO")} clientes satisfechos`
+              : "Clientes satisfechos"}
+          </p>
         </div>
+
+        <Button
+          onClick={onVerPromociones}
+          variant="outline"
+          className="mt-4 w-full border-amber-300 text-amber-800 hover:bg-amber-50 hover:text-amber-900"
+        >
+          Ver promociones <ChevronRight className="ml-1 h-4 w-4" />
+        </Button>
       </CardContent>
     </Card>
   );
 }
 
-function BeneficioCard({ empresa, estrategia }: { empresa: Empresa; estrategia: Estrategia }) {
-  const color = empresa.colorPrincipal || "#0f766e";
+function PromocionCard({
+  empresa,
+  estrategia,
+  usos,
+  onObtener,
+}: {
+  empresa: Empresa;
+  estrategia: Estrategia;
+  usos: number;
+  onObtener: () => void;
+}) {
+  const color = empresa.colorPrincipal || "#b45309";
   const gratis = !estrategia.requierePago || estrategia.precio <= 0;
+  const incluye = parseJsonArray<string>(estrategia.incluye).slice(0, 5);
+  const escasez = escasezMensaje(estrategia.escasezTipo);
+  const [showTerminos, setShowTerminos] = useState(false);
+
+  let escasezTexto: string | null = escasez;
+  if (estrategia.escasezTipo === "ultimos_cupos" && estrategia.cuposDisponibles > 0) {
+    escasezTexto = `¡Solo ${estrategia.cuposDisponibles} cupos disponibles!`;
+  }
+
   return (
-    <Card className="flex flex-col overflow-hidden transition hover:shadow-md" style={{ borderColor: color + "33" }}>
-      <div className="h-1.5 w-full" style={{ backgroundColor: color }} />
-      <CardContent className="p-4 flex flex-col flex-1">
-        <div className="flex items-center justify-between gap-2">
-          <span
-            className="inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-xs font-medium"
-            style={{ backgroundColor: color + "1a", color }}
-          >
-            <Building2 className="h-3 w-3" /> {empresa.nombre}
+    <Card
+      className={cn(
+        "group flex flex-col overflow-hidden rounded-2xl border shadow-sm transition hover:-translate-y-1 hover:shadow-xl",
+        estrategia.destacada ? "border-amber-300 ring-1 ring-amber-200" : "border-amber-100/60"
+      )}
+    >
+      {/* Top badges */}
+      <div className="flex flex-wrap items-center gap-1.5 px-4 pt-4">
+        {estrategia.destacada && (
+          <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-bold text-amber-800">
+            <Star className="h-3 w-3 fill-amber-500 text-amber-500" /> La favorita de nuestros
+            clientes
           </span>
-          <Badge variant="outline" className="text-[10px]">
+        )}
+        {escasezTexto && (
+          <span
+            className={cn(
+              "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-bold",
+              estrategia.escasezTipo === "ultimos_cupos"
+                ? "bg-red-100 text-red-700"
+                : "bg-orange-100 text-orange-700"
+            )}
+          >
+            <Flame className="h-3 w-3" /> {escasezTexto}
+          </span>
+        )}
+      </div>
+
+      <CardContent className="flex flex-1 flex-col p-4 pt-3">
+        {/* Empresa */}
+        <p className="text-xs font-semibold uppercase tracking-wide" style={{ color }}>
+          {empresa.nombre}
+        </p>
+        <p className="mt-1 text-lg font-extrabold leading-tight text-slate-900">
+          {estrategia.nombre}
+        </p>
+
+        <div className="mt-2 flex items-center gap-2">
+          <Badge variant="outline" className="border-amber-200 text-[10px] text-amber-700">
             {tipoLabel(estrategia.tipoEstrategia)}
           </Badge>
         </div>
-        <p className="mt-3 font-semibold leading-tight">{estrategia.nombre}</p>
+
         {estrategia.descripcion && (
-          <p className="mt-1 text-sm text-muted-foreground line-clamp-3">{estrategia.descripcion}</p>
-        )}
-
-        <div className="mt-3 flex items-center gap-1.5">
-          {gratis ? (
-            <span className="inline-flex items-center gap-1 rounded-md bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">
-              <Gift className="h-3 w-3" /> Gratis
-            </span>
-          ) : (
-            <span className="inline-flex items-center gap-1 rounded-md bg-slate-900 px-2 py-0.5 text-xs font-semibold text-white">
-              <Tag className="h-3 w-3" /> RD$ {estrategia.precio.toLocaleString("es-DO")}
-            </span>
-          )}
-        </div>
-
-        {estrategia.terminos && (
-          <p className="mt-3 text-[11px] text-muted-foreground border-t pt-2 line-clamp-2">
-            {estrategia.terminos}
+          <p className="mt-3 line-clamp-3 text-sm text-muted-foreground">
+            {estrategia.descripcion}
           </p>
         )}
+
+        {/* Incluye */}
+        {incluye.length > 0 && (
+          <ul className="mt-3 space-y-1.5">
+            {incluye.map((item, i) => (
+              <li key={i} className="flex items-start gap-2 text-sm text-slate-700">
+                <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-emerald-100">
+                  <Check className="h-3 w-3 text-emerald-600" />
+                </span>
+                <span>{item}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {/* Prueba social */}
+        {usos > 0 && (
+          <p className="mt-3 flex items-center gap-1.5 text-xs font-medium text-amber-700">
+            <TrendingUp className="h-3.5 w-3.5" /> Ya utilizado por {usos}+ clientes
+          </p>
+        )}
+
+        <div className="mt-auto pt-4">
+          {/* Precio */}
+          <div className="mb-3 flex items-baseline gap-1">
+            {gratis ? (
+              <span className="inline-flex items-center gap-1 rounded-lg bg-emerald-100 px-2.5 py-1 text-sm font-bold text-emerald-700">
+                <Gift className="h-4 w-4" /> Gratis
+              </span>
+            ) : (
+              <div className="flex items-baseline gap-1">
+                <span className="text-2xl font-extrabold text-slate-900">
+                  RD$ {estrategia.precio.toLocaleString("es-DO")}
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  {estrategia.tipoEstrategia === "MEMBRESIA" ? "/mes" : "único"}
+                </span>
+              </div>
+            )}
+          </div>
+
+          <Button onClick={onObtener} className="w-full bg-amber-600 text-white hover:bg-amber-700">
+            {estrategia.destacada ? "Quiero este plan" : "Obtener acceso"}
+            <ArrowRight className="ml-2 h-4 w-4" />
+          </Button>
+
+          {estrategia.terminos && (
+            <button
+              type="button"
+              onClick={() => setShowTerminos((s) => !s)}
+              className="mt-2 flex w-full items-center justify-center gap-1 text-[11px] text-muted-foreground hover:text-slate-700"
+            >
+              {showTerminos ? "Ocultar términos" : "Ver términos"}
+              <ChevronDown
+                className={cn("h-3 w-3 transition", showTerminos && "rotate-180")}
+              />
+            </button>
+          )}
+          {showTerminos && estrategia.terminos && (
+            <p className="mt-1 rounded-md bg-slate-50 p-2 text-[11px] text-muted-foreground">
+              {estrategia.terminos}
+            </p>
+          )}
+        </div>
       </CardContent>
     </Card>
   );
@@ -430,7 +723,6 @@ export function ClientLogin() {
     try {
       const res = await api.post<{ user: SessionUser }>("/api/auth", { email, password });
       if (res.user.rol !== "CLIENTE") {
-        // No es cuenta de cliente: invalidar sesión y mostrar error
         await fetch("/api/auth/logout", { method: "POST" }).catch(() => {});
         showToast("Esta cuenta no es de cliente", "error");
         setEmail("");
@@ -438,7 +730,7 @@ export function ClientLogin() {
         return;
       }
       useStore.getState().setUser(res.user);
-      showToast("¡Bienvenido " + res.user.nombre + "!", "success");
+      showToast(`¡Bienvenido a tu Pase Digital, ${res.user.nombre}!`, "success");
       navigate("cliente-app");
     } catch (err) {
       showToast(err instanceof Error ? err.message : "Error al iniciar sesión", "error");
@@ -448,15 +740,17 @@ export function ClientLogin() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50">
-      <div className="flex-1 flex items-center justify-center px-4 py-10">
-        <Card className="w-full max-w-md shadow-lg">
+    <div className="flex min-h-screen flex-col bg-gradient-to-b from-white via-white to-amber-50/40">
+      <div className="flex flex-1 items-center justify-center px-4 py-10">
+        <Card className="w-full max-w-md rounded-2xl border-amber-100/60 shadow-xl">
           <CardHeader className="space-y-1 text-center">
-            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-slate-900 text-white">
-              <QrCode className="h-6 w-6" />
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-500 to-amber-700 text-white shadow-md">
+              <KeyRound className="h-7 w-7" />
             </div>
-            <CardTitle className="text-2xl">Ver mi QR</CardTitle>
-            <p className="text-sm text-muted-foreground">Ingresa para ver tu código QR y beneficios</p>
+            <CardTitle className="text-2xl font-extrabold tracking-tight">
+              Tu Pase Digital te espera
+            </CardTitle>
+            <p className="text-sm text-muted-foreground">Accede a tus promociones privadas</p>
           </CardHeader>
           <CardContent>
             <form onSubmit={submit} className="space-y-4">
@@ -488,15 +782,21 @@ export function ClientLogin() {
                   autoComplete="current-password"
                 />
               </div>
-              <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? "Ingresando..." : "Ingresar"}
+              <Button
+                type="submit"
+                className="w-full bg-amber-600 text-white hover:bg-amber-700"
+                disabled={loading}
+              >
+                {loading ? "Accediendo..." : "Acceder a mi Pase"}
               </Button>
             </form>
 
-            <div className="mt-4 rounded-lg bg-slate-100 p-3 text-xs text-slate-600">
-              <p className="font-semibold mb-1">Cuenta de demostración:</p>
+            <div className="mt-4 rounded-lg bg-amber-50/60 p-3 text-xs text-amber-800">
+              <p className="mb-1 flex items-center gap-1.5 font-semibold">
+                <Sparkles className="h-3.5 w-3.5" /> Cuenta de demostración
+              </p>
               <p>
-                Cliente: <span className="font-mono">cliente@fidelix.com</span> /{" "}
+                <span className="font-mono">cliente@fidelix.com</span> /{" "}
                 <span className="font-mono">cliente123</span>
               </p>
             </div>
@@ -505,25 +805,25 @@ export function ClientLogin() {
               <button
                 type="button"
                 onClick={() => navigate("landing")}
-                className="text-muted-foreground hover:underline inline-flex items-center gap-1"
+                className="inline-flex items-center gap-1 text-muted-foreground hover:underline"
               >
                 <ArrowLeft className="h-4 w-4" /> Volver
               </button>
               <button
                 type="button"
                 onClick={() => navigate("registro")}
-                className="text-emerald-600 hover:underline"
+                className="font-medium text-amber-700 hover:underline"
               >
-                ¿No tienes cuenta? Registrarme ahora
+                ¿Aún no tienes tu Pase? Activar ahora
               </button>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      <footer className="mt-auto border-t bg-white">
+      <footer className="mt-auto border-t border-amber-100 bg-white">
         <div className="mx-auto max-w-6xl px-4 py-6 text-center text-sm text-muted-foreground">
-          Club de Beneficios QR · Beneficios exclusivos para nuestros clientes
+          Pase Digital · Acceso Exclusivo a promociones privadas
         </div>
       </footer>
     </div>
@@ -581,7 +881,7 @@ export function RegisterScreen() {
   async function submit() {
     setLoading(true);
     try {
-      await api.post("/api/auth/register", {
+      const res = await api.post<{ user: SessionUser }>("/api/auth/register", {
         nombre,
         email,
         password,
@@ -592,8 +892,8 @@ export function RegisterScreen() {
         estrategiaId: estrategiaId || undefined,
         campos,
       });
-      showToast("¡Registro exitoso! Tu QR está listo.", "success");
       useStore.getState().setUser(res.user);
+      showToast("¡Tu Pase Digital está listo!", "success");
       navigate("cliente-app");
     } catch (err) {
       showToast(err instanceof Error ? err.message : "Error al registrar", "error");
@@ -609,37 +909,37 @@ export function RegisterScreen() {
     !!nombre && !!email && !!password && !!telefono && !!tipoId && !!empresaId && camposReqOk;
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50">
+    <div className="flex min-h-screen flex-col bg-gradient-to-b from-white via-white to-amber-50/40">
       {/* Header */}
-      <header className="border-b bg-white">
-        <div className="mx-auto max-w-2xl px-4 py-3 flex items-center justify-between">
-          <button
-            onClick={() => navigate("landing")}
-            className="flex items-center gap-2"
-          >
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-900 text-white">
-              <QrCode className="h-4 w-4" />
+      <header className="border-b border-amber-100 bg-white">
+        <div className="mx-auto flex max-w-2xl items-center justify-between px-4 py-3">
+          <button onClick={() => navigate("landing")} className="flex items-center gap-2.5">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500 to-amber-700 text-white shadow-sm">
+              <KeyRound className="h-5 w-5" />
             </div>
-            <span className="font-bold">Club de Beneficios QR</span>
+            <div className="text-left">
+              <p className="font-extrabold leading-none tracking-tight">PASE DIGITAL</p>
+              <p className="text-[11px] text-amber-700/80">Acceso Exclusivo</p>
+            </div>
           </button>
           <button
             onClick={() => navigate("landing")}
-            className="text-sm text-muted-foreground hover:underline inline-flex items-center gap-1"
+            className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:underline"
           >
             <ArrowLeft className="h-4 w-4" /> Volver
           </button>
         </div>
       </header>
 
-      <div className="flex-1 mx-auto w-full max-w-2xl px-4 py-8">
+      <div className="mx-auto w-full max-w-2xl flex-1 px-4 py-8">
         {/* Step indicator */}
         <div className="mb-6 flex items-center justify-center gap-2">
           {[1, 2, 3].map((n) => (
             <div
               key={n}
               className={cn(
-                "h-2 w-8 rounded-full transition",
-                step >= n ? "bg-emerald-600" : "bg-slate-200"
+                "h-2 rounded-full transition-all",
+                step >= n ? "w-10 bg-amber-600" : "w-6 bg-slate-200"
               )}
             />
           ))}
@@ -647,31 +947,31 @@ export function RegisterScreen() {
 
         {step === 1 && (
           <div>
-            <h1 className="text-2xl font-bold">Elige el tipo de negocio</h1>
-            <p className="text-muted-foreground mt-1">¿Dónde quieres aprovechar un beneficio?</p>
+            <h1 className="text-2xl font-extrabold tracking-tight">Elige tu establecimiento</h1>
+            <p className="mt-1 text-muted-foreground">¿Dónde quieres tu acceso exclusivo?</p>
             <div className="mt-6 grid gap-4 sm:grid-cols-2">
               {tipos.map((t) => {
-                const color = t.color || "#0f766e";
+                const color = t.color || "#b45309";
                 return (
                   <button
                     key={t.id}
                     onClick={() => setTipoId(t.id)}
                     className={cn(
-                      "text-left rounded-xl border-2 p-5 transition",
+                      "rounded-2xl border-2 p-5 text-left transition",
                       tipoId === t.id
-                        ? "border-emerald-500 bg-emerald-50"
-                        : "border-slate-200 bg-white hover:border-slate-300"
+                        ? "border-amber-500 bg-amber-50"
+                        : "border-slate-200 bg-white hover:border-amber-200 hover:shadow-md"
                     )}
                   >
                     <div className="flex items-center gap-3">
                       <div
-                        className="flex h-11 w-11 items-center justify-center rounded-lg"
+                        className="flex h-12 w-12 items-center justify-center rounded-xl"
                         style={{ backgroundColor: color + "22", color }}
                       >
-                        {ICONS[t.icono || ""] || <Building2 className="h-6 w-6" />}
+                        {ICONS[t.icono || ""] || <Store className="h-6 w-6" />}
                       </div>
                       <div>
-                        <p className="font-semibold">{t.nombre}</p>
+                        <p className="font-bold">{t.nombre}</p>
                         {t.descripcion && (
                           <p className="text-xs text-muted-foreground">{t.descripcion}</p>
                         )}
@@ -683,11 +983,14 @@ export function RegisterScreen() {
             </div>
             {tipos.length === 0 && (
               <p className="mt-6 text-sm text-muted-foreground">
-                No hay tipos de negocio disponibles por ahora.
+                No hay establecimientos disponibles por ahora.
               </p>
             )}
             {tipoId && (
-              <Button className="mt-6 w-full" onClick={() => setStep(2)}>
+              <Button
+                className="mt-6 w-full bg-amber-600 text-white hover:bg-amber-700"
+                onClick={() => setStep(2)}
+              >
                 Continuar <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             )}
@@ -696,25 +999,29 @@ export function RegisterScreen() {
 
         {step === 2 && (
           <div>
-            <h1 className="text-2xl font-bold">Selecciona el negocio</h1>
-            <p className="text-muted-foreground mt-1">{tipoSel?.nombre} disponibles</p>
+            <h1 className="text-2xl font-extrabold tracking-tight">
+              Descubre las promociones disponibles
+            </h1>
+            <p className="mt-1 text-muted-foreground">
+              Selecciona el establecimiento y descubre las promociones disponibles
+            </p>
             <div className="mt-6 space-y-3">
               {empresas.length === 0 && (
                 <p className="text-sm text-muted-foreground">
-                  No hay negocios activos para este tipo.
+                  No hay establecimientos activos para este tipo.
                 </p>
               )}
               {empresas.map((e) => {
-                const color = e.colorPrincipal || "#0f766e";
+                const color = e.colorPrincipal || "#b45309";
                 return (
                   <button
                     key={e.id}
                     onClick={() => setEmpresaId(e.id)}
                     className={cn(
-                      "w-full text-left rounded-xl border-2 p-4 transition",
+                      "w-full rounded-2xl border-2 p-4 text-left transition",
                       empresaId === e.id
-                        ? "border-emerald-500 bg-emerald-50"
-                        : "border-slate-200 bg-white hover:border-slate-300"
+                        ? "border-amber-500 bg-amber-50"
+                        : "border-slate-200 bg-white hover:border-amber-200"
                     )}
                   >
                     <div className="flex items-start justify-between gap-3">
@@ -723,33 +1030,39 @@ export function RegisterScreen() {
                           <img
                             src={e.logo}
                             alt={e.nombre}
-                            className="h-10 w-10 rounded-lg object-cover"
+                            className="h-11 w-11 rounded-lg object-cover"
                           />
                         ) : (
                           <div
-                            className="flex h-10 w-10 items-center justify-center rounded-lg"
-                            style={{ backgroundColor: color + "22", color }}
+                            className="flex h-11 w-11 items-center justify-center rounded-lg font-bold text-white"
+                            style={{ backgroundColor: color }}
                           >
-                            {ICONS[e.tipoNegocio?.icono || ""] || <Building2 className="h-5 w-5" />}
+                            {e.nombre.charAt(0).toUpperCase()}
                           </div>
                         )}
                         <div>
-                          <p className="font-semibold">{e.nombre}</p>
+                          <p className="font-bold">{e.nombre}</p>
+                          {e.calificacion && e.calificacion > 0 && (
+                            <p className="mt-0.5 flex items-center gap-1 text-xs text-amber-700">
+                              <Star className="h-3 w-3 fill-amber-500 text-amber-500" />{" "}
+                              {e.calificacion.toFixed(1)}/5
+                            </p>
+                          )}
                           {e.direccion && (
-                            <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                            <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
                               <MapPin className="h-3 w-3" /> {e.direccion}
                               {e.ciudad ? ` · ${e.ciudad}` : ""}
                             </p>
                           )}
                           {e.horario && (
-                            <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                            <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
                               <Clock className="h-3 w-3" /> {e.horario}
                             </p>
                           )}
                         </div>
                       </div>
                       {e.estrategias && e.estrategias.length > 0 && (
-                        <span className="shrink-0 text-xs bg-emerald-100 text-emerald-700 rounded-full px-2 py-0.5">
+                        <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">
                           {e.estrategias.length} promociones
                         </span>
                       )}
@@ -761,29 +1074,59 @@ export function RegisterScreen() {
 
             {empresaId && estrategias.length > 0 && (
               <div className="mt-6">
-                <p className="font-semibold text-sm mb-2">Elige una promoción (opcional)</p>
+                <p className="mb-1 text-sm font-bold">Elige una promoción (opcional)</p>
+                <p className="mb-3 text-xs text-muted-foreground">
+                  Puedes elegir una promoción ahora o activarla después desde tu Pase.
+                </p>
                 <div className="space-y-2">
                   {estrategias.map((es) => {
                     const gratis = !es.requierePago || es.precio <= 0;
+                    const incluye = parseJsonArray<string>(es.incluye).slice(0, 2);
+                    const escasez = escasezMensaje(es.escasezTipo);
+                    let escasezTexto = escasez;
+                    if (es.escasezTipo === "ultimos_cupos" && es.cuposDisponibles > 0) {
+                      escasezTexto = `¡Solo ${es.cuposDisponibles} cupos!`;
+                    }
                     return (
                       <button
                         key={es.id}
                         onClick={() => setEstrategiaId(estrategiaId === es.id ? "" : es.id)}
                         className={cn(
-                          "w-full text-left rounded-lg border p-3 transition",
+                          "w-full rounded-xl border p-3 text-left transition",
                           estrategiaId === es.id
-                            ? "border-emerald-500 bg-emerald-50"
-                            : "border-slate-200 bg-white hover:border-slate-300"
+                            ? "border-amber-500 bg-amber-50 ring-1 ring-amber-200"
+                            : "border-slate-200 bg-white hover:border-amber-200"
                         )}
                       >
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="min-w-0">
-                            <p className="font-medium text-sm">{es.nombre}</p>
-                            <p className="text-xs text-muted-foreground line-clamp-2">
-                              {es.descripcion}
-                            </p>
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <p className="text-sm font-semibold">{es.nombre}</p>
+                              {escasezTexto && (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-orange-100 px-1.5 py-0.5 text-[10px] font-bold text-orange-700">
+                                  <Flame className="h-2.5 w-2.5" /> {escasezTexto}
+                                </span>
+                              )}
+                            </div>
+                            {incluye.length > 0 && (
+                              <ul className="mt-1 space-y-0.5">
+                                {incluye.map((it, i) => (
+                                  <li
+                                    key={i}
+                                    className="flex items-center gap-1 text-[11px] text-muted-foreground"
+                                  >
+                                    <Check className="h-3 w-3 text-emerald-600" /> {it}
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
+                            {es.requierePago && (
+                              <p className="mt-1 text-[11px] text-amber-700">
+                                Queda pendiente hasta confirmar el pago
+                              </p>
+                            )}
                           </div>
-                          <div className="text-right shrink-0">
+                          <div className="shrink-0 text-right">
                             {gratis ? (
                               <p className="text-sm font-bold text-emerald-600">Gratis</p>
                             ) : (
@@ -792,15 +1135,10 @@ export function RegisterScreen() {
                               </p>
                             )}
                             {estrategiaId === es.id && (
-                              <CheckCircle2 className="h-4 w-4 text-emerald-600 ml-auto" />
+                              <Check className="ml-auto mt-1 h-4 w-4 text-amber-600" />
                             )}
                           </div>
                         </div>
-                        {es.requierePago && (
-                          <p className="text-[11px] text-amber-600 mt-1">
-                            Queda pendiente hasta confirmar el pago
-                          </p>
-                        )}
                       </button>
                     );
                   })}
@@ -812,7 +1150,11 @@ export function RegisterScreen() {
               <Button variant="outline" onClick={() => setStep(1)}>
                 <ArrowLeft className="mr-1.5 h-4 w-4" /> Atrás
               </Button>
-              <Button className="flex-1" onClick={() => setStep(3)} disabled={!empresaId}>
+              <Button
+                className="flex-1 bg-amber-600 text-white hover:bg-amber-700"
+                onClick={() => setStep(3)}
+                disabled={!empresaId}
+              >
                 Continuar <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             </div>
@@ -821,8 +1163,8 @@ export function RegisterScreen() {
 
         {step === 3 && (
           <div>
-            <h1 className="text-2xl font-bold">Tus datos</h1>
-            <p className="text-muted-foreground mt-1">
+            <h1 className="text-2xl font-extrabold tracking-tight">Activa tu Pase</h1>
+            <p className="mt-1 text-muted-foreground">
               {empresaSel?.nombre}
               {estrSel ? ` · Promoción: ${estrSel.nombre}` : ""}
             </p>
@@ -862,7 +1204,7 @@ export function RegisterScreen() {
                     required
                     placeholder="tu@correo.com"
                   />
-                  <p className="text-[11px] text-muted-foreground">Lo usarás para ver tu QR</p>
+                  <p className="text-[11px] text-muted-foreground">Lo usarás para acceder a tu Pase</p>
                 </div>
                 <div className="space-y-1.5">
                   <Label className="flex items-center gap-1.5">
@@ -878,7 +1220,8 @@ export function RegisterScreen() {
                 </div>
                 <div className="space-y-1.5">
                   <Label className="flex items-center gap-1.5">
-                    <CalendarDays className="h-3.5 w-3.5 text-muted-foreground" /> Fecha de nacimiento (opcional)
+                    <CalendarDays className="h-3.5 w-3.5 text-muted-foreground" /> Fecha de
+                    nacimiento (opcional)
                   </Label>
                   <Input
                     type="date"
@@ -890,7 +1233,7 @@ export function RegisterScreen() {
 
               {tipoSel?.camposDef && tipoSel.camposDef.length > 0 && (
                 <div>
-                  <p className="font-semibold text-sm mb-2">Datos de {tipoSel.nombre}</p>
+                  <p className="mb-2 text-sm font-bold">Datos de {tipoSel.nombre}</p>
                   <div className="grid gap-4 sm:grid-cols-2">
                     {tipoSel.camposDef
                       .slice()
@@ -947,20 +1290,20 @@ export function RegisterScreen() {
                 <ArrowLeft className="mr-1.5 h-4 w-4" /> Atrás
               </Button>
               <Button
-                className="flex-1"
+                className="flex-1 bg-amber-600 text-white hover:bg-amber-700"
                 onClick={submit}
                 disabled={loading || !canSubmit}
               >
-                {loading ? "Registrando..." : "Completar registro"}
+                {loading ? "Activando..." : "Activar mi Pase Digital"}
               </Button>
             </div>
           </div>
         )}
       </div>
 
-      <footer className="mt-auto border-t bg-white">
+      <footer className="mt-auto border-t border-amber-100 bg-white">
         <div className="mx-auto max-w-6xl px-4 py-6 text-center text-sm text-muted-foreground">
-          Club de Beneficios QR · Beneficios exclusivos para nuestros clientes
+          Pase Digital · Acceso Exclusivo a promociones privadas
         </div>
       </footer>
     </div>

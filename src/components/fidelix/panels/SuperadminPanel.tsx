@@ -46,6 +46,7 @@ import {
   PagosManager,
   UsosManager,
   EmpresaForm,
+  SocialProofConfig,
 } from "./EmpresaPanel";
 
 export function SuperadminPanel({ section }: { section: AdminSection }) {
@@ -599,39 +600,44 @@ function SuperadminConfiguracion({
     <div>
       <SectionHeader
         title="Configuración"
-        description="Integraciones y datos de la empresa seleccionada"
+        description="Prueba social global + integraciones y datos de la empresa seleccionada"
         action={
           <Button variant="outline" onClick={onBack}>
             <ArrowLeft className="mr-1.5 h-4 w-4" /> Cambiar empresa
           </Button>
         }
       />
-      <div className="mb-4 inline-flex rounded-lg border bg-white p-1 text-sm">
-        <button
-          onClick={() => setTab("integraciones")}
-          className={`px-3 py-1.5 rounded-md font-medium ${
-            tab === "integraciones"
-              ? "bg-slate-900 text-white"
-              : "text-slate-600 hover:text-slate-900"
-          }`}
-        >
-          <Plug className="inline h-3.5 w-3.5 mr-1" /> Integraciones
-        </button>
-        <button
-          onClick={() => setTab("info")}
-          className={`px-3 py-1.5 rounded-md font-medium ${
-            tab === "info" ? "bg-slate-900 text-white" : "text-slate-600 hover:text-slate-900"
-          }`}
-        >
-          <ShieldCheck className="inline h-3.5 w-3.5 mr-1" /> Info
-        </button>
-      </div>
+      <div className="space-y-6">
+        <SocialProofConfig />
+        <div>
+          <div className="mb-4 inline-flex rounded-lg border bg-white p-1 text-sm">
+            <button
+              onClick={() => setTab("integraciones")}
+              className={`px-3 py-1.5 rounded-md font-medium ${
+                tab === "integraciones"
+                  ? "bg-slate-900 text-white"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              <Plug className="inline h-3.5 w-3.5 mr-1" /> Integraciones
+            </button>
+            <button
+              onClick={() => setTab("info")}
+              className={`px-3 py-1.5 rounded-md font-medium ${
+                tab === "info" ? "bg-slate-900 text-white" : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              <ShieldCheck className="inline h-3.5 w-3.5 mr-1" /> Info
+            </button>
+          </div>
 
-      {tab === "integraciones" ? (
-        <SuperadminIntegraciones empresaId={empresaId} />
-      ) : (
-        <SuperadminEmpresaInfo empresaId={empresaId} />
-      )}
+          {tab === "integraciones" ? (
+            <SuperadminIntegraciones empresaId={empresaId} />
+          ) : (
+            <SuperadminEmpresaInfo empresaId={empresaId} />
+          )}
+        </div>
+      </div>
     </div>
   );
 }

@@ -1,0 +1,1941 @@
+     1→"use client";
+     2→import { useEffect, useState, useCallback } from "react";
+     3→import { useStore, fmtMonto, fmtFecha, fmtFechaHora, type AdminSection } from "../store";
+     4→import {
+     5→  api,
+     6→  type Cliente,
+     7→  type Estrategia,
+     8→  type ClienteEstrategia,
+     9→  type Transaccion,
+    10→  type Integracion,
+    11→  type IntegrationLog,
+    12→  type TipoNegocio,
+    13→  type Empresa,
+    14→} from "../api-client";
+    15→import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+    16→import { Button } from "@/components/ui/button";
+    17→import { Input } from "@/components/ui/input";
+    18→import { Label } from "@/components/ui/label";
+    19→import { Textarea } from "@/components/ui/textarea";
+    20→import {
+    21→  Dialog,
+    22→  DialogContent,
+    23→  DialogHeader,
+    24→  DialogTitle,
+    25→  DialogFooter,
+    26→} from "@/components/ui/dialog";
+    27→import {
+    28→  Select,
+    29→  SelectContent,
+    30→  SelectItem,
+    31→  SelectTrigger,
+    32→  SelectValue,
+    33→} from "@/components/ui/select";
+    34→import { Switch } from "@/components/ui/switch";
+    35→import {
+    36→  SectionHeader,
+    37→  EstadoBadge,
+    38→  TipoEstrategiaBadge,
+    39→  StatCard,
+    40→  EmptyState,
+    41→  RolBadge,
+    42→} from "../shared";
+    43→import {
+    44→  TIPOS_BENEFICIO,
+    45→  TIPOS_INTEGRACION,
+    46→  EVENTOS_SINCRONIZACION,
+    47→} from "@/lib/constants";
+    48→import {
+    49→  Users,
+    50→  Sparkles,
+    51→  CreditCard,
+    52→  History,
+    53→  Plug,
+    54→  BarChart3,
+    55→  Plus,
+    56→  Search,
+    57→  QrCode,
+    58→  DollarSign,
+    59→  TrendingUp,
+    60→  AlertTriangle,
+    61→  CheckCircle2,
+    62→  Trash2,
+    63→  RotateCcw,
+    64→  Gift,
+    65→  ArrowLeft,
+    66→  Building2,
+    67→  Settings,
+    68→} from "lucide-react";
+    69→import { ScannerFlow } from "./ScannerFlow";
+    70→import { cn } from "@/lib/utils";
+    71→
+    72→export function EmpresaPanel({ section }: { section: AdminSection }) {
+    73→  const { user } = useStore();
+    74→  const empresaId = user?.empresaId;
+    75→
+    76→  if (!empresaId) {
+    77→    return (
+    78→      <EmptyState
+    79→        title="Sin empresa asignada"
+    80→        description="Tu usuario no tiene una empresa asociada. Contacta al administrador."
+    81→        icon={<Building2 className="h-10 w-10" />}
+    82→      />
+    83→    );
+    84→  }
+    85→
+    86→  if (section === "escanear") return <ScannerFlow />;
+    87→  if (section === "dashboard") return <EmpresaDashboard empresaId={empresaId} />;
+    88→  if (section === "clientes") return <ClientesManager empresaId={empresaId} />;
+    89→  if (section === "beneficios") return <BeneficiosManager empresaId={empresaId} />;
+    90→  if (section === "pagos") return <PagosManager empresaId={empresaId} />;
+    91→  if (section === "usos") return <UsosManager empresaId={empresaId} />;
+    92→  if (section === "configuracion")
+    93→    return <ConfiguracionManager empresaId={empresaId} />;
+    94→  if (section === "reportes") return <ReportesEmpresa empresaId={empresaId} />;
+    95→  return null;
+    96→}
+    97→
+    98→/* ──────────────────────────────────────────────────────────
+    99→   Helpers compartidos
+   100→   ────────────────────────────────────────────────────────── */
+   101→
+   102→function useEmpresaTipo(empresaId: string) {
+   103→  const [tipo, setTipo] = useState<TipoNegocio | null>(null);
+   104→  useEffect(() => {
+   105→    api
+   106→      .get<{ empresa: Empresa }>(`/api/empresas/${empresaId}`)
+   107→      .then((r) => setTipo(r.empresa.tipoNegocio || null))
+   108→      .catch(() => setTipo(null));
+   109→  }, [empresaId]);
+   110→  return tipo;
+   111→}
+   112→
+   113→// Hook para actualizar campos del formulario de empresa de manera tipada
+   114→type EmpresaFormState = Record<string, unknown>;
+   115→
+   116→function estadoEmpresaLabel(estado: string): string {
+   117→  if (estado === "ACTIVA") return "Activa";
+   118→  if (estado === "INACTIVA") return "Inactiva";
+   119→  if (estado === "SUSPENDIDA") return "Suspendida";
+   120→  return estado;
+   121→}
+   122→
+   123→/* ──────────────────────────────────────────────────────────
+   124→   Dashboard de empresa
+   125→   ────────────────────────────────────────────────────────── */
+   126→
+   127→export function EmpresaDashboard({ empresaId }: { empresaId: string }) {
+   128→  const [rep, setRep] = useState<any>(null);
+   129→  const [empresa, setEmpresa] = useState<Empresa | null>(null);
+   130→  useEffect(() => {
+   131→    api
+   132→      .get(`/api/reportes?tipo=empresa&empresaId=${empresaId}`)
+   133→      .then((r) => setRep(r))
+   134→      .catch(() => {});
+   135→    api
+   136→      .get<{ empresa: Empresa }>(`/api/empresas/${empresaId}`)
+   137→      .then((r) => setEmpresa(r.empresa))
+   138→      .catch(() => {});
+   139→  }, [empresaId]);
+   140→
+   141→  if (!rep)
+   142→    return <p className="text-muted-foreground">Cargando dashboard...</p>;
+   143→
+   144→  return (
+   145→    <div>
+   146→      <SectionHeader
+   147→        title="Dashboard"
+   148→        description={empresa ? `Resumen de ${empresa.nombre}` : "Resumen de tu empresa"}
+   149→      />
+   150→
+   151→      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+   152→        <StatCard
+   153→          label="Empresas activas"
+   154→          value={empresa?.estado === "ACTIVA" ? 1 : 0}
+   155→          icon={<Building2 className="h-5 w-5" />}
+   156→          accent="text-emerald-600 bg-emerald-50"
+   157→        />
+   158→        <StatCard
+   159→          label="Clientes registrados"
+   160→          value={rep.clientesRegistrados ?? 0}
+   161→          icon={<Users className="h-5 w-5" />}
+   162→          accent="text-sky-600 bg-sky-50"
+   163→        />
+   164→        <StatCard
+   165→          label="Beneficios activos"
+   166→          value={rep.estrategiasActivas ?? 0}
+   167→          icon={<Sparkles className="h-5 w-5" />}
+   168→          accent="text-violet-600 bg-violet-50"
+   169→        />
+   170→        <StatCard
+   171→          label="Beneficios pendientes de pago"
+   172→          value={rep.estrategiasClienteEstado?.pendientes ?? 0}
+   173→          icon={<CreditCard className="h-5 w-5" />}
+   174→          accent="text-amber-600 bg-amber-50"
+   175→        />
+   176→        <StatCard
+   177→          label="Usos registrados hoy"
+   178→          value={rep.usosHoy ?? 0}
+   179→          icon={<TrendingUp className="h-5 w-5" />}
+   180→          accent="text-pink-600 bg-pink-50"
+   181→        />
+   182→        <StatCard
+   183→          label="Ingresos membresías"
+   184→          value={fmtMonto(rep.ingresosMembresias)}
+   185→          icon={<DollarSign className="h-5 w-5" />}
+   186→          accent="text-emerald-600 bg-emerald-50"
+   187→        />
+   188→      </div>
+   189→
+   190→      <div className="mt-6 grid gap-4 lg:grid-cols-2">
+   191→        <Card>
+   192→          <CardHeader>
+   193→            <CardTitle className="text-sm">Consumos últimos 14 días</CardTitle>
+   194→          </CardHeader>
+   195→          <CardContent>
+   196→            <div className="flex items-end gap-1 h-32">
+   197→              {(rep.transaccionesPorDia || []).map((d: any) => {
+   198→                const max = Math.max(
+   199→                  1,
+   200→                  ...(rep.transaccionesPorDia || []).map((x: any) => x.total)
+   201→                );
+   202→                return (
+   203→                  <div
+   204→                    key={d.fecha}
+   205→                    className="flex-1 flex flex-col items-center gap-1"
+   206→                  >
+   207→                    <div
+   208→                      className="w-full bg-slate-700 rounded-t"
+   209→                      style={{ height: `${Math.max(2, (d.total / max) * 100)}%` }}
+   210→                    />
+   211→                    <span className="text-[9px] text-muted-foreground">
+   212→                      {d.fecha.slice(5)}
+   213→                    </span>
+   214→                  </div>
+   215→                );
+   216→              })}
+   217→            </div>
+   218→          </CardContent>
+   219→        </Card>
+   220→        <Card>
+   221→          <CardHeader>
+   222→            <CardTitle className="text-sm">Promociones más usadas</CardTitle>
+   223→          </CardHeader>
+   224→          <CardContent>
+   225→            {(rep.promocionesMasUsadas || []).length === 0 ? (
+   226→              <p className="text-sm text-muted-foreground">Sin datos aún</p>
+   227→            ) : (
+   228→              <div className="space-y-1.5">
+   229→                {rep.promocionesMasUsadas.map((p: any, i: number) => (
+   230→                  <div
+   231→                    key={i}
+   232→                    className="flex items-center justify-between text-sm py-1 border-b last:border-0"
+   233→                  >
+   234→                    <span className="flex items-center gap-2">
+   235→                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-100 text-xs font-bold">
+   236→                        {i + 1}
+   237→                      </span>
+   238→                      {p.nombre}
+   239→                    </span>
+   240→                    <span className="font-medium">{p.total} usos</span>
+   241→                  </div>
+   242→                ))}
+   243→              </div>
+   244→            )}
+   245→          </CardContent>
+   246→        </Card>
+   247→      </div>
+   248→
+   249→      <div className="mt-4 grid gap-4 lg:grid-cols-2">
+   250→        <Card>
+   251→          <CardHeader>
+   252→            <CardTitle className="text-sm">Clientes frecuentes</CardTitle>
+   253→          </CardHeader>
+   254→          <CardContent>
+   255→            {(rep.clientesFrecuentes || []).length === 0 ? (
+   256→              <p className="text-sm text-muted-foreground">Sin datos</p>
+   257→            ) : (
+   258→              <div className="space-y-1">
+   259→                {rep.clientesFrecuentes.map((c: any, i: number) => (
+   260→                  <div
+   261→                    key={i}
+   262→                    className="flex items-center justify-between text-sm py-1.5 border-b last:border-0"
+   263→                  >
+   264→                    <span className="flex items-center gap-2">
+   265→                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-100 text-xs font-bold">
+   266→                        {i + 1}
+   267→                      </span>
+   268→                      {c.nombre}
+   269→                    </span>
+   270→                    <span className="text-muted-foreground">{c.visitas} visitas</span>
+   271→                  </div>
+   272→                ))}
+   273→              </div>
+   274→            )}
+   275→          </CardContent>
+   276→        </Card>
+   277→        <Card>
+   278→          <CardHeader>
+   279→            <CardTitle className="text-sm">Consumos por tipo</CardTitle>
+   280→          </CardHeader>
+   281→          <CardContent className="space-y-2">
+   282→            {(rep.consumosPorTipo || []).length === 0 && (
+   283→              <p className="text-sm text-muted-foreground">Sin datos</p>
+   284→            )}
+   285→            {(rep.consumosPorTipo || []).map((c: any) => {
+   286→              const max = Math.max(
+   287→                1,
+   288→                ...(rep.consumosPorTipo || []).map((x: any) => x.total)
+   289→              );
+   290→              return (
+   291→                <div
+   292→                  key={c.tipo}
+   293→                  className="flex items-center justify-between text-sm"
+   294→                >
+   295→                  <span>{c.tipo}</span>
+   296→                  <div className="flex items-center gap-2">
+   297→                    <div className="w-24 h-2 rounded-full bg-slate-100 overflow-hidden">
+   298→                      <div
+   299→                        className="h-full bg-slate-700"
+   300→                        style={{ width: `${(c.total / max) * 100}%` }}
+   301→                      />
+   302→                    </div>
+   303→                    <span className="font-medium w-6 text-right">{c.total}</span>
+   304→                  </div>
+   305→                </div>
+   306→              );
+   307→            })}
+   308→          </CardContent>
+   309→        </Card>
+   310→      </div>
+   311→    </div>
+   312→  );
+   313→}
+   314→
+   315→/* ──────────────────────────────────────────────────────────
+   316→   Clientes
+   317→   ────────────────────────────────────────────────────────── */
+   318→
+   319→export function ClientesManager({
+   320→  empresaId,
+   321→  onBack,
+   322→}: {
+   323→  empresaId: string;
+   324→  onBack?: () => void;
+   325→}) {
+   326→  const { showToast } = useStore();
+   327→  const tipo = useEmpresaTipo(empresaId);
+   328→  const [clientes, setClientes] = useState<Cliente[]>([]);
+   329→  const [q, setQ] = useState("");
+   330→  const [loading, setLoading] = useState(true);
+   331→  const [open, setOpen] = useState(false);
+   332→  const [selected, setSelected] = useState<Cliente | null>(null);
+   333→  const [detailOpen, setDetailOpen] = useState(false);
+   334→
+   335→  const load = useCallback(() => {
+   336→    setLoading(true);
+   337→    api
+   338→      .get<{ clientes: Cliente[] }>(
+   339→        `/api/clientes?empresaId=${empresaId}${q ? `&q=${encodeURIComponent(q)}` : ""}`
+   340→      )
+   341→      .then((r) => setClientes(r.clientes))
+   342→      .catch(() => showToast("Error al cargar clientes", "error"))
+   343→      .finally(() => setLoading(false));
+   344→  }, [empresaId, q, showToast]);
+   345→  // eslint-disable-next-line react-hooks/set-state-in-effect
+   346→  useEffect(load, [load]);
+   347→
+   348→  return (
+   349→    <div>
+   350→      <SectionHeader
+   351→        title="Clientes"
+   352→        description="Gestiona los clientes de la empresa"
+   353→        action={
+   354→          <div className="flex gap-2">
+   355→            {onBack && (
+   356→              <Button variant="outline" onClick={onBack}>
+   357→                <ArrowLeft className="mr-1.5 h-4 w-4" /> Cambiar empresa
+   358→              </Button>
+   359→            )}
+   360→            <Button onClick={() => setOpen(true)}>
+   361→              <Plus className="mr-1.5 h-4 w-4" /> Nuevo cliente
+   362→            </Button>
+   363→          </div>
+   364→        }
+   365→      />
+   366→      <div className="mb-4 relative max-w-sm">
+   367→        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+   368→        <Input
+   369→          placeholder="Buscar por nombre, email, teléfono..."
+   370→          value={q}
+   371→          onChange={(e) => setQ(e.target.value)}
+   372→          className="pl-8"
+   373→        />
+   374→      </div>
+   375→      {loading ? (
+   376→        <p className="text-muted-foreground">Cargando...</p>
+   377→      ) : clientes.length === 0 ? (
+   378→        <EmptyState
+   379→          title="Sin clientes"
+   380→          description="Crea el primer cliente de la empresa"
+   381→          icon={<Users className="h-10 w-10" />}
+   382→        />
+   383→      ) : (
+   384→        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+   385→          {clientes.map((c) => (
+   386→            <Card key={c.id} className="hover:shadow-md transition cursor-pointer">
+   387→              <CardContent
+   388→                className="p-4"
+   389→                onClick={() => {
+   390→                  setSelected(c);
+   391→                  setDetailOpen(true);
+   392→                }}
+   393→              >
+   394→                <div className="flex items-start justify-between">
+   395→                  <div className="min-w-0">
+   396→                    <p className="font-semibold truncate">{c.nombre}</p>
+   397→                    <p className="text-xs text-muted-foreground truncate">
+   398→                      {c.email || c.telefono || "Sin contacto"}
+   399→                    </p>
+   400→                  </div>
+   401→                  <EstadoBadge estado={c.estado} />
+   402→                </div>
+   403→                <div className="mt-2 flex flex-wrap gap-1">
+   404→                  {c.estrategias
+   405→                    ?.slice(0, 2)
+   406→                    .map((e) => (
+   407→                      <TipoEstrategiaBadge key={e.id} tipo={e.estrategia.tipoEstrategia} />
+   408→                    ))}
+   409→                  {c.qrTokens && c.qrTokens[0] && (
+   410→                    <span className="inline-flex items-center gap-0.5 text-xs text-slate-500">
+   411→                      <QrCode className="h-3 w-3" /> QR
+   412→                    </span>
+   413→                  )}
+   414→                </div>
+   415→              </CardContent>
+   416→            </Card>
+   417→          ))}
+   418→        </div>
+   419→      )}
+   420→      {open && tipo && (
+   421→        <ClienteForm
+   422→          empresaId={empresaId}
+   423→          tipo={tipo}
+   424→          onClose={() => setOpen(false)}
+   425→          onSaved={() => {
+   426→            setOpen(false);
+   427→            load();
+   428→          }}
+   429→        />
+   430→      )}
+   431→      {detailOpen && selected && (
+   432→        <ClienteDetail
+   433→          cliente={selected}
+   434→          empresaId={empresaId}
+   435→          onClose={() => setDetailOpen(false)}
+   436→        />
+   437→      )}
+   438→    </div>
+   439→  );
+   440→}
+   441→
+   442→function ClienteForm({
+   443→  empresaId,
+   444→  tipo,
+   445→  onClose,
+   446→  onSaved,
+   447→}: {
+   448→  empresaId: string;
+   449→  tipo: TipoNegocio;
+   450→  onClose: () => void;
+   451→  onSaved: () => void;
+   452→}) {
+   453→  const { showToast } = useStore();
+   454→  const [form, setForm] = useState<any>({
+   455→    nombre: "",
+   456→    telefono: "",
+   457→    email: "",
+   458→    fechaNacimiento: "",
+   459→    crearUsuario: true,
+   460→    password: "",
+   461→    campos: {},
+   462→  });
+   463→  const [saving, setSaving] = useState(false);
+   464→
+   465→  async function save() {
+   466→    if (!form.nombre) {
+   467→      showToast("Nombre obligatorio", "error");
+   468→      return;
+   469→    }
+   470→    setSaving(true);
+   471→    try {
+   472→      await api.post("/api/clientes", { ...form, empresaId, tipoNegocioId: tipo.id });
+   473→      showToast("Cliente creado", "success");
+   474→      onSaved();
+   475→    } catch (e) {
+   476→      showToast(e instanceof Error ? e.message : "Error", "error");
+   477→    } finally {
+   478→      setSaving(false);
+   479→    }
+   480→  }
+   481→
+   482→  return (
+   483→    <Dialog open onOpenChange={(o) => !o && onClose()}>
+   484→      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+   485→        <DialogHeader>
+   486→          <DialogTitle>Nuevo cliente</DialogTitle>
+   487→        </DialogHeader>
+   488→        <div className="grid gap-3 sm:grid-cols-2">
+   489→          <div>
+   490→            <Label>Nombre *</Label>
+   491→            <Input
+   492→              value={form.nombre}
+   493→              onChange={(e) => setForm({ ...form, nombre: e.target.value })}
+   494→            />
+   495→          </div>
+   496→          <div>
+   497→            <Label>Teléfono</Label>
+   498→            <Input
+   499→              value={form.telefono}
+   500→              onChange={(e) => setForm({ ...form, telefono: e.target.value })}
+   501→            />
+   502→          </div>
+   503→          <div>
+   504→            <Label>Email</Label>
+   505→            <Input
+   506→              type="email"
+   507→              value={form.email}
+   508→              onChange={(e) => setForm({ ...form, email: e.target.value })}
+   509→            />
+   510→          </div>
+   511→          <div>
+   512→            <Label>Fecha nacimiento</Label>
+   513→            <Input
+   514→              type="date"
+   515→              value={form.fechaNacimiento}
+   516→              onChange={(e) => setForm({ ...form, fechaNacimiento: e.target.value })}
+   517→            />
+   518→          </div>
+   519→        </div>
+   520→        {tipo.camposDef.length > 0 && (
+   521→          <div className="grid gap-3 sm:grid-cols-2 pt-2 border-t">
+   522→            <p className="col-span-full text-sm font-medium">Datos de {tipo.nombre}</p>
+   523→            {tipo.camposDef.map((c) => (
+   524→              <div key={c.clave}>
+   525→                <Label>
+   526→                  {c.etiqueta}
+   527→                  {c.requerido ? " *" : ""}
+   528→                </Label>
+   529→                {c.tipo === "textarea" ? (
+   530→                  <Textarea
+   531→                    value={form.campos[c.clave] || ""}
+   532→                    onChange={(e) =>
+   533→                      setForm({ ...form, campos: { ...form.campos, [c.clave]: e.target.value } })
+   534→                    }
+   535→                  />
+   536→                ) : c.tipo === "select" ? (
+   537→                  <Select
+   538→                    value={form.campos[c.clave] || ""}
+   539→                    onValueChange={(v) =>
+   540→                      setForm({ ...form, campos: { ...form.campos, [c.clave]: v } })
+   541→                    }
+   542→                  >
+   543→                    <SelectTrigger>
+   544→                      <SelectValue placeholder="Seleccionar..." />
+   545→                    </SelectTrigger>
+   546→                    <SelectContent>
+   547→                      {(c.opciones ? JSON.parse(c.opciones) : []).map((o: string) => (
+   548→                        <SelectItem key={o} value={o}>
+   549→                          {o}
+   550→                        </SelectItem>
+   551→                      ))}
+   552→                    </SelectContent>
+   553→                  </Select>
+   554→                ) : (
+   555→                  <Input
+   556→                    type={c.tipo === "number" ? "number" : "text"}
+   557→                    value={form.campos[c.clave] || ""}
+   558→                    onChange={(e) =>
+   559→                      setForm({ ...form, campos: { ...form.campos, [c.clave]: e.target.value } })
+   560→                    }
+   561→                  />
+   562→                )}
+   563→              </div>
+   564→            ))}
+   565→          </div>
+   566→        )}
+   567→        <div className="flex items-center gap-2 pt-2 border-t">
+   568→          <Switch
+   569→            checked={form.crearUsuario}
+   570→            onCheckedChange={(v) => setForm({ ...form, crearUsuario: v })}
+   571→          />
+   572→          <Label>Crear cuenta de acceso para el cliente (requiere email)</Label>
+   573→        </div>
+   574→        {form.crearUsuario && (
+   575→          <div>
+   576→            <Label>Contraseña temporal</Label>
+   577→            <Input
+   578→              value={form.password}
+   579→              onChange={(e) => setForm({ ...form, password: e.target.value })}
+   580→              placeholder="Se genera una si se deja vacío"
+   581→            />
+   582→          </div>
+   583→        )}
+   584→        <DialogFooter>
+   585→          <Button variant="outline" onClick={onClose}>
+   586→            Cancelar
+   587→          </Button>
+   588→          <Button onClick={save} disabled={saving}>
+   589→            {saving ? "Guardando..." : "Crear cliente"}
+   590→          </Button>
+   591→        </DialogFooter>
+   592→      </DialogContent>
+   593→    </Dialog>
+   594→  );
+   595→}
+   596→
+   597→function ClienteDetail({
+   598→  cliente,
+   599→  empresaId,
+   600→  onClose,
+   601→}: {
+   602→  cliente: Cliente;
+   603→  empresaId: string;
+   604→  onClose: () => void;
+   605→}) {
+   606→  const { showToast } = useStore();
+   607→  const [estrategias, setEstrategias] = useState<Estrategia[]>([]);
+   608→  const [assignOpen, setAssignOpen] = useState(false);
+   609→  useEffect(() => {
+   610→    api
+   611→      .get<{ estrategias: Estrategia[] }>(`/api/estrategias?empresaId=${empresaId}`)
+   612→      .then((r) => setEstrategias(r.estrategias))
+   613→      .catch(() => {});
+   614→  }, [empresaId]);
+   615→  async function asignar(estrategiaId: string) {
+   616→    try {
+   617→      await api.post("/api/cliente-estrategias", { clienteId: cliente.id, estrategiaId });
+   618→      showToast("Beneficio asignado", "success");
+   619→      setAssignOpen(false);
+   620→    } catch (e) {
+   621→      showToast(e instanceof Error ? e.message : "Error", "error");
+   622→    }
+   623→  }
+   624→  return (
+   625→    <Dialog open onOpenChange={(o) => !o && onClose()}>
+   626→      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+   627→        <DialogHeader>
+   628→          <DialogTitle>{cliente.nombre}</DialogTitle>
+   629→        </DialogHeader>
+   630→        <div className="space-y-3 text-sm">
+   631→          <div className="grid grid-cols-2 gap-2">
+   632→            <p>
+   633→              <span className="text-muted-foreground">Email:</span> {cliente.email || "—"}
+   634→            </p>
+   635→            <p>
+   636→              <span className="text-muted-foreground">Tel:</span> {cliente.telefono || "—"}
+   637→            </p>
+   638→            <p>
+   639→              <span className="text-muted-foreground">Estado:</span>{" "}
+   640→              <EstadoBadge estado={cliente.estado} />
+   641→            </p>
+   642→          </div>
+   643→          {cliente.camposDinamicos && cliente.camposDinamicos.length > 0 && (
+   644→            <div className="bg-slate-50 rounded-lg p-3">
+   645→              {cliente.camposDinamicos.map((c) => (
+   646→                <p key={c.id}>
+   647→                  <span className="text-muted-foreground capitalize">{c.clave}:</span>{" "}
+   648→                  {c.valor}
+   649→                </p>
+   650→              ))}
+   651→            </div>
+   652→          )}
+   653→          <div>
+   654→            <div className="flex items-center justify-between mb-2">
+   655→              <p className="font-medium">Beneficios</p>
+   656→              <Button size="sm" variant="outline" onClick={() => setAssignOpen(true)}>
+   657→                <Plus className="mr-1 h-3 w-3" /> Asignar
+   658→              </Button>
+   659→            </div>
+   660→            <div className="space-y-1.5">
+   661→              {cliente.estrategias?.map((e) => (
+   662→                <div
+   663→                  key={e.id}
+   664→                  className="flex items-center justify-between rounded-lg border p-2 text-sm"
+   665→                >
+   666→                  <div>
+   667→                    <p className="font-medium">{e.estrategia.nombre}</p>
+   668→                    <p className="text-xs text-muted-foreground">
+   669→                      {e.estrategia.tipoEstrategia}
+   670→                    </p>
+   671→                  </div>
+   672→                  <EstadoBadge estado={e.estado} />
+   673→                </div>
+   674→              )) || <p className="text-muted-foreground text-xs">Sin beneficios</p>}
+   675→            </div>
+   676→          </div>
+   677→          {cliente.qrTokens && cliente.qrTokens[0] && (
+   678→            <div className="bg-slate-900 text-white rounded-lg p-3 font-mono text-xs break-all">
+   679→              {cliente.qrTokens[0].token}
+   680→            </div>
+   681→          )}
+   682→        </div>
+   683→        {assignOpen && (
+   684→          <div className="border-t pt-3 space-y-1.5">
+   685→            <p className="text-sm font-medium">Asignar beneficio:</p>
+   686→            {estrategias
+   687→              .filter((e) => !cliente.estrategias?.some((ce) => ce.estrategiaId === e.id))
+   688→              .map((e) => (
+   689→                <button
+   690→                  key={e.id}
+   691→                  onClick={() => asignar(e.id)}
+   692→                  className="w-full text-left rounded-lg border p-2 hover:bg-slate-50 text-sm"
+   693→                >
+   694→                  <span className="font-medium">{e.nombre}</span>{" "}
+   695→                  <span className="text-xs text-muted-foreground">· {e.tipoEstrategia}</span>
+   696→                </button>
+   697→              ))}
+   698→          </div>
+   699→        )}
+   700→      </DialogContent>
+   701→    </Dialog>
+   702→  );
+   703→}
+   704→
+   705→/* ──────────────────────────────────────────────────────────
+   706→   Beneficios (antes Estrategias)
+   707→   ────────────────────────────────────────────────────────── */
+   708→
+   709→export function BeneficiosManager({
+   710→  empresaId,
+   711→  onBack,
+   712→}: {
+   713→  empresaId: string;
+   714→  onBack?: () => void;
+   715→}) {
+   716→  const { showToast } = useStore();
+   717→  const tipo = useEmpresaTipo(empresaId);
+   718→  const [estrategias, setEstrategias] = useState<Estrategia[]>([]);
+   719→  const [loading, setLoading] = useState(true);
+   720→  const [open, setOpen] = useState(false);
+   721→  const [edit, setEdit] = useState<Estrategia | null>(null);
+   722→
+   723→  const load = useCallback(() => {
+   724→    setLoading(true);
+   725→    api
+   726→      .get<{ estrategias: Estrategia[] }>(`/api/estrategias?empresaId=${empresaId}`)
+   727→      .then((r) => setEstrategias(r.estrategias))
+   728→      .catch(() => showToast("Error", "error"))
+   729→      .finally(() => setLoading(false));
+   730→  }, [empresaId, showToast]);
+   731→  // eslint-disable-next-line react-hooks/set-state-in-effect
+   732→  useEffect(load, [load]);
+   733→
+   734→  async function toggle(e: Estrategia) {
+   735→    try {
+   736→      await api.patch(`/api/estrategias/${e.id}`, {
+   737→        estado: e.estado === "ACTIVA" ? "INACTIVA" : "ACTIVA",
+   738→      });
+   739→      load();
+   740→      showToast("Actualizado", "success");
+   741→    } catch (err) {
+   742→      showToast(err instanceof Error ? err.message : "Error", "error");
+   743→    }
+   744→  }
+   745→
+   746→  return (
+   747→    <div>
+   748→      <SectionHeader
+   749→        title="Beneficios"
+   750→        description="Membresías, conteos de visitas y cupones para tus clientes"
+   751→        action={
+   752→          <div className="flex gap-2">
+   753→            {onBack && (
+   754→              <Button variant="outline" onClick={onBack}>
+   755→                <ArrowLeft className="mr-1.5 h-4 w-4" /> Cambiar empresa
+   756→              </Button>
+   757→            )}
+   758→            <Button
+   759→              onClick={() => {
+   760→                setEdit(null);
+   761→                setOpen(true);
+   762→              }}
+   763→            >
+   764→              <Plus className="mr-1.5 h-4 w-4" /> Nuevo beneficio
+   765→            </Button>
+   766→          </div>
+   767→        }
+   768→      />
+   769→      {loading ? (
+   770→        <p className="text-muted-foreground">Cargando...</p>
+   771→      ) : estrategias.length === 0 ? (
+   772→        <EmptyState
+   773→          title="Sin beneficios"
+   774→          description="Crea tu primer beneficio para fidelizar clientes"
+   775→          icon={<Sparkles className="h-10 w-10" />}
+   776→        />
+   777→      ) : (
+   778→        <div className="grid gap-3 sm:grid-cols-2">
+   779→          {estrategias.map((e) => (
+   780→            <Card key={e.id}>
+   781→              <CardContent className="p-4">
+   782→                <div className="flex items-start justify-between gap-2">
+   783→                  <div className="min-w-0">
+   784→                    <div className="flex items-center gap-2 flex-wrap">
+   785→                      <p className="font-semibold">{e.nombre}</p>
+   786→                      <TipoEstrategiaBadge tipo={e.tipoEstrategia} />
+   787→                    </div>
+   788→                    {e.descripcion && (
+   789→                      <p className="text-xs text-muted-foreground mt-1">{e.descripcion}</p>
+   790→                    )}
+   791→                  </div>
+   792→                  <EstadoBadge estado={e.estado} />
+   793→                </div>
+   794→                <div className="mt-3 flex flex-wrap gap-3 text-xs text-muted-foreground">
+   795→                  {e.requierePago && (
+   796→                    <span className="font-semibold text-slate-700">{fmtMonto(e.precio)}</span>
+   797→                  )}
+   798→                  {e.duracionDias > 0 && <span>{e.duracionDias} días</span>}
+   799→                  {e.tipoEstrategia === "MEMBRESIA" && <span>{e.cantidadUsos} usos</span>}
+   800→                  {e.tipoEstrategia === "CONTEO_VISITAS" && (
+   801→                    <span>Meta: {e.metaVisitas} visitas</span>
+   802→                  )}
+   803→                  {e.tipoEstrategia === "CUPON" && <span>{e.descuentoPct}% desc.</span>}
+   804→                </div>
+   805→                <div className="mt-3 flex gap-2">
+   806→                  <Button
+   807→                    size="sm"
+   808→                    variant="outline"
+   809→                    onClick={() => {
+   810→                      setEdit(e);
+   811→                      setOpen(true);
+   812→                    }}
+   813→                  >
+   814→                    Editar
+   815→                  </Button>
+   816→                  <Button size="sm" variant="ghost" onClick={() => toggle(e)}>
+   817→                    {e.estado === "ACTIVA" ? "Desactivar" : "Activar"}
+   818→                  </Button>
+   819→                </div>
+   820→              </CardContent>
+   821→            </Card>
+   822→          ))}
+   823→        </div>
+   824→      )}
+   825→      {open && tipo && (
+   826→        <BeneficioForm
+   827→          empresaId={empresaId}
+   828→          tipoId={tipo.id}
+   829→          edit={edit}
+   830→          onClose={() => setOpen(false)}
+   831→          onSaved={() => {
+   832→            setOpen(false);
+   833→            load();
+   834→          }}
+   835→        />
+   836→      )}
+   837→    </div>
+   838→  );
+   839→}
+   840→
+   841→function BeneficioForm({
+   842→  empresaId,
+   843→  tipoId,
+   844→  edit,
+   845→  onClose,
+   846→  onSaved,
+   847→}: {
+   848→  empresaId: string;
+   849→  tipoId: string;
+   850→  edit: Estrategia | null;
+   851→  onClose: () => void;
+   852→  onSaved: () => void;
+   853→}) {
+   854→  const { showToast } = useStore();
+   855→  const [f, setF] = useState<any>(
+   856→    edit
+   857→      ? { ...edit, fechaFin: edit.fechaFin ? String(edit.fechaFin).slice(0, 10) : "" }
+   858→      : {
+   859→          nombre: "",
+   860→          tipoEstrategia: "MEMBRESIA",
+   861→          descripcion: "",
+   862→          requierePago: false,
+   863→          precio: 0,
+   864→          duracionDias: 30,
+   865→          cantidadUsos: 0,
+   866→          metaVisitas: 5,
+   867→          descuentoPct: 100,
+   868→          recompensa: "",
+   869→          fechaFin: "",
+   870→          terminos: "",
+   871→          estado: "ACTIVA",
+   872→        }
+   873→  );
+   874→  const [saving, setSaving] = useState(false);
+   875→
+   876→  const tipoSel = TIPOS_BENEFICIO.find((t) => t.value === f.tipoEstrategia);
+   877→
+   878→  async function save() {
+   879→    if (!f.nombre) {
+   880→      showToast("Nombre obligatorio", "error");
+   881→      return;
+   882→    }
+   883→    // Limpiar campos irrelevantes según tipo
+   884→    const payload: any = { ...f };
+   885→    if (payload.fechaFin === "") payload.fechaFin = null;
+   886→    setSaving(true);
+   887→    try {
+   888→      if (edit) await api.patch(`/api/estrategias/${edit.id}`, payload);
+   889→      else
+   890→        await api.post("/api/estrategias", {
+   891→          ...payload,
+   892→          empresaId,
+   893→          tipoNegocioId: tipoId,
+   894→        });
+   895→      showToast("Beneficio guardado", "success");
+   896→      onSaved();
+   897→    } catch (e) {
+   898→      showToast(e instanceof Error ? e.message : "Error", "error");
+   899→    } finally {
+   900→      setSaving(false);
+   901→    }
+   902→  }
+   903→
+   904→  return (
+   905→    <Dialog open onOpenChange={(o) => !o && onClose()}>
+   906→      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+   907→        <DialogHeader>
+   908→          <DialogTitle>{edit ? "Editar beneficio" : "Nuevo beneficio"}</DialogTitle>
+   909→          {tipoSel && (
+   910→            <p className="text-xs text-muted-foreground mt-0.5">{tipoSel.descripcion}</p>
+   911→          )}
+   912→        </DialogHeader>
+   913→        <div className="grid gap-3 sm:grid-cols-2">
+   914→          <div className="sm:col-span-2">
+   915→            <Label>Nombre *</Label>
+   916→            <Input value={f.nombre} onChange={(e) => setF({ ...f, nombre: e.target.value })} />
+   917→          </div>
+   918→          <div>
+   919→            <Label>Tipo de beneficio</Label>
+   920→            <Select
+   921→              value={f.tipoEstrategia}
+   922→              onValueChange={(v) => setF({ ...f, tipoEstrategia: v })}
+   923→            >
+   924→              <SelectTrigger>
+   925→                <SelectValue />
+   926→              </SelectTrigger>
+   927→              <SelectContent>
+   928→                {TIPOS_BENEFICIO.map((t) => (
+   929→                  <SelectItem key={t.value} value={t.value}>
+   930→                    {t.label}
+   931→                  </SelectItem>
+   932→                ))}
+   933→              </SelectContent>
+   934→            </Select>
+   935→          </div>
+   936→          <div>
+   937→            <Label>Estado</Label>
+   938→            <Select value={f.estado} onValueChange={(v) => setF({ ...f, estado: v })}>
+   939→              <SelectTrigger>
+   940→                <SelectValue />
+   941→              </SelectTrigger>
+   942→              <SelectContent>
+   943→                <SelectItem value="ACTIVA">Activa</SelectItem>
+   944→                <SelectItem value="INACTIVA">Inactiva</SelectItem>
+   945→              </SelectContent>
+   946→            </Select>
+   947→          </div>
+   948→          <div className="sm:col-span-2">
+   949→            <Label>Descripción</Label>
+   950→            <Textarea
+   951→              value={f.descripcion || ""}
+   952→              onChange={(e) => setF({ ...f, descripcion: e.target.value })}
+   953→              rows={2}
+   954→            />
+   955→          </div>
+   956→
+   957→          {/* Campos por tipo */}
+   958→          {f.tipoEstrategia === "MEMBRESIA" && (
+   959→            <>
+   960→              <div className="sm:col-span-2 flex items-center gap-2">
+   961→                <Switch
+   962→                  checked={!!f.requierePago}
+   963→                  onCheckedChange={(v) => setF({ ...f, requierePago: v })}
+   964→                />
+   965→                <Label>Requiere pago</Label>
+   966→              </div>
+   967→              {f.requierePago && (
+   968→                <div>
+   969→                  <Label>Precio (RD$)</Label>
+   970→                  <Input
+   971→                    type="number"
+   972→                    value={f.precio}
+   973→                    onChange={(e) => setF({ ...f, precio: Number(e.target.value) })}
+   974→                  />
+   975→                </div>
+   976→              )}
+   977→              <div>
+   978→                <Label>Duración (días)</Label>
+   979→                <Input
+   980→                  type="number"
+   981→                  value={f.duracionDias}
+   982→                  onChange={(e) => setF({ ...f, duracionDias: Number(e.target.value) })}
+   983→                />
+   984→              </div>
+   985→              <div>
+   986→                <Label>Cantidad de usos incluidos</Label>
+   987→                <Input
+   988→                  type="number"
+   989→                  value={f.cantidadUsos}
+   990→                  onChange={(e) => setF({ ...f, cantidadUsos: Number(e.target.value) })}
+   991→                />
+   992→              </div>
+   993→            </>
+   994→          )}
+   995→
+   996→          {f.tipoEstrategia === "CONTEO_VISITAS" && (
+   997→            <>
+   998→              <div>
+   999→                <Label>Meta de visitas</Label>
+  1000→                <Input
+  1001→                  type="number"
+  1002→                  value={f.metaVisitas}
+  1003→                  onChange={(e) => setF({ ...f, metaVisitas: Number(e.target.value) })}
+  1004→                />
+  1005→              </div>
+  1006→              <div>
+  1007→                <Label>Descuento al alcanzar (%) — 100 = gratis</Label>
+  1008→                <Input
+  1009→                  type="number"
+  1010→                  min={0}
+  1011→                  max={100}
+  1012→                  value={f.descuentoPct}
+  1013→                  onChange={(e) => setF({ ...f, descuentoPct: Number(e.target.value) })}
+  1014→                />
+  1015→              </div>
+  1016→              <div className="sm:col-span-2">
+  1017→                <Label>Recompensa (descripción)</Label>
+  1018→                <Input
+  1019→                  value={f.recompensa || ""}
+  1020→                  onChange={(e) => setF({ ...f, recompensa: e.target.value })}
+  1021→                  placeholder="Ej: Lavado gratis en la 6ta visita"
+  1022→                />
+  1023→              </div>
+  1024→            </>
+  1025→          )}
+  1026→
+  1027→          {f.tipoEstrategia === "CUPON" && (
+  1028→            <>
+  1029→              <div>
+  1030→                <Label>Descuento (%)</Label>
+  1031→                <Input
+  1032→                  type="number"
+  1033→                  min={0}
+  1034→                  max={100}
+  1035→                  value={f.descuentoPct}
+  1036→                  onChange={(e) => setF({ ...f, descuentoPct: Number(e.target.value) })}
+  1037→                />
+  1038→              </div>
+  1039→              <div>
+  1040→                <Label>Cantidad de usos (default 1)</Label>
+  1041→                <Input
+  1042→                  type="number"
+  1043→                  value={f.cantidadUsos}
+  1044→                  onChange={(e) => setF({ ...f, cantidadUsos: Number(e.target.value) })}
+  1045→                />
+  1046→              </div>
+  1047→              <div className="sm:col-span-2">
+  1048→                <Label>Fecha de vencimiento (opcional)</Label>
+  1049→                <Input
+  1050→                  type="date"
+  1051→                  value={f.fechaFin || ""}
+  1052→                  onChange={(e) => setF({ ...f, fechaFin: e.target.value })}
+  1053→                />
+  1054→              </div>
+  1055→            </>
+  1056→          )}
+  1057→
+  1058→          <div className="sm:col-span-2">
+  1059→            <Label>Términos y condiciones</Label>
+  1060→            <Textarea
+  1061→              value={f.terminos || ""}
+  1062→              onChange={(e) => setF({ ...f, terminos: e.target.value })}
+  1063→              rows={3}
+  1064→              placeholder="Términos visibles al cliente (vigencia, restricciones, etc.)"
+  1065→            />
+  1066→          </div>
+  1067→        </div>
+  1068→        <DialogFooter>
+  1069→          <Button variant="outline" onClick={onClose}>
+  1070→            Cancelar
+  1071→          </Button>
+  1072→          <Button onClick={save} disabled={saving}>
+  1073→            {saving ? "Guardando..." : "Guardar"}
+  1074→          </Button>
+  1075→        </DialogFooter>
+  1076→      </DialogContent>
+  1077→    </Dialog>
+  1078→  );
+  1079→}
+  1080→
+  1081→/* ──────────────────────────────────────────────────────────
+  1082→   Pagos pendientes
+  1083→   ────────────────────────────────────────────────────────── */
+  1084→
+  1085→export function PagosManager({
+  1086→  empresaId,
+  1087→  onBack,
+  1088→}: {
+  1089→  empresaId: string;
+  1090→  onBack?: () => void;
+  1091→}) {
+  1092→  const { showToast } = useStore();
+  1093→  const [items, setItems] = useState<
+  1094→    (ClienteEstrategia & { cliente?: Cliente; estrategia?: Estrategia })[]
+  1095→  >([]);
+  1096→  const [loading, setLoading] = useState(true);
+  1097→  const load = useCallback(() => {
+  1098→    setLoading(true);
+  1099→    api
+  1100→      .get<{ clienteEstrategias: any[] }>(
+  1101→        `/api/cliente-estrategias?empresaId=${empresaId}&estado=PENDIENTE`
+  1102→      )
+  1103→      .then((r) => setItems(r.clienteEstrategias))
+  1104→      .catch(() => {})
+  1105→      .finally(() => setLoading(false));
+  1106→  }, [empresaId]);
+  1107→  // eslint-disable-next-line react-hooks/set-state-in-effect
+  1108→  useEffect(load, [load]);
+  1109→  async function confirmar(id: string) {
+  1110→    try {
+  1111→      await api.post(`/api/cliente-estrategias/${id}/confirmar-pago`, {});
+  1112→      showToast("Pago confirmado y membresía activada", "success");
+  1113→      load();
+  1114→    } catch (e) {
+  1115→      showToast(e instanceof Error ? e.message : "Error", "error");
+  1116→    }
+  1117→  }
+  1118→  return (
+  1119→    <div>
+  1120→      <SectionHeader
+  1121→        title="Pagos pendientes"
+  1122→        description="Confirma pagos para activar membresías pendientes"
+  1123→        action={
+  1124→          onBack && (
+  1125→            <Button variant="outline" onClick={onBack}>
+  1126→              <ArrowLeft className="mr-1.5 h-4 w-4" /> Cambiar empresa
+  1127→            </Button>
+  1128→          )
+  1129→        }
+  1130→      />
+  1131→      {loading ? (
+  1132→        <p className="text-muted-foreground">Cargando...</p>
+  1133→      ) : items.length === 0 ? (
+  1134→        <EmptyState title="Sin pagos pendientes" icon={<CheckCircle2 className="h-10 w-10" />} />
+  1135→      ) : (
+  1136→        <div className="space-y-3">
+  1137→          {items.map((ce) => (
+  1138→            <Card key={ce.id}>
+  1139→              <CardContent className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+  1140→                <div>
+  1141→                  <p className="font-semibold">{ce.cliente?.nombre}</p>
+  1142→                  <p className="text-sm text-muted-foreground">
+  1143→                    {ce.estrategia?.nombre} · {fmtMonto(ce.estrategia?.precio)}
+  1144→                  </p>
+  1145→                </div>
+  1146→                <Button onClick={() => confirmar(ce.id)}>
+  1147→                  <CheckCircle2 className="mr-1.5 h-4 w-4" /> Confirmar pago
+  1148→                </Button>
+  1149→              </CardContent>
+  1150→            </Card>
+  1151→          ))}
+  1152→        </div>
+  1153→      )}
+  1154→    </div>
+  1155→  );
+  1156→}
+  1157→
+  1158→/* ──────────────────────────────────────────────────────────
+  1159→   Usos registrados (antes Historial)
+  1160→   ────────────────────────────────────────────────────────── */
+  1161→
+  1162→export function UsosManager({
+  1163→  empresaId,
+  1164→  onBack,
+  1165→  empleadoId,
+  1166→}: {
+  1167→  empresaId: string;
+  1168→  onBack?: () => void;
+  1169→  empleadoId?: string;
+  1170→}) {
+  1171→  const [transacciones, setTransacciones] = useState<Transaccion[]>([]);
+  1172→  const [loading, setLoading] = useState(true);
+  1173→  useEffect(() => {
+  1174→    api
+  1175→      .get<{ transacciones: Transaccion[] }>(
+  1176→        `/api/transacciones?empresaId=${empresaId}&limit=200`
+  1177→      )
+  1178→      .then((r) => {
+  1179→        const list = empleadoId
+  1180→          ? r.transacciones.filter((t) => t.empleado?.id === empleadoId)
+  1181→          : r.transacciones;
+  1182→        setTransacciones(list);
+  1183→      })
+  1184→      .catch(() => {})
+  1185→      .finally(() => setLoading(false));
+  1186→  }, [empresaId, empleadoId]);
+  1187→  return (
+  1188→    <div>
+  1189→      <SectionHeader
+  1190→        title="Usos registrados"
+  1191→        description={empleadoId ? "Consumos que has registrado" : "Todas las transacciones registradas"}
+  1192→        action={
+  1193→          onBack && (
+  1194→            <Button variant="outline" onClick={onBack}>
+  1195→              <ArrowLeft className="mr-1.5 h-4 w-4" /> Cambiar empresa
+  1196→            </Button>
+  1197→          )
+  1198→        }
+  1199→      />
+  1200→      {loading ? (
+  1201→        <p className="text-muted-foreground">Cargando...</p>
+  1202→      ) : transacciones.length === 0 ? (
+  1203→        <EmptyState
+  1204→          title="Sin usos registrados"
+  1205→          description="Escanea un QR para registrar el primero"
+  1206→          icon={<History className="h-10 w-10" />}
+  1207→        />
+  1208→      ) : (
+  1209→        <Card>
+  1210→          <CardContent className="p-0">
+  1211→            <div className="max-h-[70vh] overflow-y-auto">
+  1212→              <table className="w-full text-sm">
+  1213→                <thead className="sticky top-0 bg-slate-50 border-b">
+  1214→                  <tr>
+  1215→                    <th className="text-left p-3 font-medium">Fecha</th>
+  1216→                    <th className="text-left p-3 font-medium">Cliente</th>
+  1217→                    <th className="text-left p-3 font-medium">Consumo</th>
+  1218→                    <th className="text-left p-3 font-medium">Beneficio</th>
+  1219→                    <th className="text-right p-3 font-medium">Monto</th>
+  1220→                    <th className="text-left p-3 font-medium">Empleado</th>
+  1221→                  </tr>
+  1222→                </thead>
+  1223→                <tbody>
+  1224→                  {transacciones.map((t) => (
+  1225→                    <tr key={t.id} className="border-b last:border-0 hover:bg-slate-50">
+  1226→                      <td className="p-3 text-xs text-muted-foreground">
+  1227→                        {fmtFechaHora(t.fechaTransaccion)}
+  1228→                      </td>
+  1229→                      <td className="p-3 font-medium">{t.cliente?.nombre || "—"}</td>
+  1230→                      <td className="p-3">{t.tipoConsumo}</td>
+  1231→                      <td className="p-3 text-xs">{t.beneficioAplicado || "—"}</td>
+  1232→                      <td className="p-3 text-right">
+  1233→                        {t.montoConsumo > 0 ? fmtMonto(t.montoConsumo) : "—"}
+  1234→                      </td>
+  1235→                      <td className="p-3 text-xs text-muted-foreground">
+  1236→                        {t.empleado?.nombre || "—"}
+  1237→                      </td>
+  1238→                    </tr>
+  1239→                  ))}
+  1240→                </tbody>
+  1241→              </table>
+  1242→            </div>
+  1243→          </CardContent>
+  1244→        </Card>
+  1245→      )}
+  1246→    </div>
+  1247→  );
+  1248→}
+  1249→
+  1250→/* ──────────────────────────────────────────────────────────
+  1251→   Configuración = Integraciones (admin empresa)
+  1252→   ────────────────────────────────────────────────────────── */
+  1253→
+  1254→export function ConfiguracionManager({
+  1255→  empresaId,
+  1256→  onBack,
+  1257→}: {
+  1258→  empresaId: string;
+  1259→  onBack?: () => void;
+  1260→}) {
+  1261→  return (
+  1262→    <div>
+  1263→      <SectionHeader
+  1264→        title="Configuración"
+  1265→        description="Integraciones con sistemas externos y sincronización"
+  1266→        action={
+  1267→          onBack && (
+  1268→            <Button variant="outline" onClick={onBack}>
+  1269→              <ArrowLeft className="mr-1.5 h-4 w-4" /> Cambiar empresa
+  1270→            </Button>
+  1271→          )
+  1272→        }
+  1273→      />
+  1274→      <IntegracionesManager empresaId={empresaId} />
+  1275→    </div>
+  1276→  );
+  1277→}
+  1278→
+  1279→function IntegracionesManager({ empresaId }: { empresaId: string }) {
+  1280→  const { showToast } = useStore();
+  1281→  const [items, setItems] = useState<Integracion[]>([]);
+  1282→  const [open, setOpen] = useState(false);
+  1283→  const [logsFor, setLogsFor] = useState<Integracion | null>(null);
+  1284→  const [logs, setLogs] = useState<IntegrationLog[]>([]);
+  1285→  const [loading, setLoading] = useState(true);
+  1286→
+  1287→  const load = useCallback(() => {
+  1288→    setLoading(true);
+  1289→    api
+  1290→      .get<{ integraciones: Integracion[] }>(`/api/integraciones?empresaId=${empresaId}`)
+  1291→      .then((r) => setItems(r.integraciones))
+  1292→      .catch(() => {})
+  1293→      .finally(() => setLoading(false));
+  1294→  }, [empresaId]);
+  1295→  // eslint-disable-next-line react-hooks/set-state-in-effect
+  1296→  useEffect(load, [load]);
+  1297→
+  1298→  async function viewLogs(integ: Integracion) {
+  1299→    setLogsFor(integ);
+  1300→    try {
+  1301→      const r = await api.get<{ logs: IntegrationLog[] }>(
+  1302→        `/api/integraciones/${integ.id}/logs?limit=100`
+  1303→      );
+  1304→      setLogs(r.logs);
+  1305→    } catch {
+  1306→      setLogs([]);
+  1307→    }
+  1308→  }
+  1309→  async function retry(log: IntegrationLog) {
+  1310→    try {
+  1311→      await api.post(`/api/integration-logs/${log.id}/retry`);
+  1312→      showToast("Reintento enviado", "success");
+  1313→      if (logsFor) viewLogs(logsFor);
+  1314→    } catch (e) {
+  1315→      showToast("Error", "error");
+  1316→    }
+  1317→  }
+  1318→  async function toggle(integ: Integracion) {
+  1319→    try {
+  1320→      await api.patch(`/api/integraciones/${integ.id}`, {
+  1321→        estado: integ.estado === "ACTIVA" ? "INACTIVA" : "ACTIVA",
+  1322→      });
+  1323→      load();
+  1324→    } catch (e) {
+  1325→      showToast("Error", "error");
+  1326→    }
+  1327→  }
+  1328→  async function remove(id: string) {
+  1329→    try {
+  1330→      await api.del(`/api/integraciones/${id}`);
+  1331→      showToast("Eliminada", "success");
+  1332→      load();
+  1333→    } catch (e) {
+  1334→      showToast("Error", "error");
+  1335→    }
+  1336→  }
+  1337→
+  1338→  return (
+  1339→    <div>
+  1340→      <div className="flex items-center justify-between mb-4">
+  1341→        <div className="flex items-center gap-2">
+  1342→          <Plug className="h-5 w-5 text-violet-600" />
+  1343→          <p className="font-semibold">Integraciones</p>
+  1344→        </div>
+  1345→        <Button onClick={() => setOpen(true)}>
+  1346→          <Plus className="mr-1.5 h-4 w-4" /> Nueva integración
+  1347→        </Button>
+  1348→      </div>
+  1349→      {loading ? (
+  1350→        <p className="text-muted-foreground">Cargando...</p>
+  1351→      ) : items.length === 0 ? (
+  1352→        <EmptyState
+  1353→          title="Sin integraciones"
+  1354→          description="Configura la sincronización con tu sistema externo"
+  1355→          icon={<Plug className="h-10 w-10" />}
+  1356→        />
+  1357→      ) : (
+  1358→        <div className="grid gap-3 sm:grid-cols-2">
+  1359→          {items.map((i) => (
+  1360→            <Card key={i.id}>
+  1361→              <CardContent className="p-4">
+  1362→                <div className="flex items-start justify-between">
+  1363→                  <div>
+  1364→                    <p className="font-semibold flex items-center gap-2">
+  1365→                      <Plug className="h-4 w-4 text-violet-600" />{" "}
+  1366→                      {TIPOS_INTEGRACION.find((t) => t.value === i.tipoIntegracion)?.label ||
+  1367→                        i.tipoIntegracion}
+  1368→                    </p>
+  1369→                    <p className="text-xs text-muted-foreground mt-1">
+  1370→                      {i.webhookUrl || i.apiUrl || "Sin URL"}
+  1371→                    </p>
+  1372→                  </div>
+  1373→                  <EstadoBadge estado={i.estado} />
+  1374→                </div>
+  1375→                <div className="mt-2 flex flex-wrap gap-1">
+  1376→                  {(i.eventos ? JSON.parse(i.eventos) : []).map((ev: string) => (
+  1377→                    <span
+  1378→                      key={ev}
+  1379→                      className="text-[10px] bg-violet-100 text-violet-700 rounded px-1.5 py-0.5"
+  1380→                    >
+  1381→                      {EVENTOS_SINCRONIZACION.find((e) => e.value === ev)?.label || ev}
+  1382→                    </span>
+  1383→                  ))}
+  1384→                </div>
+  1385→                {i.ultimaSincronizacion && (
+  1386→                  <p className="text-xs text-muted-foreground mt-2">
+  1387→                    Última sync: {fmtFechaHora(i.ultimaSincronizacion)}
+  1388→                  </p>
+  1389→                )}
+  1390→                <div className="mt-3 flex gap-2 flex-wrap">
+  1391→                  <Button size="sm" variant="outline" onClick={() => viewLogs(i)}>
+  1392→                    Ver logs ({i._count?.logs || 0})
+  1393→                  </Button>
+  1394→                  <Button size="sm" variant="ghost" onClick={() => toggle(i)}>
+  1395→                    {i.estado === "ACTIVA" ? "Pausar" : "Activar"}
+  1396→                  </Button>
+  1397→                  <Button size="sm" variant="ghost" onClick={() => remove(i.id)}>
+  1398→                    <Trash2 className="h-3.5 w-3.5" />
+  1399→                  </Button>
+  1400→                </div>
+  1401→              </CardContent>
+  1402→            </Card>
+  1403→          ))}
+  1404→        </div>
+  1405→      )}
+  1406→      {open && (
+  1407→        <IntegracionForm
+  1408→          empresaId={empresaId}
+  1409→          onClose={() => setOpen(false)}
+  1410→          onSaved={() => {
+  1411→            setOpen(false);
+  1412→            load();
+  1413→          }}
+  1414→        />
+  1415→      )}
+  1416→      {logsFor && (
+  1417→        <Dialog open onOpenChange={(o) => !o && setLogsFor(null)}>
+  1418→          <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+  1419→            <DialogHeader>
+  1420→              <DialogTitle>Logs de sincronización</DialogTitle>
+  1421→            </DialogHeader>
+  1422→            <div className="space-y-2">
+  1423→              {logs.length === 0 && (
+  1424→                <p className="text-sm text-muted-foreground">Sin logs</p>
+  1425→              )}
+  1426→              {logs.map((l) => (
+  1427→                <div key={l.id} className="rounded-lg border p-3 text-sm">
+  1428→                  <div className="flex items-center justify-between mb-1">
+  1429→                    <span className="font-medium">{l.evento}</span>
+  1430→                    <div className="flex items-center gap-2">
+  1431→                      <EstadoBadge estado={l.estado} />
+  1432→                      {l.estado === "ERROR" && (
+  1433→                        <Button size="sm" variant="ghost" onClick={() => retry(l)}>
+  1434→                          <RotateCcw className="h-3 w-3" />
+  1435→                        </Button>
+  1436→                      )}
+  1437→                    </div>
+  1438→                  </div>
+  1439→                  <p className="text-xs text-muted-foreground">
+  1440→                    {fmtFechaHora(l.createdAt)}
+  1441→                  </p>
+  1442→                  {l.error && <p className="text-xs text-red-600 mt-1">{l.error}</p>}
+  1443→                  {l.respuesta && (
+  1444→                    <pre className="text-[10px] bg-slate-50 p-2 rounded mt-1 overflow-x-auto max-h-24">
+  1445→                      {l.respuesta}
+  1446→                    </pre>
+  1447→                  )}
+  1448→                </div>
+  1449→              ))}
+  1450→            </div>
+  1451→          </DialogContent>
+  1452→        </Dialog>
+  1453→      )}
+  1454→    </div>
+  1455→  );
+  1456→}
+  1457→
+  1458→function IntegracionForm({
+  1459→  empresaId,
+  1460→  onClose,
+  1461→  onSaved,
+  1462→}: {
+  1463→  empresaId: string;
+  1464→  onClose: () => void;
+  1465→  onSaved: () => void;
+  1466→}) {
+  1467→  const { showToast } = useStore();
+  1468→  const [f, setF] = useState<any>({
+  1469→    tipoIntegracion: "WEBHOOK",
+  1470→    apiUrl: "",
+  1471→    webhookUrl: "",
+  1472→    apiKey: "",
+  1473→    tokenSecreto: "",
+  1474→    eventos: [],
+  1475→  });
+  1476→  const [saving, setSaving] = useState(false);
+  1477→  function toggleEv(ev: string) {
+  1478→    setF({
+  1479→      ...f,
+  1480→      eventos: f.eventos.includes(ev)
+  1481→        ? f.eventos.filter((e: string) => e !== ev)
+  1482→        : [...f.eventos, ev],
+  1483→    });
+  1484→  }
+  1485→  async function save() {
+  1486→    setSaving(true);
+  1487→    try {
+  1488→      await api.post("/api/integraciones", { ...f, empresaId });
+  1489→      showToast("Integración creada", "success");
+  1490→      onSaved();
+  1491→    } catch (e) {
+  1492→      showToast(e instanceof Error ? e.message : "Error", "error");
+  1493→    } finally {
+  1494→      setSaving(false);
+  1495→    }
+  1496→  }
+  1497→  return (
+  1498→    <Dialog open onOpenChange={(o) => !o && onClose()}>
+  1499→      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+  1500→        <DialogHeader>
+  1501→          <DialogTitle>Nueva integración</DialogTitle>
+  1502→        </DialogHeader>
+  1503→        <div className="space-y-3">
+  1504→          <div>
+  1505→            <Label>Tipo</Label>
+  1506→            <Select
+  1507→              value={f.tipoIntegracion}
+  1508→              onValueChange={(v) => setF({ ...f, tipoIntegracion: v })}
+  1509→            >
+  1510→              <SelectTrigger>
+  1511→                <SelectValue />
+  1512→              </SelectTrigger>
+  1513→              <SelectContent>
+  1514→                {TIPOS_INTEGRACION.map((t) => (
+  1515→                  <SelectItem key={t.value} value={t.value}>
+  1516→                    {t.label}
+  1517→                  </SelectItem>
+  1518→                ))}
+  1519→              </SelectContent>
+  1520→            </Select>
+  1521→          </div>
+  1522→          {f.tipoIntegracion === "WEBHOOK" && (
+  1523→            <div>
+  1524→              <Label>Webhook URL</Label>
+  1525→              <Input
+  1526→                value={f.webhookUrl}
+  1527→                onChange={(e) => setF({ ...f, webhookUrl: e.target.value })}
+  1528→                placeholder="https://..."
+  1529→              />
+  1530→            </div>
+  1531→          )}
+  1532→          {f.tipoIntegracion === "API_REST" && (
+  1533→            <div>
+  1534→              <Label>API URL</Label>
+  1535→              <Input
+  1536→                value={f.apiUrl}
+  1537→                onChange={(e) => setF({ ...f, apiUrl: e.target.value })}
+  1538→                placeholder="https://..."
+  1539→              />
+  1540→            </div>
+  1541→          )}
+  1542→          <div>
+  1543→            <Label>API Key</Label>
+  1544→            <Input value={f.apiKey} onChange={(e) => setF({ ...f, apiKey: e.target.value })} />
+  1545→          </div>
+  1546→          <div>
+  1547→            <Label>Token secreto</Label>
+  1548→            <Input
+  1549→              value={f.tokenSecreto}
+  1550→              onChange={(e) => setF({ ...f, tokenSecreto: e.target.value })}
+  1551→            />
+  1552→          </div>
+  1553→          <div>
+  1554→            <Label>Eventos a sincronizar</Label>
+  1555→            <div className="grid grid-cols-2 gap-1.5 mt-1 max-h-48 overflow-y-auto">
+  1556→              {EVENTOS_SINCRONIZACION.map((e) => (
+  1557→                <label
+  1558→                  key={e.value}
+  1559→                  className="flex items-center gap-2 text-sm rounded border p-1.5 cursor-pointer"
+  1560→                >
+  1561→                  <input
+  1562→                    type="checkbox"
+  1563→                    checked={f.eventos.includes(e.value)}
+  1564→                    onChange={() => toggleEv(e.value)}
+  1565→                  />{" "}
+  1566→                  {e.label}
+  1567→                </label>
+  1568→              ))}
+  1569→            </div>
+  1570→          </div>
+  1571→        </div>
+  1572→        <DialogFooter>
+  1573→          <Button variant="outline" onClick={onClose}>
+  1574→            Cancelar
+  1575→          </Button>
+  1576→          <Button onClick={save} disabled={saving}>
+  1577→            {saving ? "Guardando..." : "Guardar"}
+  1578→          </Button>
+  1579→        </DialogFooter>
+  1580→      </DialogContent>
+  1581→    </Dialog>
+  1582→  );
+  1583→}
+  1584→
+  1585→/* ──────────────────────────────────────────────────────────
+  1586→   Reportes (empresa)
+  1587→   ────────────────────────────────────────────────────────── */
+  1588→
+  1589→function ReportesEmpresa({ empresaId }: { empresaId: string }) {
+  1590→  return <EmpresaDashboard empresaId={empresaId} />;
+  1591→}
+  1592→
+  1593→/* ──────────────────────────────────────────────────────────
+  1594→   Empresa Form con branding completo (exportado para Superadmin)
+  1595→   ────────────────────────────────────────────────────────── */
+  1596→
+  1597→type RedesSociales = { instagram?: string; facebook?: string };
+  1598→
+  1599→function parseRedes(s: string | null | undefined): RedesSociales {
+  1600→  if (!s) return {};
+  1601→  try {
+  1602→    return JSON.parse(s) as RedesSociales;
+  1603→  } catch {
+  1604→    return {};
+  1605→  }
+  1606→}
+  1607→
+  1608→export function EmpresaForm({
+  1609→  tipos,
+  1610→  edit,
+  1611→  onClose,
+  1612→  onSaved,
+  1613→}: {
+  1614→  tipos: TipoNegocio[];
+  1615→  edit: Empresa | null;
+  1616→  onClose: () => void;
+  1617→  onSaved: () => void;
+  1618→}) {
+  1619→  const { showToast } = useStore();
+  1620→  const redesIniciales = parseRedes(edit?.redesSociales);
+  1621→  const [f, setF] = useState<EmpresaFormState>(
+  1622→    edit
+  1623→      ? {
+  1624→          nombre: edit.nombre,
+  1625→          tipoNegocioId: edit.tipoNegocioId,
+  1626→          estado: edit.estado,
+  1627→          logo: edit.logo || "",
+  1628→          imagenPortada: edit.imagenPortada || "",
+  1629→          colorPrincipal: edit.colorPrincipal || "#0f172a",
+  1630→          colorSecundario: edit.colorSecundario || "#64748b",
+  1631→          telefono: edit.telefono || "",
+  1632→          whatsapp: edit.whatsapp || "",
+  1633→          direccion: edit.direccion || "",
+  1634→          ciudad: edit.ciudad || "",
+  1635→          horario: edit.horario || "",
+  1636→          instagram: redesIniciales.instagram || "",
+  1637→          facebook: redesIniciales.facebook || "",
+  1638→          descripcionPublica: edit.descripcionPublica || "",
+  1639→          textoBienvenida: edit.textoBienvenida || "",
+  1640→          terminosCondiciones: edit.terminosCondiciones || "",
+  1641→          urlPersonalizada: edit.urlPersonalizada || "",
+  1642→        }
+  1643→      : {
+  1644→          nombre: "",
+  1645→          tipoNegocioId: "",
+  1646→          estado: "ACTIVA",
+  1647→          logo: "",
+  1648→          imagenPortada: "",
+  1649→          colorPrincipal: "#0f172a",
+  1650→          colorSecundario: "#64748b",
+  1651→          telefono: "",
+  1652→          whatsapp: "",
+  1653→          direccion: "",
+  1654→          ciudad: "",
+  1655→          horario: "",
+  1656→          instagram: "",
+  1657→          facebook: "",
+  1658→          descripcionPublica: "",
+  1659→          textoBienvenida: "",
+  1660→          terminosCondiciones: "",
+  1661→          urlPersonalizada: "",
+  1662→        }
+  1663→  );
+  1664→  const [saving, setSaving] = useState(false);
+  1665→
+  1666→  async function save() {
+  1667→    if (!f.nombre || !f.tipoNegocioId) {
+  1668→      showToast("Nombre y tipo de negocio son obligatorios", "error");
+  1669→      return;
+  1670→    }
+  1671→    // Componer redesSociales como JSON
+  1672→    const redes: RedesSociales = {};
+  1673→    if (f.instagram) redes.instagram = String(f.instagram);
+  1674→    if (f.facebook) redes.facebook = String(f.facebook);
+  1675→    const payload = {
+  1676→      nombre: f.nombre,
+  1677→      tipoNegocioId: f.tipoNegocioId,
+  1678→      estado: f.estado,
+  1679→      logo: f.logo || null,
+  1680→      imagenPortada: f.imagenPortada || null,
+  1681→      colorPrincipal: f.colorPrincipal || null,
+  1682→      colorSecundario: f.colorSecundario || null,
+  1683→      telefono: f.telefono || null,
+  1684→      whatsapp: f.whatsapp || null,
+  1685→      direccion: f.direccion || null,
+  1686→      ciudad: f.ciudad || null,
+  1687→      horario: f.horario || null,
+  1688→      redesSociales: Object.keys(redes).length ? JSON.stringify(redes) : null,
+  1689→      descripcionPublica: f.descripcionPublica || null,
+  1690→      textoBienvenida: f.textoBienvenida || null,
+  1691→      terminosCondiciones: f.terminosCondiciones || null,
+  1692→      urlPersonalizada: f.urlPersonalizada || null,
+  1693→    };
+  1694→    setSaving(true);
+  1695→    try {
+  1696→      if (edit) await api.patch(`/api/empresas/${edit.id}`, payload);
+  1697→      else await api.post("/api/empresas", payload);
+  1698→      showToast("Empresa guardada", "success");
+  1699→      onSaved();
+  1700→    } catch (e) {
+  1701→      showToast(e instanceof Error ? e.message : "Error", "error");
+  1702→    } finally {
+  1703→      setSaving(false);
+  1704→    }
+  1705→  }
+  1706→
+  1707→  function FieldLabel({ children }: { children: React.ReactNode }) {
+  1708→    return (
+  1709→      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 col-span-full mt-2 mb-1 first:mt-0">
+  1710→        {children}
+  1711→      </p>
+  1712→    );
+  1713→  }
+  1714→
+  1715→  return (
+  1716→    <Dialog open onOpenChange={(o) => !o && onClose()}>
+  1717→      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+  1718→        <DialogHeader>
+  1719→          <DialogTitle>{edit ? "Editar empresa" : "Nueva empresa"}</DialogTitle>
+  1720→          <p className="text-xs text-muted-foreground">
+  1721→            Configura la información básica, identidad visual, contacto y textos públicos.
+  1722→          </p>
+  1723→        </DialogHeader>
+  1724→        <div className="grid gap-3 sm:grid-cols-2">
+  1725→          <FieldLabel>Información básica</FieldLabel>
+  1726→          <div className="sm:col-span-2">
+  1727→            <Label>Nombre *</Label>
+  1728→            <Input value={String(f.nombre)} onChange={(e) => setF({ ...f, nombre: e.target.value })} />
+  1729→          </div>
+  1730→          <div>
+  1731→            <Label>Tipo de negocio *</Label>
+  1732→            <Select
+  1733→              value={String(f.tipoNegocioId)}
+  1734→              onValueChange={(v) => setF({ ...f, tipoNegocioId: v })}
+  1735→            >
+  1736→              <SelectTrigger>
+  1737→                <SelectValue placeholder="Seleccionar..." />
+  1738→              </SelectTrigger>
+  1739→              <SelectContent>
+  1740→                {tipos.map((t) => (
+  1741→                  <SelectItem key={t.id} value={t.id}>
+  1742→                    {t.nombre}
+  1743→                  </SelectItem>
+  1744→                ))}
+  1745→              </SelectContent>
+  1746→            </Select>
+  1747→          </div>
+  1748→          <div>
+  1749→            <Label>Estado</Label>
+  1750→            <Select
+  1751→              value={String(f.estado)}
+  1752→              onValueChange={(v) => setF({ ...f, estado: v })}
+  1753→            >
+  1754→              <SelectTrigger>
+  1755→                <SelectValue />
+  1756→              </SelectTrigger>
+  1757→              <SelectContent>
+  1758→                <SelectItem value="ACTIVA">Activa</SelectItem>
+  1759→                <SelectItem value="INACTIVA">Inactiva</SelectItem>
+  1760→                <SelectItem value="SUSPENDIDA">Suspendida</SelectItem>
+  1761→              </SelectContent>
+  1762→            </Select>
+  1763→          </div>
+  1764→
+  1765→          <FieldLabel>Identidad visual</FieldLabel>
+  1766→          <div>
+  1767→            <Label>Logo (URL)</Label>
+  1768→            <Input
+  1769→              value={String(f.logo)}
+  1770→              onChange={(e) => setF({ ...f, logo: e.target.value })}
+  1771→              placeholder="https://..."
+  1772→            />
+  1773→          </div>
+  1774→          <div>
+  1775→            <Label>Imagen de portada (URL)</Label>
+  1776→            <Input
+  1777→              value={String(f.imagenPortada)}
+  1778→              onChange={(e) => setF({ ...f, imagenPortada: e.target.value })}
+  1779→              placeholder="https://..."
+  1780→            />
+  1781→          </div>
+  1782→          <div>
+  1783→            <Label>Color principal</Label>
+  1784→            <div className="flex items-center gap-2">
+  1785→              <input
+  1786→                type="color"
+  1787→                value={String(f.colorPrincipal)}
+  1788→                onChange={(e) => setF({ ...f, colorPrincipal: e.target.value })}
+  1789→                className="h-9 w-12 rounded border border-input bg-background p-1"
+  1790→              />
+  1791→              <Input
+  1792→                value={String(f.colorPrincipal)}
+  1793→                onChange={(e) => setF({ ...f, colorPrincipal: e.target.value })}
+  1794→                className="font-mono text-xs"
+  1795→              />
+  1796→            </div>
+  1797→          </div>
+  1798→          <div>
+  1799→            <Label>Color secundario</Label>
+  1800→            <div className="flex items-center gap-2">
+  1801→              <input
+  1802→                type="color"
+  1803→                value={String(f.colorSecundario)}
+  1804→                onChange={(e) => setF({ ...f, colorSecundario: e.target.value })}
+  1805→                className="h-9 w-12 rounded border border-input bg-background p-1"
+  1806→              />
+  1807→              <Input
+  1808→                value={String(f.colorSecundario)}
+  1809→                onChange={(e) => setF({ ...f, colorSecundario: e.target.value })}
+  1810→                className="font-mono text-xs"
+  1811→              />
+  1812→            </div>
+  1813→          </div>
+  1814→          {((f.logo as string) || (f.imagenPortada as string)) && (
+  1815→            <div className="sm:col-span-2 flex gap-3 mt-1">
+  1816→              {f.logo && (
+  1817→                <div className="rounded-lg border p-2 bg-slate-50">
+  1818→                  <img
+  1819→                    src={String(f.logo)}
+  1820→                    alt="Logo preview"
+  1821→                    className="h-12 w-12 object-contain"
+  1822→                  />
+  1823→                </div>
+  1824→              )}
+  1825→              {f.imagenPortada && (
+  1826→                <div className="rounded-lg border overflow-hidden bg-slate-50">
+  1827→                  <img
+  1828→                    src={String(f.imagenPortada)}
+  1829→                    alt="Portada preview"
+  1830→                    className="h-12 w-32 object-cover"
+  1831→                  />
+  1832→                </div>
+  1833→              )}
+  1834→            </div>
+  1835→          )}
+  1836→
+  1837→          <FieldLabel>Contacto y ubicación</FieldLabel>
+  1838→          <div>
+  1839→            <Label>Teléfono</Label>
+  1840→            <Input
+  1841→              value={String(f.telefono)}
+  1842→              onChange={(e) => setF({ ...f, telefono: e.target.value })}
+  1843→            />
+  1844→          </div>
+  1845→          <div>
+  1846→            <Label>WhatsApp</Label>
+  1847→            <Input
+  1848→              value={String(f.whatsapp)}
+  1849→              onChange={(e) => setF({ ...f, whatsapp: e.target.value })}
+  1850→              placeholder="809-000-0000"
+  1851→            />
+  1852→          </div>
+  1853→          <div className="sm:col-span-2">
+  1854→            <Label>Dirección</Label>
+  1855→            <Input
+  1856→              value={String(f.direccion)}
+  1857→              onChange={(e) => setF({ ...f, direccion: e.target.value })}
+  1858→            />
+  1859→          </div>
+  1860→          <div>
+  1861→            <Label>Ciudad</Label>
+  1862→            <Input
+  1863→              value={String(f.ciudad)}
+  1864→              onChange={(e) => setF({ ...f, ciudad: e.target.value })}
+  1865→            />
+  1866→          </div>
+  1867→          <div>
+  1868→            <Label>Horario</Label>
+  1869→            <Input
+  1870→              value={String(f.horario)}
+  1871→              onChange={(e) => setF({ ...f, horario: e.target.value })}
+  1872→              placeholder="Lun-Vie 8am-6pm, Sab 8am-2pm"
+  1873→            />
+  1874→          </div>
+  1875→          <div>
+  1876→            <Label>Instagram (URL)</Label>
+  1877→            <Input
+  1878→              value={String(f.instagram)}
+  1879→              onChange={(e) => setF({ ...f, instagram: e.target.value })}
+  1880→              placeholder="https://instagram.com/..."
+  1881→            />
+  1882→          </div>
+  1883→          <div>
+  1884→            <Label>Facebook (URL)</Label>
+  1885→            <Input
+  1886→              value={String(f.facebook)}
+  1887→              onChange={(e) => setF({ ...f, facebook: e.target.value })}
+  1888→              placeholder="https://facebook.com/..."
+  1889→            />
+  1890→          </div>
+  1891→
+  1892→          <FieldLabel>Textos públicos</FieldLabel>
+  1893→          <div>
+  1894→            <Label>URL personalizada (slug)</Label>
+  1895→            <Input
+  1896→              value={String(f.urlPersonalizada)}
+  1897→              onChange={(e) => setF({ ...f, urlPersonalizada: e.target.value })}
+  1898→              placeholder="mi-empresa"
+  1899→            />
+  1900→          </div>
+  1901→          <div className="sm:col-span-2">
+  1902→            <Label>Descripción pública</Label>
+  1903→            <Textarea
+  1904→              value={String(f.descripcionPublica)}
+  1905→              onChange={(e) => setF({ ...f, descripcionPublica: e.target.value })}
+  1906→              rows={2}
+  1907→              placeholder="Descripción corta que ven los clientes en la landing"
+  1908→            />
+  1909→          </div>
+  1910→          <div className="sm:col-span-2">
+  1911→            <Label>Texto de bienvenida</Label>
+  1912→            <Textarea
+  1913→              value={String(f.textoBienvenida)}
+  1914→              onChange={(e) => setF({ ...f, textoBienvenida: e.target.value })}
+  1915→              rows={2}
+  1916→              placeholder="Mensaje que verá el cliente al registrarse"
+  1917→            />
+  1918→          </div>
+  1919→          <div className="sm:col-span-2">
+  1920→            <Label>Términos y condiciones</Label>
+  1921→            <Textarea
+  1922→              value={String(f.terminosCondiciones)}
+  1923→              onChange={(e) => setF({ ...f, terminosCondiciones: e.target.value })}
+  1924→              rows={4}
+  1925→              placeholder="Términos legales que el cliente acepta al registrarse"
+  1926→            />
+  1927→          </div>
+  1928→        </div>
+  1929→        <DialogFooter>
+  1930→          <Button variant="outline" onClick={onClose}>
+  1931→            Cancelar
+  1932→          </Button>
+  1933→          <Button onClick={save} disabled={saving}>
+  1934→            {saving ? "Guardando..." : "Guardar"}
+  1935→          </Button>
+  1936→        </DialogFooter>
+  1937→      </DialogContent>
+  1938→    </Dialog>
+  1939→  );
+  1940→}
+  1941→

@@ -78,9 +78,15 @@ function pickEmpresaFields(body: any) {
     "nombre", "tipoNegocioId", "logo", "telefono", "whatsapp", "direccion", "ciudad",
     "colorPrincipal", "colorSecundario", "descripcionPublica", "imagenPortada", "horario",
     "redesSociales", "urlPersonalizada", "textoBienvenida", "terminosCondiciones", "estado",
+    "calificacion", "servicios", "galeria", "destacada",
   ];
   for (const k of allowed) {
-    if (body[k] !== undefined) out[k] = body[k] === "" ? null : body[k];
+    if (body[k] !== undefined) {
+      if (body[k] === "") out[k] = null;
+      else if (k === "calificacion") out[k] = body[k] === null ? null : Number(body[k]);
+      else if (k === "destacada") out[k] = !!body[k];
+      else out[k] = body[k];
+    }
   }
   return out;
 }

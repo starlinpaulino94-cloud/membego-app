@@ -57,6 +57,7 @@ export async function POST(req: NextRequest) {
       nombre, tipoEstrategia, descripcion, requierePago, precio, duracionDias,
       cantidadUsos, metaVisitas, puntosPorConsumo, puntosPorMonto, recompensa, descuentoPct,
       fechaInicio, fechaFin, terminos, estado, empresaId, tipoNegocioId,
+      incluye, limiteCupos, cuposDisponibles, destacada, escasezTipo,
     } = body;
     const empId = empresaId || user.empresaId;
     if (!empId) return err("empresaId es obligatorio", 422);
@@ -85,6 +86,11 @@ export async function POST(req: NextRequest) {
         fechaInicio: fechaInicio ? new Date(fechaInicio) : null,
         fechaFin: fechaFin ? new Date(fechaFin) : null,
         terminos: terminos || null,
+        incluye: incluye ? (typeof incluye === "string" ? incluye : JSON.stringify(incluye)) : null,
+        limiteCupos: Number(limiteCupos) || 0,
+        cuposDisponibles: Number(cuposDisponibles) || 0,
+        destacada: !!destacada,
+        escasezTipo: escasezTipo || null,
         estado: estado || "ACTIVA",
       },
       include: { tipoNegocio: true },

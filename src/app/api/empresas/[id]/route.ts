@@ -33,10 +33,16 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
       "nombre", "tipoNegocioId", "logo", "telefono", "whatsapp", "direccion", "ciudad",
       "colorPrincipal", "colorSecundario", "descripcionPublica", "imagenPortada", "horario",
       "redesSociales", "urlPersonalizada", "textoBienvenida", "terminosCondiciones", "estado",
+      "calificacion", "servicios", "galeria", "destacada",
     ];
     const data: Record<string, unknown> = {};
     for (const k of allowed) {
-      if (body[k] !== undefined) data[k] = body[k] === "" ? null : body[k];
+      if (body[k] !== undefined) {
+        if (body[k] === "") data[k] = null;
+        else if (k === "calificacion") data[k] = body[k] === null ? null : Number(body[k]);
+        else if (k === "destacada") data[k] = !!body[k];
+        else data[k] = body[k];
+      }
     }
     const empresa = await db.empresa.update({
       where: { id },

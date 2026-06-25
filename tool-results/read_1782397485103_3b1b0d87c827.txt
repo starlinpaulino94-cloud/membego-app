@@ -1,0 +1,872 @@
+     1→"use client";
+     2→import { useEffect, useState, useCallback } from "react";
+     3→import { useStore, fmtFecha, fmtMonto, type AdminSection } from "../store";
+     4→import { api, type Empresa, type TipoNegocio } from "../api-client";
+     5→import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+     6→import { Button } from "@/components/ui/button";
+     7→import { Input } from "@/components/ui/input";
+     8→import { Label } from "@/components/ui/label";
+     9→import {
+    10→  Dialog,
+    11→  DialogContent,
+    12→  DialogHeader,
+    13→  DialogTitle,
+    14→  DialogFooter,
+    15→} from "@/components/ui/dialog";
+    16→import {
+    17→  Select,
+    18→  SelectContent,
+    19→  SelectItem,
+    20→  SelectTrigger,
+    21→  SelectValue,
+    22→} from "@/components/ui/select";
+    23→import { SectionHeader, EstadoBadge, StatCard, EmptyState } from "../shared";
+    24→import {
+    25→  Building2,
+    26→  Users,
+    27→  BarChart3,
+    28→  Plus,
+    29→  Trash2,
+    30→  Building,
+    31→  CheckCircle2,
+    32→  TrendingUp,
+    33→  Car,
+    34→  UtensilsCrossed,
+    35→  Boxes,
+    36→  CreditCard,
+    37→  Sparkles,
+    38→  ArrowLeft,
+    39→  Plug,
+    40→  ShieldCheck,
+    41→} from "lucide-react";
+    42→import { ScannerFlow } from "./ScannerFlow";
+    43→import {
+    44→  ClientesManager,
+    45→  BeneficiosManager,
+    46→  PagosManager,
+    47→  UsosManager,
+    48→  EmpresaForm,
+    49→} from "./EmpresaPanel";
+    50→
+    51→export function SuperadminPanel({ section }: { section: AdminSection }) {
+    52→  const [selectedEmpresaId, setSelectedEmpresaId] = useState<string | null>(null);
+    53→
+    54→  // Las secciones que requieren elegir una empresa primero
+    55→  const needsEmpresa =
+    56→    section === "clientes" ||
+    57→    section === "beneficios" ||
+    58→    section === "pagos" ||
+    59→    section === "usos" ||
+    60→    section === "configuracion";
+    61→
+    62→  if (section === "dashboard") return <SuperadminDashboard />;
+    63→  if (section === "empresas") return <EmpresasManager />;
+    64→  if (section === "escanear") return <ScannerFlow />;
+    65→  if (section === "reportes") return <ReportesGlobal />;
+    66→
+    67→  if (needsEmpresa) {
+    68→    if (!selectedEmpresaId) {
+    69→      return (
+    70→        <EmpresaSelector
+    71→          title={titleForSection(section)}
+    72→          description="Selecciona la empresa sobre la que quieres operar"
+    73→          onSelect={setSelectedEmpresaId}
+    74→        />
+    75→      );
+    76→    }
+    77→    const onBack = () => setSelectedEmpresaId(null);
+    78→    if (section === "clientes")
+    79→      return <ClientesManager empresaId={selectedEmpresaId} onBack={onBack} />;
+    80→    if (section === "beneficios")
+    81→      return <BeneficiosManager empresaId={selectedEmpresaId} onBack={onBack} />;
+    82→    if (section === "pagos")
+    83→      return <PagosManager empresaId={selectedEmpresaId} onBack={onBack} />;
+    84→    if (section === "usos")
+    85→      return <UsosManager empresaId={selectedEmpresaId} onBack={onBack} />;
+    86→    if (section === "configuracion")
+    87→      return <SuperadminConfiguracion empresaId={selectedEmpresaId} onBack={onBack} />;
+    88→  }
+    89→
+    90→  return null;
+    91→}
+    92→
+    93→function titleForSection(section: AdminSection): string {
+    94→  switch (section) {
+    95→    case "clientes":
+    96→      return "Clientes";
+    97→    case "beneficios":
+    98→      return "Beneficios";
+    99→    case "pagos":
+   100→      return "Pagos pendientes";
+   101→    case "usos":
+   102→      return "Usos registrados";
+   103→    case "configuracion":
+   104→      return "Configuración de integraciones";
+   105→    default:
+   106→      return "Seleccionar empresa";
+   107→  }
+   108→}
+   109→
+   110→/* ──────────────────────────────────────────────────────────
+   111→   Dashboard global con nuevas métricas
+   112→   ────────────────────────────────────────────────────────── */
+   113→
+   114→function SuperadminDashboard() {
+   115→  const [rep, setRep] = useState<any>(null);
+   116→  const [empresas, setEmpresas] = useState<Empresa[]>([]);
+   117→  const [empresaReports, setEmpresaReports] = useState<Record<string, any>>({});
+   118→
+   119→  useEffect(() => {
+   120→    api
+   121→      .get(`/api/reportes?tipo=general`)
+   122→      .then(setRep)
+   123→      .catch(() => {});
+   124→  }, []);
+   125→
+   126→  useEffect(() => {
+   127→    api
+   128→      .get<{ empresas: Empresa[] }>(`/api/empresas`)
+   129→      .then((r) => setEmpresas(r.empresas))
+   130→      .catch(() => {});
+   131→  }, []);
+   132→
+   133→  useEffect(() => {
+   134→    // Cargar reportes por empresa para métricas detalladas
+   135→    let cancelled = false;
+   136→    Promise.all(
+   137→      empresas.map((e) =>
+   138→        api
+   139→          .get<any>(`/api/reportes?tipo=empresa&empresaId=${e.id}`)
+   140→          .then((r) => [e.id, r] as const)
+   141→          .catch(() => [e.id, null] as const)
+   142→      )
+   143→    ).then((results) => {
+   144→      if (cancelled) return;
+   145→      const map: Record<string, any> = {};
+   146→      results.forEach(([id, r]) => {
+   147→        if (r) map[id] = r;
+   148→      });
+   149→      setEmpresaReports(map);
+   150→    });
+   151→    return () => {
+   152→      cancelled = true;
+   153→    };
+   154→  }, [empresas]);
+   155→
+   156→  if (!rep) return <p className="text-muted-foreground">Cargando dashboard...</p>;
+   157→
+   158→  // Calcular agregados a partir de reportes por empresa
+   159→  const beneficiosActivos = empresas.reduce(
+   160→    (sum, e) => sum + (empresaReports[e.id]?.estrategiasActivas || 0),
+   161→    0
+   162→  );
+   163→  const beneficiosPendientesPago = empresas.reduce(
+   164→    (sum, e) => sum + (empresaReports[e.id]?.estrategiasClienteEstado?.pendientes || 0),
+   165→    0
+   166→  );
+   167→  const usosHoy = empresas.reduce(
+   168→    (sum, e) => sum + (empresaReports[e.id]?.usosHoy || 0),
+   169→    0
+   170→  );
+   171→  // Usos hoy también podría venir del general report.transaccionesPorDia de hoy
+   172→  const hoyStr = new Date().toISOString().slice(0, 10);
+   173→  const usosHoyFromGeneral =
+   174→    rep.transaccionesPorDia?.find((d: any) => d.fecha?.slice(0, 10) === hoyStr)?.total || 0;
+   175→
+   176→  return (
+   177→    <div>
+   178→      <SectionHeader
+   179→        title="Dashboard"
+   180→        description="Vista global de la plataforma Club de Beneficios QR"
+   181→      />
+   182→      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+   183→        <StatCard
+   184→          label="Empresas activas"
+   185→          value={rep.empresasActivas ?? 0}
+   186→          icon={<Building2 className="h-5 w-5" />}
+   187→          accent="text-emerald-600 bg-emerald-50"
+   188→        />
+   189→        <StatCard
+   190→          label="Clientes registrados"
+   191→          value={rep.totalClientes ?? 0}
+   192→          icon={<Users className="h-5 w-5" />}
+   193→          accent="text-sky-600 bg-sky-50"
+   194→        />
+   195→        <StatCard
+   196→          label="Beneficios activos"
+   197→          value={beneficiosActivos}
+   198→          icon={<Sparkles className="h-5 w-5" />}
+   199→          accent="text-violet-600 bg-violet-50"
+   200→        />
+   201→        <StatCard
+   202→          label="Beneficios pendientes de pago"
+   203→          value={beneficiosPendientesPago}
+   204→          icon={<CreditCard className="h-5 w-5" />}
+   205→          accent="text-amber-600 bg-amber-50"
+   206→        />
+   207→        <StatCard
+   208→          label="Usos registrados hoy"
+   209→          value={Math.max(usosHoy, usosHoyFromGeneral)}
+   210→          icon={<TrendingUp className="h-5 w-5" />}
+   211→          accent="text-pink-600 bg-pink-50"
+   212→        />
+   213→        <StatCard
+   214→          label="Transacciones totales"
+   215→          value={rep.totalTransacciones ?? 0}
+   216→          icon={<BarChart3 className="h-5 w-5" />}
+   217→          accent="text-slate-600 bg-slate-100"
+   218→        />
+   219→      </div>
+   220→
+   221→      <div className="mt-6 grid gap-4 lg:grid-cols-2">
+   222→        <Card>
+   223→          <CardHeader>
+   224→            <CardTitle className="text-sm">Tipos de negocio</CardTitle>
+   225→          </CardHeader>
+   226→          <CardContent className="space-y-2">
+   227→            {(rep.tiposNegocio || []).map((t: any) => (
+   228→              <div key={t.id} className="flex items-center justify-between text-sm">
+   229→                <span className="flex items-center gap-2">
+   230→                  {t.nombre === "Carwash" ? (
+   231→                    <Car className="h-4 w-4 text-sky-600" />
+   232→                  ) : (
+   233→                    <UtensilsCrossed className="h-4 w-4 text-orange-600" />
+   234→                  )}
+   235→                  {t.nombre}
+   236→                </span>
+   237→                <span className="text-muted-foreground text-xs">
+   238→                  {t.empresas} empresas · {t.clientes} clientes
+   239→                </span>
+   240→              </div>
+   241→            ))}
+   242→          </CardContent>
+   243→        </Card>
+   244→        <Card>
+   245→          <CardHeader>
+   246→            <CardTitle className="text-sm">Promociones más usadas</CardTitle>
+   247→          </CardHeader>
+   248→          <CardContent>
+   249→            {(rep.estrategiasMasUsadas || []).length === 0 ? (
+   250→              <p className="text-sm text-muted-foreground">Sin datos</p>
+   251→            ) : (
+   252→              <div className="space-y-1">
+   253→                {(rep.estrategiasMasUsadas || []).map((e: any, i: number) => (
+   254→                  <div
+   255→                    key={i}
+   256→                    className="flex items-center justify-between text-sm py-1.5 border-b last:border-0"
+   257→                  >
+   258→                    <span className="flex items-center gap-2 min-w-0">
+   259→                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-100 text-xs font-bold shrink-0">
+   260→                        {i + 1}
+   261→                      </span>
+   262→                      <span className="truncate">
+   263→                        {e.nombre}{" "}
+   264→                        <span className="text-xs text-muted-foreground">({e.empresa})</span>
+   265→                      </span>
+   266→                    </span>
+   267→                    <span className="font-medium shrink-0">{e.total}</span>
+   268→                  </div>
+   269→                ))}
+   270→              </div>
+   271→            )}
+   272→          </CardContent>
+   273→        </Card>
+   274→      </div>
+   275→
+   276→      <Card className="mt-4">
+   277→        <CardHeader>
+   278→          <CardTitle className="text-sm">Transacciones últimos 14 días</CardTitle>
+   279→        </CardHeader>
+   280→        <CardContent>
+   281→          <div className="flex items-end gap-1 h-32">
+   282→            {(rep.transaccionesPorDia || []).map((d: any) => {
+   283→              const max = Math.max(
+   284→                1,
+   285→                ...(rep.transaccionesPorDia || []).map((x: any) => x.total)
+   286→              );
+   287→              return (
+   288→                <div
+   289→                  key={d.fecha}
+   290→                  className="flex-1 flex flex-col items-center gap-1"
+   291→                >
+   292→                  <div
+   293→                    className="w-full bg-slate-700 rounded-t"
+   294→                    style={{ height: `${Math.max(2, (d.total / max) * 100)}%` }}
+   295→                  />
+   296→                  <span className="text-[9px] text-muted-foreground">
+   297→                    {d.fecha.slice(5)}
+   298→                  </span>
+   299→                </div>
+   300→              );
+   301→            })}
+   302→          </div>
+   303→        </CardContent>
+   304→      </Card>
+   305→
+   306→      <Card className="mt-4">
+   307→        <CardHeader>
+   308→          <CardTitle className="text-sm">Resumen por empresa</CardTitle>
+   309→        </CardHeader>
+   310→        <CardContent>
+   311→          {empresas.length === 0 ? (
+   312→            <p className="text-sm text-muted-foreground">Sin empresas</p>
+   313→          ) : (
+   314→            <div className="space-y-2">
+   315→              {empresas.map((e) => {
+   316→                const r = empresaReports[e.id];
+   317→                return (
+   318→                  <div
+   319→                    key={e.id}
+   320→                    className="flex items-center justify-between rounded-lg border p-3 text-sm"
+   321→                  >
+   322→                    <div className="flex items-center gap-2 min-w-0">
+   323→                      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 shrink-0">
+   324→                        <Building className="h-4 w-4" />
+   325→                      </div>
+   326→                      <div className="min-w-0">
+   327→                        <p className="font-medium truncate">{e.nombre}</p>
+   328→                        <p className="text-xs text-muted-foreground truncate">
+   329→                          {e.ciudad || "—"} · {e.tipoNegocio?.nombre || "—"}
+   330→                        </p>
+   331→                      </div>
+   332→                    </div>
+   333→                    <div className="flex items-center gap-3 text-xs text-muted-foreground shrink-0">
+   334→                      <span>{r?.clientesRegistrados ?? 0} clientes</span>
+   335→                      <span>{r?.estrategiasActivas ?? 0} beneficios</span>
+   336→                      <EstadoBadge estado={e.estado} />
+   337→                    </div>
+   338→                  </div>
+   339→                );
+   340→              })}
+   341→            </div>
+   342→          )}
+   343→        </CardContent>
+   344→      </Card>
+   345→    </div>
+   346→  );
+   347→}
+   348→
+   349→/* ──────────────────────────────────────────────────────────
+   350→   Empresas Manager (CRUD con branding)
+   351→   ────────────────────────────────────────────────────────── */
+   352→
+   353→function EmpresasManager() {
+   354→  const { showToast } = useStore();
+   355→  const [empresas, setEmpresas] = useState<Empresa[]>([]);
+   356→  const [tipos, setTipos] = useState<TipoNegocio[]>([]);
+   357→  const [open, setOpen] = useState(false);
+   358→  const [loading, setLoading] = useState(true);
+   359→  const [edit, setEdit] = useState<Empresa | null>(null);
+   360→
+   361→  const load = useCallback(() => {
+   362→    setLoading(true);
+   363→    api
+   364→      .get<{ empresas: Empresa[] }>(`/api/empresas`)
+   365→      .then((r) => setEmpresas(r.empresas))
+   366→      .catch(() => {})
+   367→      .finally(() => setLoading(false));
+   368→  }, []);
+   369→  // eslint-disable-next-line react-hooks/set-state-in-effect
+   370→  useEffect(load, [load]);
+   371→  useEffect(() => {
+   372→    api
+   373→      .get<{ tipos: TipoNegocio[] }>(`/api/tipos-negocio`)
+   374→      .then((r) => setTipos(r.tipos))
+   375→      .catch(() => {});
+   376→  }, []);
+   377→
+   378→  async function toggle(e: Empresa) {
+   379→    try {
+   380→      await api.patch(`/api/empresas/${e.id}`, {
+   381→        estado: e.estado === "ACTIVA" ? "INACTIVA" : "ACTIVA",
+   382→      });
+   383→      load();
+   384→      showToast("Estado actualizado", "success");
+   385→    } catch {
+   386→      showToast("Error", "error");
+   387→    }
+   388→  }
+   389→  async function remove(id: string) {
+   390→    if (!confirm("¿Eliminar esta empresa? Esta acción no se puede deshacer.")) return;
+   391→    try {
+   392→      await api.del(`/api/empresas/${id}`);
+   393→      showToast("Empresa eliminada", "success");
+   394→      load();
+   395→    } catch {
+   396→      showToast("Error", "error");
+   397→    }
+   398→  }
+   399→
+   400→  return (
+   401→    <div>
+   402→      <SectionHeader
+   403→        title="Empresas"
+   404→        description="Administra las empresas de la plataforma con su identidad de marca"
+   405→        action={
+   406→          <Button
+   407→            onClick={() => {
+   408→              setEdit(null);
+   409→              setOpen(true);
+   410→            }}
+   411→          >
+   412→            <Plus className="mr-1.5 h-4 w-4" /> Nueva empresa
+   413→          </Button>
+   414→        }
+   415→      />
+   416→      {loading ? (
+   417→        <p className="text-muted-foreground">Cargando...</p>
+   418→      ) : empresas.length === 0 ? (
+   419→        <EmptyState
+   420→          title="Sin empresas"
+   421→          description="Crea la primera empresa de la plataforma"
+   422→          icon={<Building2 className="h-10 w-10" />}
+   423→        />
+   424→      ) : (
+   425→        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+   426→          {empresas.map((e) => (
+   427→            <Card key={e.id}>
+   428→              <CardContent className="p-4">
+   429→                <div className="flex items-start justify-between">
+   430→                  <div className="flex items-center gap-2 min-w-0">
+   431→                    <div
+   432→                      className="flex h-9 w-9 items-center justify-center rounded-lg shrink-0"
+   433→                      style={{
+   434→                        backgroundColor: (e.colorPrincipal || "#0f172a") + "22",
+   435→                        color: e.colorPrincipal || "#0f172a",
+   436→                      }}
+   437→                    >
+   438→                      {e.logo ? (
+   439→                        <img
+   440→                          src={e.logo}
+   441→                          alt={e.nombre}
+   442→                          className="h-6 w-6 object-contain"
+   443→                        />
+   444→                      ) : (
+   445→                        <Building className="h-4 w-4" />
+   446→                      )}
+   447→                    </div>
+   448→                    <div className="min-w-0">
+   449→                      <p className="font-semibold truncate">{e.nombre}</p>
+   450→                      <p className="text-xs text-muted-foreground truncate">
+   451→                        {e.tipoNegocio?.nombre}
+   452→                      </p>
+   453→                    </div>
+   454→                  </div>
+   455→                  <EstadoBadge estado={e.estado} />
+   456→                </div>
+   457→                <p className="text-xs text-muted-foreground mt-2 truncate">
+   458→                  {e.direccion ? `${e.direccion} · ` : ""}
+   459→                  {e.telefono || "—"}
+   460→                </p>
+   461→                {e.ciudad && (
+   462→                  <p className="text-xs text-muted-foreground mt-0.5">{e.ciudad}</p>
+   463→                )}
+   464→                <div className="mt-2 flex gap-3 text-xs text-muted-foreground">
+   465→                  <span>{e._count?.clientes || 0} clientes</span>
+   466→                  <span>{e._count?.estrategias || 0} beneficios</span>
+   467→                </div>
+   468→                <div className="mt-3 flex gap-2">
+   469→                  <Button
+   470→                    size="sm"
+   471→                    variant="outline"
+   472→                    onClick={() => {
+   473→                      setEdit(e);
+   474→                      setOpen(true);
+   475→                    }}
+   476→                  >
+   477→                    Editar
+   478→                  </Button>
+   479→                  <Button size="sm" variant="ghost" onClick={() => toggle(e)}>
+   480→                    {e.estado === "ACTIVA" ? "Desactivar" : "Activar"}
+   481→                  </Button>
+   482→                  <Button size="sm" variant="ghost" onClick={() => remove(e.id)}>
+   483→                    <Trash2 className="h-3.5 w-3.5" />
+   484→                  </Button>
+   485→                </div>
+   486→              </CardContent>
+   487→            </Card>
+   488→          ))}
+   489→        </div>
+   490→      )}
+   491→      {open && (
+   492→        <EmpresaForm
+   493→          tipos={tipos}
+   494→          edit={edit}
+   495→          onClose={() => setOpen(false)}
+   496→          onSaved={() => {
+   497→            setOpen(false);
+   498→            load();
+   499→          }}
+   500→        />
+   501→      )}
+   502→    </div>
+   503→  );
+   504→}
+   505→
+   506→/* ──────────────────────────────────────────────────────────
+   507→   Selector de empresa (para secciones que requieren contexto)
+   508→   ────────────────────────────────────────────────────────── */
+   509→
+   510→function EmpresaSelector({
+   511→  title,
+   512→  description,
+   513→  onSelect,
+   514→}: {
+   515→  title: string;
+   516→  description: string;
+   517→  onSelect: (id: string) => void;
+   518→}) {
+   519→  const [empresas, setEmpresas] = useState<Empresa[]>([]);
+   520→  const [loading, setLoading] = useState(true);
+   521→  useEffect(() => {
+   522→    api
+   523→      .get<{ empresas: Empresa[] }>(`/api/empresas`)
+   524→      .then((r) => setEmpresas(r.empresas))
+   525→      .catch(() => {})
+   526→      .finally(() => setLoading(false));
+   527→  }, []);
+   528→  return (
+   529→    <div>
+   530→      <SectionHeader title={title} description={description} />
+   531→      {loading ? (
+   532→        <p className="text-muted-foreground">Cargando empresas...</p>
+   533→      ) : empresas.length === 0 ? (
+   534→        <EmptyState
+   535→          title="Sin empresas disponibles"
+   536→          description="Crea una empresa primero desde la sección Empresas"
+   537→          icon={<Building2 className="h-10 w-10" />}
+   538→        />
+   539→      ) : (
+   540→        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+   541→          {empresas.map((e) => (
+   542→            <button
+   543→              key={e.id}
+   544→              onClick={() => onSelect(e.id)}
+   545→              className="text-left rounded-xl border border-slate-200 bg-white p-4 transition hover:border-slate-900 hover:shadow-md"
+   546→            >
+   547→              <div className="flex items-start justify-between">
+   548→                <div className="flex items-center gap-2 min-w-0">
+   549→                  <div
+   550→                    className="flex h-9 w-9 items-center justify-center rounded-lg shrink-0"
+   551→                    style={{
+   552→                      backgroundColor: (e.colorPrincipal || "#0f172a") + "22",
+   553→                      color: e.colorPrincipal || "#0f172a",
+   554→                    }}
+   555→                  >
+   556→                    {e.logo ? (
+   557→                      <img
+   558→                        src={e.logo}
+   559→                        alt={e.nombre}
+   560→                        className="h-6 w-6 object-contain"
+   561→                      />
+   562→                    ) : (
+   563→                      <Building className="h-4 w-4" />
+   564→                    )}
+   565→                  </div>
+   566→                  <div className="min-w-0">
+   567→                    <p className="font-semibold truncate">{e.nombre}</p>
+   568→                    <p className="text-xs text-muted-foreground truncate">
+   569→                      {e.tipoNegocio?.nombre}
+   570→                    </p>
+   571→                  </div>
+   572→                </div>
+   573→                <EstadoBadge estado={e.estado} />
+   574→              </div>
+   575→              <p className="text-xs text-muted-foreground mt-2">
+   576→                {e._count?.clientes || 0} clientes · {e._count?.estrategias || 0} beneficios
+   577→              </p>
+   578→            </button>
+   579→          ))}
+   580→        </div>
+   581→      )}
+   582→    </div>
+   583→  );
+   584→}
+   585→
+   586→/* ──────────────────────────────────────────────────────────
+   587→   Configuración para superadmin (integraciones por empresa)
+   588→   ────────────────────────────────────────────────────────── */
+   589→
+   590→function SuperadminConfiguracion({
+   591→  empresaId,
+   592→  onBack,
+   593→}: {
+   594→  empresaId: string;
+   595→  onBack: () => void;
+   596→}) {
+   597→  const [tab, setTab] = useState<"integraciones" | "info">("integraciones");
+   598→  return (
+   599→    <div>
+   600→      <SectionHeader
+   601→        title="Configuración"
+   602→        description="Integraciones y datos de la empresa seleccionada"
+   603→        action={
+   604→          <Button variant="outline" onClick={onBack}>
+   605→            <ArrowLeft className="mr-1.5 h-4 w-4" /> Cambiar empresa
+   606→          </Button>
+   607→        }
+   608→      />
+   609→      <div className="mb-4 inline-flex rounded-lg border bg-white p-1 text-sm">
+   610→        <button
+   611→          onClick={() => setTab("integraciones")}
+   612→          className={`px-3 py-1.5 rounded-md font-medium ${
+   613→            tab === "integraciones"
+   614→              ? "bg-slate-900 text-white"
+   615→              : "text-slate-600 hover:text-slate-900"
+   616→          }`}
+   617→        >
+   618→          <Plug className="inline h-3.5 w-3.5 mr-1" /> Integraciones
+   619→        </button>
+   620→        <button
+   621→          onClick={() => setTab("info")}
+   622→          className={`px-3 py-1.5 rounded-md font-medium ${
+   623→            tab === "info" ? "bg-slate-900 text-white" : "text-slate-600 hover:text-slate-900"
+   624→          }`}
+   625→        >
+   626→          <ShieldCheck className="inline h-3.5 w-3.5 mr-1" /> Info
+   627→        </button>
+   628→      </div>
+   629→
+   630→      {tab === "integraciones" ? (
+   631→        <SuperadminIntegraciones empresaId={empresaId} />
+   632→      ) : (
+   633→        <SuperadminEmpresaInfo empresaId={empresaId} />
+   634→      )}
+   635→    </div>
+   636→  );
+   637→}
+   638→
+   639→function SuperadminIntegraciones({ empresaId }: { empresaId: string }) {
+   640→  const { showToast } = useStore();
+   641→  const [items, setItems] = useState<any[]>([]);
+   642→  const [loading, setLoading] = useState(true);
+   643→  const [open, setOpen] = useState(false);
+   644→
+   645→  const load = useCallback(() => {
+   646→    setLoading(true);
+   647→    api
+   648→      .get<{ integraciones: any[] }>(`/api/integraciones?empresaId=${empresaId}`)
+   649→      .then((r) => setItems(r.integraciones))
+   650→      .catch(() => {})
+   651→      .finally(() => setLoading(false));
+   652→  }, [empresaId]);
+   653→  // eslint-disable-next-line react-hooks/set-state-in-effect
+   654→  useEffect(load, [load]);
+   655→
+   656→  return (
+   657→    <div>
+   658→      <div className="flex items-center justify-between mb-4">
+   659→        <p className="text-sm text-muted-foreground">
+   660→          Las integraciones se configuran por empresa. Solo el admin de la empresa puede
+   661→          crearlas; el superadmin puede verlas y pausarlas.
+   662→        </p>
+   663→        <Button
+   664→          onClick={() => {
+   665→            showToast(
+   666→              "Crea integraciones desde el panel del admin de empresa",
+   667→              "info"
+   668→            );
+   669→          }}
+   670→          variant="outline"
+   671→          size="sm"
+   672→        >
+   673→          <Plus className="mr-1.5 h-4 w-4" /> Nueva
+   674→        </Button>
+   675→      </div>
+   676→      {loading ? (
+   677→        <p className="text-muted-foreground">Cargando...</p>
+   678→      ) : items.length === 0 ? (
+   679→        <EmptyState
+   680→          title="Sin integraciones"
+   681→          description="Esta empresa no tiene integraciones configuradas"
+   682→          icon={<Plug className="h-10 w-10" />}
+   683→        />
+   684→      ) : (
+   685→        <div className="grid gap-3 sm:grid-cols-2">
+   686→          {items.map((i) => (
+   687→            <Card key={i.id}>
+   688→              <CardContent className="p-4">
+   689→                <div className="flex items-start justify-between">
+   690→                  <p className="font-semibold flex items-center gap-2">
+   691→                    <Plug className="h-4 w-4 text-violet-600" /> {i.tipoIntegracion}
+   692→                  </p>
+   693→                  <EstadoBadge estado={i.estado} />
+   694→                </div>
+   695→                <p className="text-xs text-muted-foreground mt-1">
+   696→                  {i.webhookUrl || i.apiUrl || "Sin URL"}
+   697→                </p>
+   698→              </CardContent>
+   699→            </Card>
+   700→          ))}
+   701→        </div>
+   702→      )}
+   703→      {open && <div />}
+   704→    </div>
+   705→  );
+   706→}
+   707→
+   708→function SuperadminEmpresaInfo({ empresaId }: { empresaId: string }) {
+   709→  const [empresa, setEmpresa] = useState<Empresa | null>(null);
+   710→  useEffect(() => {
+   711→    api
+   712→      .get<{ empresa: Empresa }>(`/api/empresas/${empresaId}`)
+   713→      .then((r) => setEmpresa(r.empresa))
+   714→      .catch(() => {});
+   715→  }, [empresaId]);
+   716→  if (!empresa) return <p className="text-muted-foreground">Cargando...</p>;
+   717→  return (
+   718→    <Card>
+   719→      <CardContent className="p-4 space-y-2 text-sm">
+   720→        <div className="flex items-center gap-3">
+   721→          <div
+   722→            className="flex h-12 w-12 items-center justify-center rounded-lg"
+   723→            style={{
+   724→              backgroundColor: (empresa.colorPrincipal || "#0f172a") + "22",
+   725→              color: empresa.colorPrincipal || "#0f172a",
+   726→            }}
+   727→          >
+   728→            {empresa.logo ? (
+   729→              <img src={empresa.logo} alt="" className="h-8 w-8 object-contain" />
+   730→            ) : (
+   731→              <Building className="h-5 w-5" />
+   732→            )}
+   733→          </div>
+   734→          <div>
+   735→            <p className="font-semibold">{empresa.nombre}</p>
+   736→            <p className="text-xs text-muted-foreground">{empresa.tipoNegocio?.nombre}</p>
+   737→          </div>
+   738→        </div>
+   739→        <div className="grid grid-cols-2 gap-2 pt-2 border-t">
+   740→          <p>
+   741→            <span className="text-muted-foreground">Tel:</span> {empresa.telefono || "—"}
+   742→          </p>
+   743→          <p>
+   744→            <span className="text-muted-foreground">WhatsApp:</span>{" "}
+   745→            {empresa.whatsapp || "—"}
+   746→          </p>
+   747→          <p className="col-span-2">
+   748→            <span className="text-muted-foreground">Dirección:</span>{" "}
+   749→            {empresa.direccion || "—"}
+   750→          </p>
+   751→          <p>
+   752→            <span className="text-muted-foreground">Ciudad:</span> {empresa.ciudad || "—"}
+   753→          </p>
+   754→          <p>
+   755→            <span className="text-muted-foreground">Horario:</span> {empresa.horario || "—"}
+   756→          </p>
+   757→          {empresa.descripcionPublica && (
+   758→            <p className="col-span-2 text-muted-foreground italic">
+   759→              "{empresa.descripcionPublica}"
+   760→            </p>
+   761→          )}
+   762→        </div>
+   763→      </CardContent>
+   764→    </Card>
+   765→  );
+   766→}
+   767→
+   768→/* ──────────────────────────────────────────────────────────
+   769→   Reportes globales
+   770→   ────────────────────────────────────────────────────────── */
+   771→
+   772→function ReportesGlobal() {
+   773→  const [rep, setRep] = useState<any>(null);
+   774→  useEffect(() => {
+   775→    api
+   776→      .get(`/api/reportes?tipo=general`)
+   777→      .then(setRep)
+   778→      .catch(() => {});
+   779→  }, []);
+   780→  if (!rep) return <p className="text-muted-foreground">Cargando...</p>;
+   781→  return (
+   782→    <div>
+   783→      <SectionHeader title="Reportes globales" description="Métricas de toda la plataforma" />
+   784→      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+   785→        <StatCard
+   786→          label="Empresas"
+   787→          value={rep.totalEmpresas}
+   788→          icon={<Building2 className="h-5 w-5" />}
+   789→        />
+   790→        <StatCard
+   791→          label="Activas"
+   792→          value={rep.empresasActivas}
+   793→          icon={<CheckCircle2 className="h-5 w-5" />}
+   794→          accent="text-emerald-600 bg-emerald-50"
+   795→        />
+   796→        <StatCard
+   797→          label="Clientes"
+   798→          value={rep.totalClientes}
+   799→          icon={<Users className="h-5 w-5" />}
+   800→          accent="text-sky-600 bg-sky-50"
+   801→        />
+   802→        <StatCard
+   803→          label="Transacciones"
+   804→          value={rep.totalTransacciones}
+   805→          icon={<TrendingUp className="h-5 w-5" />}
+   806→          accent="text-amber-600 bg-amber-50"
+   807→        />
+   808→      </div>
+   809→      <Card className="mt-4">
+   810→        <CardHeader>
+   811→          <CardTitle className="text-sm">Transacciones últimos 14 días</CardTitle>
+   812→        </CardHeader>
+   813→        <CardContent>
+   814→          <div className="flex items-end gap-1 h-32">
+   815→            {(rep.transaccionesPorDia || []).map((d: any) => {
+   816→              const max = Math.max(
+   817→                1,
+   818→                ...(rep.transaccionesPorDia || []).map((x: any) => x.total)
+   819→              );
+   820→              return (
+   821→                <div
+   822→                  key={d.fecha}
+   823→                  className="flex-1 flex flex-col items-center gap-1"
+   824→                >
+   825→                  <div
+   826→                    className="w-full bg-slate-700 rounded-t"
+   827→                    style={{ height: `${Math.max(2, (d.total / max) * 100)}%` }}
+   828→                  />
+   829→                  <span className="text-[9px] text-muted-foreground">
+   830→                    {d.fecha.slice(5)}
+   831→                  </span>
+   832→                </div>
+   833→              );
+   834→            })}
+   835→          </div>
+   836→        </CardContent>
+   837→      </Card>
+   838→      <div className="mt-4 grid gap-4 lg:grid-cols-2">
+   839→        <Card>
+   840→          <CardHeader>
+   841→            <CardTitle className="text-sm">Por tipo de negocio</CardTitle>
+   842→          </CardHeader>
+   843→          <CardContent className="space-y-2">
+   844→            {(rep.transaccionesPorTipo || []).map((t: any) => (
+   845→              <div key={t.tipo} className="flex justify-between text-sm">
+   846→                <span>{t.tipo}</span>
+   847→                <span className="font-medium">{t.total}</span>
+   848→              </div>
+   849→            ))}
+   850→          </CardContent>
+   851→        </Card>
+   852→        <Card>
+   853→          <CardHeader>
+   854→            <CardTitle className="text-sm">Beneficios más usados</CardTitle>
+   855→          </CardHeader>
+   856→          <CardContent className="space-y-2">
+   857→            {(rep.estrategiasMasUsadas || []).length === 0 && (
+   858→              <p className="text-sm text-muted-foreground">Sin datos</p>
+   859→            )}
+   860→            {(rep.estrategiasMasUsadas || []).map((e: any, i: number) => (
+   861→              <div key={i} className="flex justify-between text-sm">
+   862→                <span className="truncate">{e.nombre}</span>
+   863→                <span className="font-medium shrink-0 ml-2">{e.total}</span>
+   864→              </div>
+   865→            ))}
+   866→          </CardContent>
+   867→        </Card>
+   868→      </div>
+   869→    </div>
+   870→  );
+   871→}
+   872→
