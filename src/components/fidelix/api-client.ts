@@ -1,4 +1,4 @@
-// Cliente API para FIDELIX QR. Lanza Error con .message legible.
+// Cliente API — Pase Digital QR. Lanza Error con .message legible.
 
 export type SessionUser = {
   id: string;

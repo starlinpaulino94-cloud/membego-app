@@ -1,5 +1,5 @@
-// FIDELIX QR - Plataforma SaaS de fidelización de clientes con códigos QR
-// Multiempresa, multi-tipo de negocio, estrategias de fidelización, QR, integraciones
+// Pase Digital QR - Plataforma de promociones y pases digitales con códigos QR
+// Multiempresa, multi-tipo de negocio, estrategias de promoción, QR, integraciones
 
 generator client {
   provider = "prisma-client-js"
@@ -157,7 +157,7 @@ model ClienteCampo {
 }
 
 // ============================================================
-// ESTRATEGIAS DE FIDELIZACIÓN
+// ESTRATEGIAS DE PROMOCIÓN
 // ============================================================
 
 model Estrategia {

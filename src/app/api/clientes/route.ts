@@ -78,7 +78,7 @@ export async function POST(req: NextRequest) {
         const u = await db.user.create({
           data: {
             email: String(email).toLowerCase(),
-            password: hashPassword(password || "Fidelix" + Math.random().toString(36).slice(2, 8) + "!"),
+            password: hashPassword(password || "Pase" + Math.random().toString(36).slice(2, 8) + "!"),
             nombre,
             telefono: telefono || null,
             rol: "CLIENTE",

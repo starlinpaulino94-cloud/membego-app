@@ -178,7 +178,7 @@ function SuperadminDashboard() {
     <div>
       <SectionHeader
         title="Dashboard"
-        description="Vista global de la plataforma Club de Beneficios QR"
+        description="Vista global de la plataforma Pase Digital QR"
       />
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <StatCard

@@ -1,4 +1,4 @@
-// Tipos y constantes compartidas de FIDELIX QR
+// Tipos y constantes compartidas — Pase Digital QR
 
 export type Rol = "SUPERADMIN" | "ADMIN_EMPRESA" | "EMPLEADO" | "CLIENTE";
 

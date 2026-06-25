@@ -79,7 +79,7 @@ export function AppShell() {
                 <QrCode className="h-4 w-4" />
               </div>
               <div className="hidden sm:block">
-                <p className="font-bold leading-none tracking-tight">FIDELIX QR</p>
+                <p className="font-bold leading-none tracking-tight">Pase Digital QR</p>
                 {empresaNombre && <p className="text-[11px] text-muted-foreground">{empresaNombre}</p>}
               </div>
             </div>
@@ -119,7 +119,7 @@ export function AppShell() {
             ))}
           </nav>
           <div className="p-3 border-t">
-            <p className="text-[11px] text-muted-foreground">FIDELIX QR v1.0</p>
+            <p className="text-[11px] text-muted-foreground">Pase Digital QR · Panel interno</p>
           </div>
         </aside>
 

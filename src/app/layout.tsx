@@ -14,10 +14,10 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Club de Beneficios QR — Beneficios exclusivos con tu código QR",
-  description: "Regístrate, elige una promoción disponible y recibe tu código QR para aprovechar beneficios en nuestros negocios participantes.",
-  keywords: ["Club de Beneficios", "QR", "beneficios", "promociones", "carwash", "restaurante", "membresías"],
-  authors: [{ name: "Club de Beneficios QR" }],
+  title: "Pase Digital — Acceso exclusivo a promociones privadas",
+  description: "Regístrate, activa tu Pase Digital y aprovecha oportunidades exclusivas en nuestros establecimientos participantes.",
+  keywords: ["Pase Digital", "QR", "promociones", "ofertas", "carwash", "restaurante", "membresías"],
+  authors: [{ name: "Pase Digital QR" }],
 };
 
 export default function RootLayout({

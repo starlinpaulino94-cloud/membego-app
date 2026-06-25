@@ -43,7 +43,7 @@ export function AppRoot() {
               <path d="M14 14h7v7h-7z" />
             </svg>
           </div>
-          <p className="text-sm text-muted-foreground">Club de Beneficios QR</p>
+          <p className="text-sm text-muted-foreground">Pase Digital QR</p>
         </div>
       </div>
     );

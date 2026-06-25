@@ -806,7 +806,7 @@ export function BeneficiosManager({
       ) : estrategias.length === 0 ? (
         <EmptyState
           title="Sin beneficios"
-          description="Crea tu primer beneficio para fidelizar clientes"
+          description="Crea tu primera promoción disponible para los clientes"
           icon={<Sparkles className="h-10 w-10" />}
         />
       ) : (

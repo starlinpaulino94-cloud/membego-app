@@ -24,7 +24,7 @@ export function QrDisplay({ token, label, size = 220 }: { token: string; label?:
       </div>
       {label && <p className="text-xs text-muted-foreground text-center">{label}</p>}
       {url && (
-        <a href={url} download={`fidelix-qr-${token.slice(0, 8)}.png`}>
+        <a href={url} download={`pase-digital-${token.slice(0, 8)}.png`}>
           <Button variant="outline" size="sm"><Download className="mr-1.5 h-4 w-4" /> Descargar</Button>
         </a>
       )}
@@ -35,7 +35,7 @@ export function QrDisplay({ token, label, size = 220 }: { token: string; label?:
 
 // Scanner de QR con cámara (html5-qrcode)
 export function QrScanner({ onScan, onError }: { onScan: (token: string) => void; onError?: (msg: string) => void }) {
-  const containerId = "fidelix-qr-reader";
+  const containerId = "pase-digital-qr-reader";
   const scannerRef = useRef<any>(null);
   const [active, setActive] = useState(false);
   const [starting, setStarting] = useState(false);

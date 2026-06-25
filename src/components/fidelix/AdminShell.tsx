@@ -151,7 +151,7 @@ export function AdminShell() {
               </div>
               <div className="hidden sm:block">
                 <p className="font-bold leading-none tracking-tight">
-                  Club de Beneficios <span className="text-slate-500">QR</span>
+                  Pase Digital <span className="text-slate-500">QR</span>
                 </p>
                 {empresaNombre && (
                   <p className="text-[11px] text-muted-foreground">{empresaNombre}</p>
@@ -194,7 +194,7 @@ export function AdminShell() {
             onSelect={setAdminSection}
           />
           <div className="p-3 border-t">
-            <p className="text-[11px] text-muted-foreground">Club de Beneficios QR · v2.0</p>
+            <p className="text-[11px] text-muted-foreground">Pase Digital QR · Panel interno</p>
           </div>
         </aside>
 
@@ -235,7 +235,7 @@ export function AdminShell() {
       {/* Sticky footer */}
       <footer className="mt-auto border-t bg-white">
         <div className="mx-auto max-w-6xl px-4 py-3 text-center text-[11px] text-muted-foreground">
-          Club de Beneficios QR · Panel interno · Acceso restringido a personal autorizado
+          Pase Digital QR · Panel interno · Acceso restringido a personal autorizado
         </div>
       </footer>
     </div>
