@@ -15,12 +15,13 @@ Los clientes se registran, activan su **Pase Digital** y reciben un código QR �
 | Framework | Next.js 16 + React 19 |
 | Lenguaje | TypeScript 5 |
 | Estilos | Tailwind CSS v4 + shadcn/ui |
-| Base de datos | SQLite (local) · PostgreSQL (producción) |
+| Base de datos | SQLite (local) · Supabase PostgreSQL (producción) |
 | ORM | Prisma 6 |
 | Auth | Sesiones custom — scrypt + cookies httpOnly |
 | Estado | Zustand |
 | QR | `qrcode` (generación) + `html5-qrcode` (escaneo por cámara) |
 | Runtime | Bun |
+| Deploy | Vercel (serverless) |
 
 ---
 
@@ -31,7 +32,7 @@ Los clientes se registran, activan su **Pase Digital** y reciben un código QR �
 
 ---
 
-## Instalación
+## Instalación local (SQLite)
 
 ```bash
 # 1. Clonar el repositorio
@@ -43,7 +44,10 @@ bun install
 
 # 3. Configurar variables de entorno
 cp .env.example .env
-# Editar .env si es necesario (ver sección Variables de entorno)
+# Editar .env y activar la OPCIÓN A (SQLite local):
+#   DATABASE_URL="file:./db/custom.db"
+#   DIRECT_URL="file:./db/custom.db"
+#   SESSION_SECRET="cualquier-cadena-local"
 
 # 4. Generar el cliente Prisma
 bun run db:generate
@@ -51,8 +55,9 @@ bun run db:generate
 # 5. Inicializar la base de datos (primera vez)
 bun run db:push
 
-# 6. Cargar datos de prueba (opcional)
-# Hacer POST a /api/seed desde el navegador o con curl:
+# 6. Cargar datos de prueba
+bun run dev
+# En otra terminal:
 curl -X POST http://localhost:3000/api/seed
 ```
 
@@ -60,23 +65,28 @@ curl -X POST http://localhost:3000/api/seed
 
 ## Variables de entorno
 
-Copia `.env.example` a `.env` y ajusta los valores:
+Copia `.env.example` a `.env`. Nunca subas `.env` a Git.
+
+### Desarrollo local con SQLite
 
 ```env
-# Base de datos local (SQLite para desarrollo)
 DATABASE_URL="file:./db/custom.db"
-
-# Secreto de sesión (usa una cadena larga y aleatoria en producción)
-SESSION_SECRET="change-this-to-a-long-random-secret"
+DIRECT_URL="file:./db/custom.db"
+SESSION_SECRET="dev-secret-local"
 ```
 
-### Para producción con Supabase PostgreSQL (Fase 2)
+### Producción con Supabase PostgreSQL
 
 ```env
-DATABASE_URL="postgresql://USER:PASSWORD@HOST:PORT/DATABASE?sslmode=require"
-```
+# Transaction pooler (pgBouncer) — para la app
+DATABASE_URL="postgresql://postgres.XXXXX:PASSWORD@aws-0-REGION.pooler.supabase.com:6543/postgres?pgbouncer=true"
 
-> El `SESSION_SECRET` no está implementado como variable de entorno en el código actual. La autenticación usa `scrypt` con salt aleatorio por contraseña. Esta variable queda documentada para implementación futura.
+# Conexión directa — solo para migraciones
+DIRECT_URL="postgresql://postgres.XXXXX:PASSWORD@aws-0-REGION.pooler.supabase.com:5432/postgres"
+
+# Genera con: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+SESSION_SECRET="cadena-aleatoria-larga-para-produccion"
+```
 
 ---
 
@@ -84,20 +94,23 @@ DATABASE_URL="postgresql://USER:PASSWORD@HOST:PORT/DATABASE?sslmode=require"
 
 ```bash
 # Desarrollo
-bun run dev          # Inicia en http://localhost:3000
+bun run dev              # Inicia en http://localhost:3000
 
-# Base de datos
-bun run db:generate  # Genera el cliente Prisma (requiere después de cambiar schema.prisma)
-bun run db:push      # Sincroniza el schema con la base de datos (sin migraciones)
-bun run db:migrate   # Crea y aplica una migración nueva
-bun run db:reset     # Resetea la base de datos (¡destruye datos!)
+# Base de datos (local)
+bun run db:generate      # Genera el cliente Prisma
+bun run db:push          # Sincroniza el schema sin migraciones (dev / primera vez)
+bun run db:migrate       # Crea y aplica una migración nueva (dev)
+bun run db:reset         # Resetea la base de datos ¡destruye datos!
 
-# Producción (standalone)
-bun run build        # Compila el proyecto
-bun run start        # Inicia el servidor de producción
+# Base de datos (producción)
+bun run db:migrate:deploy  # Aplica migraciones pendientes en producción
+
+# Producción
+bun run build            # Compila el proyecto
+bun run start            # Inicia el servidor compilado
 
 # Calidad
-bun run lint         # Revisa el código con ESLint
+bun run lint             # Revisa el código con ESLint
 ```
 
 ---
@@ -108,9 +121,7 @@ bun run lint         # Revisa el código con ESLint
 bun run dev
 ```
 
-Abre [http://localhost:3000](http://localhost:3000) en el navegador.
-
-La app usa routing por hash — todo está bajo `/`. Las rutas principales son:
+Abre [http://localhost:3000](http://localhost:3000). La app usa routing por hash — todo está bajo `/`:
 
 | Hash | Vista |
 |------|-------|
@@ -124,7 +135,7 @@ La app usa routing por hash — todo está bajo `/`. Las rutas principales son:
 
 ## Cuentas de prueba
 
-> Disponibles después de ejecutar el seed (`POST /api/seed`).
+> Disponibles después de ejecutar `POST /api/seed`.
 
 | Rol | Email | Contraseña |
 |-----|-------|------------|
@@ -133,6 +144,63 @@ La app usa routing por hash — todo está bajo `/`. Las rutas principales son:
 | Admin Restaurante | `admin.restaurante@fidelix.com` | `admin123` |
 | Empleado Carwash | `empleado.carwash@fidelix.com` | `admin123` |
 | Cliente | `cliente@fidelix.com` | `cliente123` |
+
+---
+
+## Despliegue en producción: Supabase + Vercel
+
+### 1. Crear proyecto en Supabase
+
+1. Ve a [supabase.com](https://supabase.com) y crea un nuevo proyecto.
+2. En **Settings → Database → Connection string**, copia:
+   - **Transaction pooler** (puerto `6543`) → `DATABASE_URL` (agrega `?pgbouncer=true` al final)
+   - **Direct connection** (puerto `5432`) → `DIRECT_URL`
+
+### 2. Crear las tablas en Supabase (primera vez)
+
+Con las variables apuntando a Supabase en tu `.env` local:
+
+```bash
+# Opción A — push directo (sin historial de migraciones)
+bun run db:push
+
+# Opción B — con migraciones formales
+bun run db:migrate       # crea la migración inicial
+bun run db:migrate:deploy  # aplica en producción
+```
+
+### 3. Cargar datos iniciales
+
+Con la app corriendo localmente (apuntando a Supabase):
+
+```bash
+curl -X POST http://localhost:3000/api/seed
+```
+
+O una vez que esté en Vercel:
+
+```bash
+curl -X POST https://TU-DOMINIO.vercel.app/api/seed
+```
+
+### 4. Configurar Vercel
+
+1. Conecta el repositorio en [vercel.com](https://vercel.com).
+2. En **Settings → Environment Variables**, agrega:
+
+| Variable | Valor |
+|----------|-------|
+| `DATABASE_URL` | Transaction pooler de Supabase (`?pgbouncer=true`) |
+| `DIRECT_URL` | Conexión directa de Supabase |
+| `SESSION_SECRET` | Cadena aleatoria larga (mín. 32 caracteres) |
+
+3. En **Settings → General → Build & Output Settings**:
+   - Build Command: `next build` (o deja el que Vercel detecta)
+   - Output Directory: `.next`
+
+4. Haz deploy. Vercel ejecuta `bun install` → `prisma generate` (via `postinstall`) → `next build`.
+
+> **Sin migraciones en Vercel:** Vercel no ejecuta migraciones automáticamente. Ejecuta `bun run db:migrate:deploy` desde tu máquina local antes de cada release que cambie el schema.
 
 ---
 
@@ -187,15 +255,15 @@ pase-digital-qr/
 ## Modelos de datos principales
 
 ```
-User          → Todos los usuarios del sistema (4 roles)
-Session       → Sesiones activas
-Empresa       → Negocios participantes
-TipoNegocio   → Carwash, Restaurante, etc.
-Cliente       → Perfil de cliente por empresa
-Estrategia    → Definición de una promoción
+User              → Todos los usuarios del sistema (4 roles)
+Session           → Sesiones activas
+Empresa           → Negocios participantes
+TipoNegocio       → Carwash, Restaurante, etc.
+Cliente           → Perfil de cliente por empresa
+Estrategia        → Definición de una promoción
 ClienteEstrategia → Promoción asignada a un cliente
-QrToken       → Pase Digital QR único por cliente/empresa
-Transaccion   → Historial de usos registrados
+QrToken           → Pase Digital QR único por cliente/empresa
+Transaccion       → Historial de usos registrados
 ```
 
 ---
@@ -234,31 +302,11 @@ Transaccion   → Historial de usos registrados
 
 ---
 
-## Notas importantes sobre la base de datos
-
-- En desarrollo se usa **SQLite** (`db/custom.db`).
-- El archivo `db/` está excluido de Git (`db/` en `.gitignore`).
-- Cada desarrollador debe inicializar su propia DB con `bun run db:push`.
-- Si quieres cargar datos de prueba: `curl -X POST http://localhost:3000/api/seed`
-
----
-
-## Próximo paso: Producción con Supabase (Fase 2)
-
-Para desplegar en **Vercel**, SQLite no es viable (serverless). La migración planificada es:
-
-1. Crear proyecto en [Supabase](https://supabase.com)
-2. Cambiar `provider = "postgresql"` en `prisma/schema.prisma`
-3. Actualizar `DATABASE_URL` en Vercel con la connection string de Supabase
-4. Ejecutar `prisma migrate deploy` contra la DB de producción
-5. Configurar variables de entorno en Vercel
-
----
-
 ## Seguridad
 
 - Las contraseñas se hashean con **scrypt** + salt aleatorio por usuario
-- Las sesiones usan cookies **httpOnly + sameSite:lax**
+- Las sesiones usan cookies **httpOnly + sameSite:lax** con TTL de 7 días
 - El QR contiene solo un **UUID anónimo**, nunca datos personales
-- El aislamiento por empresa está forzado en el backend: un empleado no puede ver datos de otra empresa
+- El aislamiento por empresa está forzado en el backend
 - Las rutas del panel interno no están enlazadas desde la landing pública
+- `.env` nunca se sube a Git (está en `.gitignore`)

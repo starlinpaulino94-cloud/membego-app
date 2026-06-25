@@ -5,6 +5,10 @@ import { db } from "@/lib/db";
 export const SESSION_COOKIE = "fx_session";
 const SESSION_TTL_DAYS = 7;
 
+// TODO: SESSION_SECRET (definida en .env) no está implementada aún.
+// El token de sesión es un UUID aleatorio validado contra la DB — seguro para el uso actual.
+// Para mayor seguridad en producción, firmar el cookie con SESSION_SECRET usando JWT o similar.
+
 export function hashPassword(password: string): string {
   const salt = randomUUID().replace(/-/g, "").slice(0, 16);
   const hash = scryptSync(password, salt, 64).toString("hex");
