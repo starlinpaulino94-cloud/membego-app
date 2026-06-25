@@ -7,8 +7,23 @@ import { AdminLogin } from "./AdminLogin";
 import { AdminShell } from "./AdminShell";
 import { ClienteShell } from "./ClienteShell";
 
+function hashToRoute(hash: string) {
+  const h = hash.replace(/^#/, "");
+  if (h === "registro")    return "registro"     as const;
+  if (h === "mi-qr")       return "cliente-login" as const;
+  if (h === "admin-login") return "admin-login"   as const;
+  if (h === "admin")       return "admin-app"     as const;
+  return null;
+}
+
 export function AppRoot() {
   const { user, loading, route, setUser, setLoading, navigate, setRoute } = useStore();
+
+  // Sincroniza la ruta con el hash actual al montar (fix hidratación SSR)
+  useEffect(() => {
+    const r = hashToRoute(window.location.hash);
+    if (r) setRoute(r);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     api
