@@ -147,9 +147,9 @@ export function AdminShell() {
     : nav[0]?.section || "dashboard";
 
   function renderPanel() {
-    if (user.rol === "SUPERADMIN")   return <SuperadminPanel section={currentSection} />;
-    if (user.rol === "ADMIN_EMPRESA") return <EmpresaPanel section={currentSection} />;
-    if (user.rol === "EMPLEADO")      return <EmpleadoPanel section={currentSection} />;
+    if (user!.rol === "SUPERADMIN")   return <SuperadminPanel section={currentSection} />;
+    if (user!.rol === "ADMIN_EMPRESA") return <EmpresaPanel section={currentSection} />;
+    if (user!.rol === "EMPLEADO")      return <EmpleadoPanel section={currentSection} />;
     return null;
   }
 

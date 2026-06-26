@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
     if (user.rol === "CLIENTE") {
       const perfiles = await db.cliente.findMany({ where: { userId: user.id }, select: { id: true } });
       const ids = perfiles.map((p) => p.id);
-      const where: Record<string, unknown> = { clienteId: { in: ids } };
+      const where: Record<string, any> = { clienteId: { in: ids } };
       if (estado) where.estado = estado;
       const items = await db.clienteEstrategia.findMany({
         where,
@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
 
     if (!empresaId) return err("empresaId es obligatorio", 422);
     assertEmpresaAccess(user, empresaId);
-    const where: Record<string, unknown> = { empresaId };
+    const where: Record<string, any> = { empresaId };
     if (estado) where.estado = estado;
     if (clienteId) where.clienteId = clienteId;
     const items = await db.clienteEstrategia.findMany({

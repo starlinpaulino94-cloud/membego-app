@@ -38,7 +38,7 @@ export async function GET(req: NextRequest) {
 
     const page = Math.max(1, Number(searchParams.get("page")) || 1);
     const limit = Math.min(100, Math.max(1, Number(searchParams.get("limit")) || 20));
-    const where: Record<string, unknown> = { empresaId };
+    const where: Record<string, any> = { empresaId };
     if (q) where.OR = [{ nombre: { contains: q } }, { email: { contains: q } }, { telefono: { contains: q } }];
     const [clientes, total] = await Promise.all([
       db.cliente.findMany({

@@ -17,7 +17,7 @@ const registerSchema = z.object({
   tipoNegocioId: z.string().min(1),
   empresaId: z.string().min(1),
   estrategiaId: z.string().optional(),
-  campos: z.record(z.string()).optional(),
+  campos: z.record(z.string(), z.string()).optional(),
 });
 
 // POST /api/auth/register
@@ -79,7 +79,7 @@ export async function POST(req: NextRequest) {
     const qr = await ensureQrToken(cliente.id, empresaId);
 
     // Asignar estrategia si fue seleccionada
-    let clienteEstrategia = null;
+    let clienteEstrategia: import("@prisma/client").ClienteEstrategia | null = null;
     if (estrategiaId) {
       const estrategia = await db.estrategia.findUnique({ where: { id: estrategiaId } });
       if (!estrategia || estrategia.empresaId !== empresaId || estrategia.estado !== "ACTIVA") {

@@ -37,7 +37,7 @@ export function isUrlSafe(url: string): boolean {
 export async function syncEvent(
   empresaId: string,
   evento: string,
-  payload: Record<string, unknown>
+  payload: Record<string, any>
 ): Promise<void> {
   const integraciones = await db.integracion.findMany({
     where: { empresaId, estado: "ACTIVA" },

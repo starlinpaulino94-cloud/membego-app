@@ -35,7 +35,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
       "fechaInicio", "fechaFin", "terminos", "estado",
       "incluye", "limiteCupos", "cuposDisponibles", "destacada", "escasezTipo",
     ];
-    const data: Record<string, unknown> = {};
+    const data: Record<string, any> = {};
     for (const k of allowed) {
       if (body[k] !== undefined) {
         if (k === "fechaInicio" || k === "fechaFin") data[k] = body[k] ? new Date(body[k]) : null;

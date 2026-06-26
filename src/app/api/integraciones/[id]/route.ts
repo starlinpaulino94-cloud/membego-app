@@ -13,7 +13,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     if (!integ) return err("Integración no encontrada", 404);
     assertEmpresaAccess(user, integ.empresaId);
     const body = await req.json();
-    const data: Record<string, unknown> = {};
+    const data: Record<string, any> = {};
     for (const k of ["tipoIntegracion", "apiUrl", "apiKey", "webhookUrl", "tokenSecreto", "estado"]) {
       if (body[k] !== undefined) data[k] = body[k];
     }

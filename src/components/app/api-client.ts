@@ -22,7 +22,7 @@ async function req<T = unknown>(url: string, opts?: RequestInit): Promise<T> {
     data = text;
   }
   if (!res.ok) {
-    const msg = (data && typeof data === "object" && "error" in data && typeof (data as Record<string, unknown>).error === "string")
+    const msg = (data && typeof data === "object" && "error" in data && typeof (data as Record<string, any>).error === "string")
       ? (data as Record<string, string>).error
       : `Error ${res.status}`;
     throw new Error(msg);

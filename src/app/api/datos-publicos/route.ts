@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
       include: { camposDef: { orderBy: { orden: "asc" } }, _count: { select: { empresas: true } } },
       orderBy: { createdAt: "asc" },
     });
-    const where: Record<string, unknown> = { estado: "ACTIVA" };
+    const where: Record<string, any> = { estado: "ACTIVA" };
     if (tipoNegocioId) where.tipoNegocioId = tipoNegocioId;
     const empresas = await db.empresa.findMany({
       where,

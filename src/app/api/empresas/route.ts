@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
     const q = searchParams.get("q") || undefined;
 
     if (isPublic) {
-      const where: Record<string, unknown> = { estado: "ACTIVA" };
+      const where: Record<string, any> = { estado: "ACTIVA" };
       if (tipoNegocioId) where.tipoNegocioId = tipoNegocioId;
       if (q) where.nombre = { contains: q };
       const empresas = await db.empresa.findMany({
@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
     if (!user) return err("No autorizado", 401);
 
     if (user.rol === "SUPERADMIN") {
-      const where: Record<string, unknown> = {};
+      const where: Record<string, any> = {};
       if (tipoNegocioId) where.tipoNegocioId = tipoNegocioId;
       const empresas = await db.empresa.findMany({
         where,
@@ -72,8 +72,8 @@ export async function POST(req: NextRequest) {
   }
 }
 
-function pickEmpresaFields(body: any) {
-  const out: Record<string, unknown> = {};
+function pickEmpresaFields(body: any): any {
+  const out: Record<string, any> = {};
   const allowed = [
     "nombre", "tipoNegocioId", "logo", "telefono", "whatsapp", "direccion", "ciudad",
     "colorPrincipal", "colorSecundario", "descripcionPublica", "imagenPortada", "horario",

@@ -119,7 +119,7 @@ function useEmpresaTipo(empresaId: string) {
 }
 
 // Hook para actualizar campos del formulario de empresa de manera tipada
-type EmpresaFormState = Record<string, unknown>;
+type EmpresaFormState = Record<string, any>;
 
 function estadoEmpresaLabel(estado: string): string {
   if (estado === "ACTIVA") return "Activa";
