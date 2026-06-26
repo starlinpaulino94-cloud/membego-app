@@ -1,20 +1,35 @@
 import { NextRequest } from "next/server";
+import { z } from "zod";
 import { db } from "@/lib/db";
 import { requireRol, assertEmpresaAccess } from "@/lib/auth";
 import { ok, err, apiError } from "@/lib/api";
 import { syncEvent } from "@/lib/integration";
+import { checkRateLimit } from "@/lib/rateLimit";
 
 export const dynamic = "force-dynamic";
+
+const confirmSchema = z.object({
+  token: z.string().min(1),
+  clienteEstrategiaId: z.string().optional(),
+  tipoConsumo: z.string().min(1).max(100),
+  montoConsumo: z.number().min(0).max(10000000).optional(),
+  aplicarBeneficio: z.boolean().optional(),
+});
 
 // POST /api/qr/confirm
 // Body: { token, clienteEstrategiaId?, tipoConsumo, montoConsumo, aplicarBeneficio?: boolean }
 // El empleado confirma el consumo. Aquí se descuentan usos, acumulan puntos y aplican beneficios.
 export async function POST(req: NextRequest) {
   try {
+    const ip = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
+    if (!checkRateLimit(`confirm:${ip}`, 60, 60 * 1000)) {
+      return err("Demasiadas solicitudes. Intenta más tarde.", 429);
+    }
     const user = await requireRol("SUPERADMIN", "ADMIN_EMPRESA", "EMPLEADO");
-    const body = await req.json();
-    const { token, clienteEstrategiaId, tipoConsumo, montoConsumo, aplicarBeneficio } = body;
-    if (!token || !tipoConsumo) return err("token y tipoConsumo son obligatorios", 422);
+    const parsed = confirmSchema.safeParse(await req.json());
+    if (!parsed.success) return err("Datos inválidos", 422);
+    const { token, clienteEstrategiaId, tipoConsumo, montoConsumo, aplicarBeneficio } = parsed.data;
+    if (montoConsumo !== undefined && montoConsumo < 0) return err("El monto no puede ser negativo", 422);
 
     const qr = await db.qrToken.findUnique({
       where: { token: String(token) },

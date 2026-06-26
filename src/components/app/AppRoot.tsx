@@ -6,6 +6,7 @@ import { Landing, RegisterScreen, ClientLogin } from "./AuthScreens";
 import { AdminLogin } from "./AdminLogin";
 import { AdminShell } from "./AdminShell";
 import { ClienteShell } from "./ClienteShell";
+import { ErrorBoundary } from "./ErrorBoundary";
 
 function hashToRoute(hash: string) {
   const h = hash.replace(/^#/, "");
@@ -96,10 +97,10 @@ export function AppRoot() {
   }
 
   return (
-    <>
+    <ErrorBoundary>
       {content}
       <Toast />
-    </>
+    </ErrorBoundary>
   );
 }
 

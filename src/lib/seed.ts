@@ -90,25 +90,25 @@ export async function runSeed(): Promise<{ seeded: boolean; message: string }> {
 
   // 3. Usuarios
   const superadmin = await db.user.create({
-    data: { email: "superadmin@fidelix.com", password: hashPassword("admin123"), nombre: "Super Admin", rol: "SUPERADMIN", telefono: "809-000-0000" },
+    data: { email: "superadmin@pase-digital.app", password: hashPassword("admin123"), nombre: "Super Admin", rol: "SUPERADMIN", telefono: "809-000-0000" },
   });
   const adminCarwash = await db.user.create({
-    data: { email: "admin.carwash@fidelix.com", password: hashPassword("admin123"), nombre: "Carlos Lavado", rol: "ADMIN_EMPRESA", empresaId: empCarwash.id, telefono: "809-111-1111" },
+    data: { email: "admin.carwash@pase-digital.app", password: hashPassword("admin123"), nombre: "Carlos Lavado", rol: "ADMIN_EMPRESA", empresaId: empCarwash.id, telefono: "809-111-1111" },
   });
   const adminRestaurante = await db.user.create({
-    data: { email: "admin.restaurante@fidelix.com", password: hashPassword("admin123"), nombre: "María Sabor", rol: "ADMIN_EMPRESA", empresaId: empRestaurante.id, telefono: "809-222-2222" },
+    data: { email: "admin.restaurante@pase-digital.app", password: hashPassword("admin123"), nombre: "María Sabor", rol: "ADMIN_EMPRESA", empresaId: empRestaurante.id, telefono: "809-222-2222" },
   });
   const empleadoCarwash = await db.user.create({
-    data: { email: "empleado.carwash@fidelix.com", password: hashPassword("admin123"), nombre: "Juan Esponja", rol: "EMPLEADO", empresaId: empCarwash.id, telefono: "809-333-3333" },
+    data: { email: "empleado.carwash@pase-digital.app", password: hashPassword("admin123"), nombre: "Juan Esponja", rol: "EMPLEADO", empresaId: empCarwash.id, telefono: "809-333-3333" },
   });
   const empleadoRestaurante = await db.user.create({
-    data: { email: "empleado.restaurante@fidelix.com", password: hashPassword("admin123"), nombre: "Luisa Mesera", rol: "EMPLEADO", empresaId: empRestaurante.id, telefono: "809-444-4444" },
+    data: { email: "empleado.restaurante@pase-digital.app", password: hashPassword("admin123"), nombre: "Luisa Mesera", rol: "EMPLEADO", empresaId: empRestaurante.id, telefono: "809-444-4444" },
   });
   const clienteUser = await db.user.create({
-    data: { email: "cliente@fidelix.com", password: hashPassword("cliente123"), nombre: "Pedro Cliente", rol: "CLIENTE", telefono: "809-555-5555" },
+    data: { email: "cliente@pase-digital.app", password: hashPassword("cliente123"), nombre: "Pedro Cliente", rol: "CLIENTE", telefono: "809-555-5555" },
   });
   const clienteUser2 = await db.user.create({
-    data: { email: "ana@fidelix.com", password: hashPassword("cliente123"), nombre: "Ana Comensal", rol: "CLIENTE", telefono: "809-666-6666" },
+    data: { email: "ana@pase-digital.app", password: hashPassword("cliente123"), nombre: "Ana Comensal", rol: "CLIENTE", telefono: "809-666-6666" },
   });
 
   // 4. Beneficios Carwash (solo Membresía, Conteo, Cupón)
@@ -139,7 +139,7 @@ export async function runSeed(): Promise<{ seeded: boolean; message: string }> {
       userId: clienteUser.id,
       nombre: "Pedro Cliente",
       telefono: "809-555-5555",
-      email: "cliente@fidelix.com",
+      email: "cliente@pase-digital.app",
       fechaNacimiento: new Date("1990-05-15"),
       empresaId: empCarwash.id,
       tipoNegocioId: carwash.id,
@@ -160,7 +160,7 @@ export async function runSeed(): Promise<{ seeded: boolean; message: string }> {
       userId: clienteUser2.id,
       nombre: "Ana Comensal",
       telefono: "809-666-6666",
-      email: "ana@fidelix.com",
+      email: "ana@pase-digital.app",
       fechaNacimiento: new Date("1995-09-20"),
       empresaId: empRestaurante.id,
       tipoNegocioId: restaurante.id,

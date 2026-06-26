@@ -102,12 +102,14 @@ export const useStore = create<State>((set, get) => ({
   },
 }));
 
-// Sincroniza el estado cuando cambia el hash (botones atrás/adelante, edición manual)
+// Sincroniza el estado cuando cambia el hash (botones atrás/adelante, edición manual).
+// Este listener es intencional a nivel de módulo para el routing SPA basado en hash.
+// No puede ser limpiado (no hay cleanup), pero es aceptable para una SPA de página única.
 if (typeof window !== "undefined") {
   window.addEventListener("hashchange", () => {
     const newRoute = hashToRoute(window.location.hash);
-    if (get().route !== newRoute) set({ route: newRoute });
-  });
+    if (useStore.getState().route !== newRoute) useStore.setState({ route: newRoute });
+  }, { passive: true });
 }
 
 // Utilidades de formato

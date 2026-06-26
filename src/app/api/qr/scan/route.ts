@@ -1,17 +1,26 @@
 import { NextRequest } from "next/server";
+import { z } from "zod";
 import { db } from "@/lib/db";
 import { requireRol, assertEmpresaAccess } from "@/lib/auth";
 import { ok, err, apiError } from "@/lib/api";
+import { checkRateLimit } from "@/lib/rateLimit";
 
 export const dynamic = "force-dynamic";
+
+const scanSchema = z.object({ token: z.string().min(1) });
 
 // POST /api/qr/scan  { token }
 // Valida el QR y devuelve la info del cliente + beneficios. NO consume nada.
 export async function POST(req: NextRequest) {
   try {
+    const ip = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
+    if (!checkRateLimit(`scan:${ip}`, 60, 60 * 1000)) {
+      return err("Demasiadas solicitudes. Intenta más tarde.", 429);
+    }
     const user = await requireRol("SUPERADMIN", "ADMIN_EMPRESA", "EMPLEADO");
-    const { token } = await req.json();
-    if (!token) return err("Token requerido", 422);
+    const parsed = scanSchema.safeParse(await req.json());
+    if (!parsed.success) return err("Datos inválidos", 422);
+    const { token } = parsed.data;
 
     const qr = await db.qrToken.findUnique({
       where: { token: String(token) },

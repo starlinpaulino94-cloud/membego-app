@@ -24,14 +24,13 @@ export async function GET(req: NextRequest) {
         db.tipoNegocio.findMany({ include: { empresas: true, _count: { select: { clientes: true, estrategias: true } } } }),
       ]);
 
-      // transacciones por tipo de negocio
-      const transaccionesPorTipo: { tipo: string; total: number }[] = [];
-      for (const t of tipos) {
-        const count = await db.transaccion.count({
-          where: { empresa: { tipoNegocioId: t.id } },
-        });
-        transaccionesPorTipo.push({ tipo: t.nombre, total: count });
-      }
+      // transacciones por tipo de negocio (parallelized)
+      const transaccionesPorTipo = await Promise.all(
+        tipos.map(async (t) => ({
+          tipo: t.nombre,
+          total: await db.transaccion.count({ where: { empresa: { tipoNegocioId: t.id } } }),
+        }))
+      );
 
       // estrategias más usadas
       const estrategiasUsadasRaw = await db.clienteEstrategia.groupBy({
@@ -92,7 +91,7 @@ export async function GET(req: NextRequest) {
     ]);
 
     // beneficios usados (transacciones con beneficio aplicado que no sea "regular")
-    const txs = await db.transaccion.findMany({ where: { empresaId }, select: { beneficioAplicado: true, fechaTransaccion: true, tipoConsumo: true, montoConsumo: true, clienteId: true } });
+    const txs = await db.transaccion.findMany({ where: { empresaId }, select: { beneficioAplicado: true, fechaTransaccion: true, tipoConsumo: true, montoConsumo: true, clienteId: true }, take: 5000 });
     const beneficiosUsados = txs.filter((t) => t.beneficioAplicado && !t.beneficioAplicado.includes("regular") && !t.beneficioAplicado.includes("Sin estrategia") && !t.beneficioAplicado.includes("Membresía sin usos")).length;
 
     // clientes frecuentes (top 5 por nº de transacciones)

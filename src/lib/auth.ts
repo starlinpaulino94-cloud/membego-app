@@ -1,13 +1,36 @@
 import { cookies } from "next/headers";
-import { randomUUID, scryptSync, timingSafeEqual } from "crypto";
+import { randomUUID, scryptSync, timingSafeEqual, createHmac } from "crypto";
 import { db } from "@/lib/db";
 
-export const SESSION_COOKIE = "fx_session";
+export const SESSION_COOKIE = "pd_session";
 const SESSION_TTL_DAYS = 7;
 
-// TODO: SESSION_SECRET (definida en .env) no está implementada aún.
-// El token de sesión es un UUID aleatorio validado contra la DB — seguro para el uso actual.
-// Para mayor seguridad en producción, firmar el cookie con SESSION_SECRET usando JWT o similar.
+// HMAC signing for session tokens
+function getSessionSecret(): string {
+  return process.env.SESSION_SECRET || "dev-secret-change-in-prod";
+}
+
+export function signToken(token: string): string {
+  const hmac = createHmac("sha256", getSessionSecret()).update(token).digest("hex");
+  return token + "." + hmac;
+}
+
+export function verifyToken(signed: string): string | null {
+  const lastDot = signed.lastIndexOf(".");
+  if (lastDot === -1) return null;
+  const token = signed.slice(0, lastDot);
+  const hmac = signed.slice(lastDot + 1);
+  const expected = createHmac("sha256", getSessionSecret()).update(token).digest("hex");
+  const hmacBuf = Buffer.from(hmac, "hex");
+  const expectedBuf = Buffer.from(expected, "hex");
+  if (hmacBuf.length !== expectedBuf.length) return null;
+  try {
+    if (!timingSafeEqual(hmacBuf, expectedBuf)) return null;
+  } catch {
+    return null;
+  }
+  return token;
+}
 
 export function hashPassword(password: string): string {
   const salt = randomUUID().replace(/-/g, "").slice(0, 16);
@@ -30,19 +53,20 @@ export async function createSession(userId: string): Promise<string> {
   await db.session.create({
     data: { token, userId, expiresAt },
   });
-  return token;
+  // Return the signed token to be stored in cookie
+  return signToken(token);
 }
 
 export async function destroySession(token: string): Promise<void> {
   await db.session.deleteMany({ where: { token } }).catch(() => {});
 }
 
-export async function setSessionCookie(token: string) {
+export async function setSessionCookie(signedToken: string) {
   const store = await cookies();
-  store.set(SESSION_COOKIE, token, {
+  store.set(SESSION_COOKIE, signedToken, {
     httpOnly: true,
     sameSite: "lax",
-    secure: false,
+    secure: process.env.NODE_ENV === "production",
     path: "/",
     maxAge: SESSION_TTL_DAYS * 24 * 60 * 60,
   });
@@ -54,8 +78,11 @@ export async function clearSessionCookie() {
 }
 
 export async function logoutCurrent() {
-  const token = await getSessionToken();
-  if (token) await destroySession(token);
+  const rawCookie = await getSessionToken();
+  if (rawCookie) {
+    const token = verifyToken(rawCookie);
+    if (token) await destroySession(token);
+  }
   await clearSessionCookie();
 }
 
@@ -74,7 +101,9 @@ export type SessionUser = {
 };
 
 export async function getCurrentUser(): Promise<SessionUser | null> {
-  const token = await getSessionToken();
+  const rawCookie = await getSessionToken();
+  if (!rawCookie) return null;
+  const token = verifyToken(rawCookie);
   if (!token) return null;
   const session = await db.session.findUnique({
     where: { token },

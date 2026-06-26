@@ -1,5 +1,37 @@
 import { db } from "@/lib/db";
 
+// Anti-SSRF: validate that a webhook/API URL is safe to call
+export function isUrlSafe(url: string): boolean {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return false;
+  }
+  if (parsed.protocol !== "https:") return false;
+  const h = parsed.hostname;
+  const blocklist = [
+    "localhost",
+    "127.0.0.1",
+    "0.0.0.0",
+    "::1",
+    "169.254.169.254",
+  ];
+  if (blocklist.includes(h)) return false;
+  const privatePrefixes = [
+    "10.",
+    "172.16.", "172.17.", "172.18.", "172.19.",
+    "172.20.", "172.21.", "172.22.", "172.23.",
+    "172.24.", "172.25.", "172.26.", "172.27.",
+    "172.28.", "172.29.", "172.30.", "172.31.",
+    "192.168.",
+  ];
+  for (const prefix of privatePrefixes) {
+    if (h.startsWith(prefix)) return false;
+  }
+  return true;
+}
+
 // Intenta sincronizar un evento hacia las integraciones activas de la empresa.
 // No lanza: siempre registra el resultado en IntegrationLog.
 export async function syncEvent(
@@ -47,6 +79,20 @@ export async function syncEvent(
             payload: JSON.stringify(payload),
             estado: "ERROR",
             error: "No hay URL configurada para la integración",
+          },
+        });
+        continue;
+      }
+      if (!isUrlSafe(url)) {
+        console.error(`[integration] SSRF blocked: unsafe URL ${url} for integracion ${integ.id}`);
+        await db.integrationLog.create({
+          data: {
+            integracionId: integ.id,
+            empresaId,
+            evento,
+            payload: JSON.stringify(payload),
+            estado: "ERROR",
+            error: "URL bloqueada por política de seguridad (SSRF)",
           },
         });
         continue;

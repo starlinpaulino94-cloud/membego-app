@@ -36,19 +36,26 @@ export async function GET(req: NextRequest) {
     if (!empresaId) return err("empresaId es obligatorio", 422);
     assertEmpresaAccess(user, empresaId);
 
+    const page = Math.max(1, Number(searchParams.get("page")) || 1);
+    const limit = Math.min(100, Math.max(1, Number(searchParams.get("limit")) || 20));
     const where: Record<string, unknown> = { empresaId };
     if (q) where.OR = [{ nombre: { contains: q } }, { email: { contains: q } }, { telefono: { contains: q } }];
-    const clientes = await db.cliente.findMany({
-      where,
-      include: {
-        tipoNegocio: true,
-        camposDinamicos: true,
-        qrTokens: { where: { activo: true } },
-        estrategias: { include: { estrategia: true } },
-      },
-      orderBy: { createdAt: "desc" },
-    });
-    return ok({ clientes });
+    const [clientes, total] = await Promise.all([
+      db.cliente.findMany({
+        where,
+        include: {
+          tipoNegocio: true,
+          camposDinamicos: true,
+          qrTokens: { where: { activo: true } },
+          estrategias: { include: { estrategia: true } },
+        },
+        orderBy: { createdAt: "desc" },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      db.cliente.count({ where }),
+    ]);
+    return ok({ clientes, total, page, limit, pages: Math.ceil(total / limit) });
   } catch (e) {
     return apiError(e);
   }

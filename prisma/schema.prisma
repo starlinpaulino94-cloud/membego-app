@@ -36,6 +36,8 @@ model User {
   perfilesCliente  Cliente[]
 }
 
+
+
 model Session {
   id        String   @id @default(cuid())
   token     String   @unique
@@ -43,6 +45,9 @@ model Session {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   expiresAt DateTime
   createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
 }
 
 // ============================================================
@@ -146,6 +151,9 @@ model Cliente {
   estrategias         ClienteEstrategia[]
   qrTokens            QrToken[]
   transacciones       Transaccion[]
+
+  @@index([userId, empresaId])
+  @@index([empresaId, estado])
 }
 
 model ClienteCampo {
@@ -225,6 +233,9 @@ model ClienteEstrategia {
   createdAt        DateTime @default(now())
 
   transacciones    Transaccion[]
+
+  @@index([clienteId, empresaId, estado])
+  @@index([empresaId])
 }
 
 // ============================================================
@@ -240,6 +251,8 @@ model QrToken {
   token     String   @unique // UUID seguro
   activo    Boolean  @default(true)
   createdAt DateTime @default(now())
+
+  @@index([clienteId, empresaId])
 }
 
 // ============================================================
@@ -265,6 +278,10 @@ model Transaccion {
   empleado            User?    @relation("TransaccionEmpleado", fields: [empleadoId], references: [id])
   fechaTransaccion    DateTime @default(now())
   createdAt           DateTime @default(now())
+
+  @@index([clienteId, empresaId])
+  @@index([empresaId, fechaTransaccion])
+  @@index([estrategiaId])
 }
 
 // ============================================================
@@ -302,6 +319,9 @@ model IntegrationLog {
   estado        String   @default("EXITOSO")
   error         String?
   createdAt     DateTime @default(now())
+
+  @@index([integracionId, estado])
+  @@index([empresaId])
 }
 
 // Configuración global (singleton id=1): números de prueba social administrables
