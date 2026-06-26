@@ -42,7 +42,8 @@ export async function POST(req: NextRequest) {
     const now = new Date();
 
     // Buscar la estrategia a aplicar
-    let ce = null;
+    type CeWithEstrategia = (import("@prisma/client").ClienteEstrategia & { estrategia: import("@prisma/client").Estrategia }) | null;
+    let ce: CeWithEstrategia = null;
     if (clienteEstrategiaId) {
       ce = await db.clienteEstrategia.findUnique({ where: { id: clienteEstrategiaId }, include: { estrategia: true } });
       if (!ce || ce.clienteId !== qr.cliente.id) return err("Estrategia no válida para este cliente", 422);
