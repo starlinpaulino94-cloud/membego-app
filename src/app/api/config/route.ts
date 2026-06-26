@@ -24,7 +24,7 @@ export async function PATCH(req: NextRequest) {
     await requireRol("SUPERADMIN", "ADMIN_EMPRESA");
     const body = await req.json();
     const allowed = ["socialClientes", "socialVisitas", "socialPromociones", "socialNegocios", "socialVehiculos", "heroTitulo", "heroSubtitulo"];
-    const data: Record<string, unknown> = {};
+    const data: Record<string, any> = {};
     for (const k of allowed) {
       if (body[k] !== undefined) {
         if (["socialClientes", "socialVisitas", "socialPromociones", "socialNegocios", "socialVehiculos"].includes(k)) {

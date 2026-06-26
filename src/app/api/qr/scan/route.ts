@@ -92,7 +92,7 @@ export async function POST(req: NextRequest) {
   }
 }
 
-async function syncEventSafe(empresaId: string, evento: string, payload: Record<string, unknown>) {
+async function syncEventSafe(empresaId: string, evento: string, payload: Record<string, any>) {
   const { syncEvent } = await import("@/lib/integration");
   await syncEvent(empresaId, evento, payload);
 }

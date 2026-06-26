@@ -16,7 +16,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
     const { searchParams } = new URL(req.url);
     const estado = searchParams.get("estado") || undefined;
     const limit = Number(searchParams.get("limit")) || 100;
-    const where: Record<string, unknown> = { integracionId: id };
+    const where: Record<string, any> = { integracionId: id };
     if (estado) where.estado = estado;
     const logs = await db.integrationLog.findMany({
       where,

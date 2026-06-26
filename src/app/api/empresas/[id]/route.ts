@@ -35,7 +35,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
       "redesSociales", "urlPersonalizada", "textoBienvenida", "terminosCondiciones", "estado",
       "calificacion", "servicios", "galeria", "destacada",
     ];
-    const data: Record<string, unknown> = {};
+    const data: Record<string, any> = {};
     for (const k of allowed) {
       if (body[k] !== undefined) {
         if (body[k] === "") data[k] = null;

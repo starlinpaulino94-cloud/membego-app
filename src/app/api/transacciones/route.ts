@@ -21,12 +21,12 @@ export async function GET(req: NextRequest) {
     if (user.rol === "CLIENTE") {
       const perfiles = await db.cliente.findMany({ where: { userId: user.id }, select: { id: true } });
       const ids = perfiles.map((p) => p.id);
-      const where: Record<string, unknown> = { clienteId: { in: ids } };
+      const where: Record<string, any> = { clienteId: { in: ids } };
       if (clienteId && ids.includes(clienteId)) where.clienteId = clienteId;
       if (desde || hasta) {
         where.fechaTransaccion = {};
-        if (desde) (where.fechaTransaccion as Record<string, unknown>).gte = new Date(desde);
-        if (hasta) (where.fechaTransaccion as Record<string, unknown>).lte = new Date(hasta);
+        if (desde) (where.fechaTransaccion as Record<string, any>).gte = new Date(desde);
+        if (hasta) (where.fechaTransaccion as Record<string, any>).lte = new Date(hasta);
       }
       const [transacciones, total] = await Promise.all([
         db.transaccion.findMany({
@@ -43,12 +43,12 @@ export async function GET(req: NextRequest) {
 
     if (!empresaId) return err("empresaId es obligatorio", 422);
     assertEmpresaAccess(user, empresaId);
-    const where: Record<string, unknown> = { empresaId };
+    const where: Record<string, any> = { empresaId };
     if (clienteId) where.clienteId = clienteId;
     if (desde || hasta) {
       where.fechaTransaccion = {};
-      if (desde) (where.fechaTransaccion as Record<string, unknown>).gte = new Date(desde);
-      if (hasta) (where.fechaTransaccion as Record<string, unknown>).lte = new Date(hasta);
+      if (desde) (where.fechaTransaccion as Record<string, any>).gte = new Date(desde);
+      if (hasta) (where.fechaTransaccion as Record<string, any>).lte = new Date(hasta);
     }
     const [transacciones, total] = await Promise.all([
       db.transaccion.findMany({
