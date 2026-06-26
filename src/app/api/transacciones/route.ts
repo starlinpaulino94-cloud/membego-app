@@ -15,7 +15,8 @@ export async function GET(req: NextRequest) {
     const clienteId = searchParams.get("clienteId") || undefined;
     const desde = searchParams.get("desde");
     const hasta = searchParams.get("hasta");
-    const limit = Number(searchParams.get("limit")) || 100;
+    const page = Math.max(1, Number(searchParams.get("page")) || 1);
+    const limit = Math.min(100, Math.max(1, Number(searchParams.get("limit")) || 20));
 
     if (user.rol === "CLIENTE") {
       const perfiles = await db.cliente.findMany({ where: { userId: user.id }, select: { id: true } });
@@ -27,13 +28,17 @@ export async function GET(req: NextRequest) {
         if (desde) (where.fechaTransaccion as Record<string, unknown>).gte = new Date(desde);
         if (hasta) (where.fechaTransaccion as Record<string, unknown>).lte = new Date(hasta);
       }
-      const transacciones = await db.transaccion.findMany({
-        where,
-        include: { empresa: true, cliente: true },
-        orderBy: { fechaTransaccion: "desc" },
-        take: limit,
-      });
-      return ok({ transacciones });
+      const [transacciones, total] = await Promise.all([
+        db.transaccion.findMany({
+          where,
+          include: { empresa: true, cliente: true },
+          orderBy: { fechaTransaccion: "desc" },
+          skip: (page - 1) * limit,
+          take: limit,
+        }),
+        db.transaccion.count({ where }),
+      ]);
+      return ok({ transacciones, total, page, limit, pages: Math.ceil(total / limit) });
     }
 
     if (!empresaId) return err("empresaId es obligatorio", 422);
@@ -45,13 +50,17 @@ export async function GET(req: NextRequest) {
       if (desde) (where.fechaTransaccion as Record<string, unknown>).gte = new Date(desde);
       if (hasta) (where.fechaTransaccion as Record<string, unknown>).lte = new Date(hasta);
     }
-    const transacciones = await db.transaccion.findMany({
-      where,
-      include: { cliente: true, estrategia: true, empleado: true },
-      orderBy: { fechaTransaccion: "desc" },
-      take: limit,
-    });
-    return ok({ transacciones });
+    const [transacciones, total] = await Promise.all([
+      db.transaccion.findMany({
+        where,
+        include: { cliente: true, estrategia: true, empleado: true },
+        orderBy: { fechaTransaccion: "desc" },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      db.transaccion.count({ where }),
+    ]);
+    return ok({ transacciones, total, page, limit, pages: Math.ceil(total / limit) });
   } catch (e) {
     return apiError(e);
   }

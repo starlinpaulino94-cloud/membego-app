@@ -976,16 +976,6 @@ export function ClientLogin() {
               </Button>
             </form>
 
-            {/* Demo hint */}
-            <div className="mt-4 rounded-xl border border-border bg-muted/50 p-3">
-              <p className="mb-1 text-[11px] font-semibold text-foreground flex items-center gap-1.5">
-                <Sparkles className="h-3 w-3" style={{ color: "oklch(0.74 0.115 78)" }} />
-                Cuenta de demostración
-              </p>
-              <p className="text-[11px] text-muted-foreground font-mono">
-                cliente@fidelix.com / cliente123
-              </p>
-            </div>
           </div>
 
           {/* Links */}

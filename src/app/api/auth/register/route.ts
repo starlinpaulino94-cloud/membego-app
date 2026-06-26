@@ -1,25 +1,36 @@
 import { NextRequest } from "next/server";
+import { z } from "zod";
 import { db } from "@/lib/db";
 import { hashPassword, createSession, setSessionCookie } from "@/lib/auth";
 import { ok, err, apiError, ensureQrToken } from "@/lib/api";
 import { syncEvent } from "@/lib/integration";
+import { checkRateLimit } from "@/lib/rateLimit";
 
 export const dynamic = "force-dynamic";
 
+const registerSchema = z.object({
+  nombre: z.string().min(2).max(100),
+  email: z.string().email(),
+  password: z.string().min(6).max(100),
+  telefono: z.string().optional(),
+  fechaNacimiento: z.string().optional(),
+  tipoNegocioId: z.string().min(1),
+  empresaId: z.string().min(1),
+  estrategiaId: z.string().optional(),
+  campos: z.record(z.string()).optional(),
+});
+
 // POST /api/auth/register
 // Registro de cliente: crea User (CLIENTE) + Cliente (+ campos dinámicos) y opcionalmente asigna estrategia.
-// Body:
-// { nombre, email, password, telefono?, fechaNacimiento?,
-//   tipoNegocioId, empresaId, estrategiaId?,
-//   campos: { clave: valor }   // campos dinámicos según tipo de negocio
-// }
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
-    const { nombre, email, password, telefono, fechaNacimiento, tipoNegocioId, empresaId, estrategiaId, campos } = body;
-    if (!nombre || !email || !password || !tipoNegocioId || !empresaId) {
-      return err("Faltan campos obligatorios", 422);
+    const ip = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
+    if (!checkRateLimit(`register:${ip}`, 5, 10 * 60 * 1000)) {
+      return err("Demasiadas solicitudes. Intenta más tarde.", 429);
     }
+    const parsed = registerSchema.safeParse(await req.json());
+    if (!parsed.success) return err("Datos inválidos", 422);
+    const { nombre, email, password, telefono, fechaNacimiento, tipoNegocioId, empresaId, estrategiaId, campos } = parsed.data;
     const existe = await db.user.findUnique({ where: { email: String(email).toLowerCase() } });
     if (existe) return err("Ya existe una cuenta con ese email", 409);
 
