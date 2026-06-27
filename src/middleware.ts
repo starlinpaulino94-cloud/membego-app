@@ -1,30 +1,40 @@
-import { NextRequest, NextResponse } from "next/server";
+import { type NextRequest, NextResponse } from 'next/server'
+import { updateSession } from '@/lib/supabase/middleware'
 
-export function middleware(req: NextRequest) {
-  const response = NextResponse.next();
-  const origin = req.headers.get("origin") || "";
-  const allowedOrigins = (process.env.ALLOWED_ORIGINS || "").split(",").filter(Boolean);
+const PUBLIC_ROUTES = ['/', '/login', '/register', '/forgot-password', '/reset-password']
+const AUTH_ROUTES = ['/login', '/register', '/forgot-password', '/reset-password']
 
-  // Always allow same-origin (no Origin header) and localhost in dev
-  const isAllowed = !origin ||
-    (process.env.NODE_ENV === "development" && origin.includes("localhost")) ||
-    allowedOrigins.includes(origin);
+export async function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl
 
-  if (isAllowed || allowedOrigins.length === 0) {
-    response.headers.set("Access-Control-Allow-Origin", origin || "*");
+  const { supabaseResponse, user } = await updateSession(request)
+
+  const isPublicRoute = PUBLIC_ROUTES.some(
+    (route) => pathname === route || pathname.startsWith(`${route}/`)
+  )
+  const isAuthRoute = AUTH_ROUTES.some(
+    (route) => pathname === route || pathname.startsWith(`${route}/`)
+  )
+
+  if (!user && !isPublicRoute) {
+    const loginUrl = request.nextUrl.clone()
+    loginUrl.pathname = '/login'
+    loginUrl.searchParams.set('next', pathname)
+    return NextResponse.redirect(loginUrl)
   }
-  response.headers.set("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS");
-  response.headers.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
-  response.headers.set("Access-Control-Allow-Credentials", "true");
 
-  // Security headers
-  response.headers.set("X-Content-Type-Options", "nosniff");
-  response.headers.set("X-Frame-Options", "DENY");
-  response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+  if (user && isAuthRoute) {
+    const dashboardUrl = request.nextUrl.clone()
+    dashboardUrl.pathname = '/dashboard'
+    dashboardUrl.searchParams.delete('next')
+    return NextResponse.redirect(dashboardUrl)
+  }
 
-  return response;
+  return supabaseResponse
 }
 
 export const config = {
-  matcher: "/api/:path*",
-};
+  matcher: [
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+  ],
+}

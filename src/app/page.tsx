@@ -1,5 +1,5 @@
-import { AppRoot } from "@/components/app/AppRoot";
+import { redirect } from 'next/navigation'
 
 export default function Home() {
-  return <AppRoot />;
+  redirect('/login')
 }

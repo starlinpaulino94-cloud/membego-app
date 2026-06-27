@@ -1,38 +1,33 @@
-import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
-import "./globals.css";
-import { Toaster } from "@/components/ui/toaster";
+import type { Metadata } from 'next'
+import { Geist, Geist_Mono } from 'next/font/google'
+import './globals.css'
+import { Toaster } from '@/components/ui/sonner'
 
 const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
+  variable: '--font-geist-sans',
+  subsets: ['latin'],
+})
 
 const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+  variable: '--font-geist-mono',
+  subsets: ['latin'],
+})
 
 export const metadata: Metadata = {
-  title: "Pase Digital — Acceso exclusivo a promociones privadas",
-  description: "Regístrate, activa tu Pase Digital y aprovecha oportunidades exclusivas en nuestros establecimientos participantes.",
-  keywords: ["Pase Digital", "QR", "promociones", "ofertas", "carwash", "restaurante", "membresías"],
-  authors: [{ name: "Pase Digital QR" }],
-};
+  title: 'PASE Digital — Plataforma de fidelización y promociones',
+  description:
+    'Gestiona tu programa de fidelización con QR, promociones personalizadas y seguimiento en tiempo real.',
+  keywords: ['PASE Digital', 'fidelización', 'QR', 'promociones', 'clientes', 'SaaS'],
+  authors: [{ name: 'PASE Digital' }],
+}
 
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
-      >
+    <html lang="es" suppressHydrationWarning>
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}>
         {children}
         <Toaster />
       </body>
     </html>
-  );
+  )
 }
