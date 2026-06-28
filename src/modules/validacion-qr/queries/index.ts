@@ -38,14 +38,16 @@ export async function listCompanyValidations(
   companyId: string,
   params?: {
     status?: ValidationStatus
+    fromDate?: string
     page?: number
     pageSize?: number
   }
 ): Promise<{ items: ValidationSession[]; total: number }> {
-  const { status, page = 1, pageSize = 30 } = params ?? {}
+  const { status, fromDate, page = 1, pageSize = 30 } = params ?? {}
 
   const where: Record<string, unknown> = { companyId }
   if (status) where.status = status
+  if (fromDate) where.scannedAt = { gte: new Date(fromDate) }
 
   const [items, total] = await Promise.all([
     db.validation.findMany({
