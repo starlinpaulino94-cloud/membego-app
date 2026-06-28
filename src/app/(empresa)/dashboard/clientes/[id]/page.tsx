@@ -4,10 +4,20 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { requireRole } from '@/lib/auth/guards'
 import { getCustomerById, getActivePass, customerLinkedToCompany } from '@/modules/clientes/queries'
+import { listCustomerAssignments } from '@/modules/asignaciones/queries'
 import { CustomerStatusBadge } from '@/components/customers/CustomerStatusBadge'
+import { AssignmentStatusBadge } from '@/components/assignments/AssignmentStatusBadge'
 import { DigitalPassQR } from '@/components/customers/DigitalPassQR'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
 
 interface Props {
   params: Promise<{ id: string }>
@@ -26,7 +36,10 @@ export default async function ClienteDetailPage({ params }: Props) {
     if (!linked) notFound()
   }
 
-  const pass = await getActivePass(id)
+  const [pass, assignments] = await Promise.all([
+    getActivePass(id),
+    listCustomerAssignments(id, { companyId: user.companyId }),
+  ])
   const canEdit = user.role === 'ADMIN_EMPRESA' || user.role === 'SUPERADMIN'
 
   return (
@@ -71,6 +84,55 @@ export default async function ClienteDetailPage({ params }: Props) {
           </CardContent>
         </Card>
       </div>
+      {/* Assignments */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base">Promociones asignadas</CardTitle>
+            {canEdit && (
+              <Button size="sm" asChild>
+                <Link href={`/dashboard/clientes/${id}/asignar`}>+ Asignar</Link>
+              </Button>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent>
+          {assignments.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Sin promociones asignadas.</p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Promoción</TableHead>
+                  <TableHead>Estado</TableHead>
+                  <TableHead>Usos</TableHead>
+                  <TableHead>Expira</TableHead>
+                  <TableHead className="text-right">Detalle</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {assignments.map((a) => (
+                  <TableRow key={a.id}>
+                    <TableCell className="font-medium">{a.promotion?.name ?? '—'}</TableCell>
+                    <TableCell><AssignmentStatusBadge status={a.status} /></TableCell>
+                    <TableCell className="text-sm">
+                      {a.usesConsumed}{a.usesAllowed != null ? `/${a.usesAllowed}` : ''}
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {a.expiresAt ? new Date(a.expiresAt).toLocaleDateString('es-DO') : '—'}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button variant="ghost" size="sm" asChild>
+                        <Link href={`/dashboard/clientes/${id}/asignaciones/${a.id}`}>Ver</Link>
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
     </div>
   )
 }

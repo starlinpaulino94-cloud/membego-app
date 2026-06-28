@@ -4,12 +4,22 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { requireSuperAdmin } from '@/lib/auth/guards'
 import { getCustomerById, getActivePass } from '@/modules/clientes/queries'
+import { listCustomerAssignments } from '@/modules/asignaciones/queries'
 import { CustomerStatusBadge } from '@/components/customers/CustomerStatusBadge'
+import { AssignmentStatusBadge } from '@/components/assignments/AssignmentStatusBadge'
 import { RegeneratePassButton } from '@/components/customers/RegeneratePassButton'
 import { DigitalPassQR } from '@/components/customers/DigitalPassQR'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
 
 interface Props {
   params: Promise<{ id: string }>
@@ -19,9 +29,10 @@ export default async function AdminClienteDetailPage({ params }: Props) {
   await requireSuperAdmin()
   const { id } = await params
 
-  const [customer, pass] = await Promise.all([
+  const [customer, pass, assignments] = await Promise.all([
     getCustomerById(id),
     getActivePass(id),
+    listCustomerAssignments(id),
   ])
 
   if (!customer) notFound()
@@ -83,6 +94,53 @@ export default async function AdminClienteDetailPage({ params }: Props) {
             </div>
           ) : (
             <p className="text-sm text-muted-foreground">Sin Pase Digital activo.</p>
+          )}
+        </CardContent>
+      </Card>
+      {/* Assignments */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base">Promociones asignadas</CardTitle>
+            <Button size="sm" asChild>
+              <Link href={`/admin/clientes/${id}/asignar`}>+ Asignar</Link>
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {assignments.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Sin promociones asignadas.</p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Promoción</TableHead>
+                  <TableHead>Estado</TableHead>
+                  <TableHead>Usos</TableHead>
+                  <TableHead>Expira</TableHead>
+                  <TableHead className="text-right">Detalle</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {assignments.map((a) => (
+                  <TableRow key={a.id}>
+                    <TableCell className="font-medium">{a.promotion?.name ?? '—'}</TableCell>
+                    <TableCell><AssignmentStatusBadge status={a.status} /></TableCell>
+                    <TableCell className="text-sm">
+                      {a.usesConsumed}{a.usesAllowed != null ? `/${a.usesAllowed}` : ''}
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {a.expiresAt ? new Date(a.expiresAt).toLocaleDateString('es-DO') : '—'}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button variant="ghost" size="sm" asChild>
+                        <Link href={`/admin/clientes/${id}/asignaciones/${a.id}`}>Ver</Link>
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           )}
         </CardContent>
       </Card>
