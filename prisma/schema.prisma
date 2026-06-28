@@ -301,7 +301,7 @@ model Promotion {
 
   // Relations
   company     Company               @relation(fields: [companyId], references: [id])
-  createdBy   User                  @relation("PromotionCreatedBy", fields: [createdById], references: [id])
+  createdBy   User?                 @relation("PromotionCreatedBy", fields: [createdById], references: [id])
   assignments PromotionAssignment[]
 
   @@index([companyId])
