@@ -83,6 +83,24 @@ export async function setBranchStatus(id: string, status: BranchStatus): Promise
   })
 }
 
+export async function updateCompanySettings(
+  companyId: string,
+  data: {
+    allowMultipleActiveAssignments?: boolean
+    requirePaymentConfirmation?: boolean
+    defaultAssignmentDurationDays?: number | null
+    maxAssignmentsPerCustomer?: number | null
+    notificationsEmail?: string | null
+    webhookUrl?: string | null
+  }
+): Promise<void> {
+  await db.companySettings.upsert({
+    where: { companyId },
+    update: data,
+    create: { companyId, ...data },
+  })
+}
+
 export async function writeAuditLog(params: {
   companyId?: string
   userId?: string

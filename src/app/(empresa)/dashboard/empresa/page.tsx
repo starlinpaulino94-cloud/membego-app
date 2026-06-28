@@ -3,8 +3,9 @@ export const dynamic = 'force-dynamic'
 import { notFound, redirect } from 'next/navigation'
 import { requireRole } from '@/lib/auth/guards'
 import { getCompanyById } from '@/modules/empresas/queries'
-import { updateCompanyAction } from '@/modules/empresas/actions'
+import { updateCompanyAction, updateCompanySettingsAction } from '@/modules/empresas/actions'
 import { CompanyForm } from '@/components/companies/CompanyForm'
+import { CompanySettingsForm } from '@/components/companies/CompanySettingsForm'
 import { CompanyStatusBadge } from '@/components/companies/CompanyStatusBadge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import type { ActionResult } from '@/types/auth'
@@ -27,6 +28,11 @@ export default async function MiEmpresaPage() {
     return result
   }
 
+  async function settingsAction(_prev: ActionResult, formData: FormData) {
+    'use server'
+    return updateCompanySettingsAction(company!.id, _prev, formData)
+  }
+
   return (
     <div className="p-6 space-y-6 max-w-2xl">
       <div className="flex items-center justify-between">
@@ -45,6 +51,17 @@ export default async function MiEmpresaPage() {
           <CompanyForm action={action} defaultValues={company} submitLabel="Guardar cambios" />
         </CardContent>
       </Card>
+
+      {company.settings && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Configuración</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <CompanySettingsForm action={settingsAction} defaultValues={company.settings} />
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }
