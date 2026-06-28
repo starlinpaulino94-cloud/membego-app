@@ -1,8 +1,114 @@
-export default function DashboardPage() {
+export const dynamic = 'force-dynamic'
+
+import Link from 'next/link'
+import { requireRole } from '@/lib/auth/guards'
+import { listCompanyPromotions } from '@/modules/promociones/queries'
+import { listCustomersByCompany } from '@/modules/clientes/queries'
+import { listCompanyAssignments } from '@/modules/asignaciones/queries'
+import { listCompanyValidations } from '@/modules/validacion-qr/queries'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+
+export default async function DashboardPage() {
+  const user = await requireRole('SUPERADMIN', 'ADMIN_EMPRESA', 'EMPLEADO')
+  const companyId = user.companyId!
+
+  const [
+    { total: totalPromotions },
+    { total: totalClientes },
+    { total: totalAsignacionesActivas },
+    { total: totalValidaciones },
+    { total: totalValidacionesHoy },
+  ] = await Promise.all([
+    listCompanyPromotions(companyId, { status: 'ACTIVE' }),
+    listCustomersByCompany(companyId),
+    listCompanyAssignments(companyId, { status: 'ACTIVE' }),
+    listCompanyValidations(companyId),
+    listCompanyValidations(companyId, {
+      fromDate: new Date(new Date().setHours(0, 0, 0, 0)).toISOString(),
+    }),
+  ])
+
+  const canManage = user.role === 'ADMIN_EMPRESA' || user.role === 'SUPERADMIN'
+
   return (
-    <div className="p-6">
+    <div className="p-6 space-y-6">
       <h1 className="text-2xl font-semibold">Dashboard</h1>
-      {/* Sprint 1.2: implement dashboard */}
+
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm text-muted-foreground font-normal">Promociones activas</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <p className="text-3xl font-bold">{totalPromotions}</p>
+            <Button variant="outline" size="sm" asChild>
+              <Link href="/dashboard/promociones">Ver promociones</Link>
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm text-muted-foreground font-normal">Clientes</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <p className="text-3xl font-bold">{totalClientes}</p>
+            <Button variant="outline" size="sm" asChild>
+              <Link href="/dashboard/clientes">Ver clientes</Link>
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm text-muted-foreground font-normal">Asignaciones activas</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <p className="text-3xl font-bold">{totalAsignacionesActivas}</p>
+            <Button variant="outline" size="sm" asChild>
+              <Link href="/dashboard/clientes">Ver clientes</Link>
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm text-muted-foreground font-normal">Validaciones hoy</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <p className="text-3xl font-bold">{totalValidacionesHoy}</p>
+            <p className="text-xs text-muted-foreground">Total: {totalValidaciones}</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm text-muted-foreground font-normal">Validación QR</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <Button size="sm" className="w-full" asChild>
+              <Link href="/dashboard/validaciones">Escanear QR</Link>
+            </Button>
+          </CardContent>
+        </Card>
+
+        {canManage && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm text-muted-foreground font-normal">Acciones rápidas</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <Button size="sm" className="w-full" asChild>
+                <Link href="/dashboard/promociones/nueva">+ Nueva promoción</Link>
+              </Button>
+              <Button size="sm" variant="outline" className="w-full" asChild>
+                <Link href="/dashboard/clientes/nuevo">+ Nuevo cliente</Link>
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+      </div>
     </div>
   )
 }
