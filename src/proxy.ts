@@ -33,7 +33,7 @@ function isAllowed(role: AppRole, allowedRoles: AppRole[]): boolean {
   return allowedRoles.includes(role)
 }
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   // Refresh the Supabase session (rotates cookies if needed).

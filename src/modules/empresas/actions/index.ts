@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { requireSuperAdmin, requireRole, requireCompanyAccess } from '@/lib/auth/guards'
 import type { ActionResult } from '@/types/auth'
 import { createCompanySchema, updateCompanySchema, createBranchSchema, updateBranchSchema } from '../validations'
-import { createCompany, updateCompany, setCompanyStatus, createBranch, updateBranch, setBranchStatus, writeAuditLog } from '../mutations'
+import { createCompany, updateCompany, setCompanyStatus, createBranch, updateBranch, setBranchStatus, updateCompanySettings, writeAuditLog } from '../mutations'
 import { getCompanyById, getBranchById } from '../queries'
 import type { Company, Branch, CompanyStatus } from '../types'
 
@@ -271,6 +271,50 @@ export async function toggleBranchStatusAction(branchId: string): Promise<Action
 
     revalidatePath('/dashboard/sucursales')
     revalidatePath(`/admin/empresas/${existing.companyId}`)
+    return { success: true }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Error inesperado'
+    return { success: false, error: message }
+  }
+}
+
+// ─── Settings Actions ─────────────────────────────────────────────────────────
+
+export async function updateCompanySettingsAction(
+  companyId: string,
+  _prev: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  try {
+    const user = await requireRole('ADMIN_EMPRESA')
+    await requireCompanyAccess(companyId)
+
+    const allowMultiple = formData.get('allowMultipleActiveAssignments') === 'on'
+    const requirePayment = formData.get('requirePaymentConfirmation') === 'on'
+    const durationRaw = formData.get('defaultAssignmentDurationDays')
+    const maxRaw = formData.get('maxAssignmentsPerCustomer')
+    const notificationsEmail = formData.get('notificationsEmail') as string | null
+    const webhookUrl = formData.get('webhookUrl') as string | null
+
+    await updateCompanySettings(companyId, {
+      allowMultipleActiveAssignments: allowMultiple,
+      requirePaymentConfirmation: requirePayment,
+      defaultAssignmentDurationDays: durationRaw ? Number(durationRaw) : null,
+      maxAssignmentsPerCustomer: maxRaw ? Number(maxRaw) : null,
+      notificationsEmail: notificationsEmail || null,
+      webhookUrl: webhookUrl || null,
+    })
+
+    await writeAuditLog({
+      companyId,
+      userId: user.dbUserId,
+      event: 'COMPANY_SETTINGS_UPDATED',
+      entityType: 'CompanySettings',
+      entityId: companyId,
+      payload: { allowMultiple, requirePayment },
+    })
+
+    revalidatePath('/dashboard/empresa')
     return { success: true }
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Error inesperado'

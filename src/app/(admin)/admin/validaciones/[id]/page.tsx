@@ -79,6 +79,21 @@ export default async function AdminValidationDetailPage({
           </Card>
         )}
 
+        {validation.receipt && (
+          <Card>
+            <CardHeader><CardTitle className="text-sm">Comprobante</CardTitle></CardHeader>
+            <CardContent className="text-sm space-y-1">
+              <p className="font-mono text-xs text-muted-foreground">{validation.receipt.id.slice(0, 12)}...</p>
+              <p>Estado: {validation.receipt.status}</p>
+              {validation.receipt.issuedAt && (
+                <p className="text-muted-foreground">
+                  Emitido: {new Date(validation.receipt.issuedAt).toLocaleString('es-DO')}
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
         {validation.status === 'REJECTED' && (
           <Card>
             <CardHeader><CardTitle className="text-sm">Motivo de rechazo</CardTitle></CardHeader>
