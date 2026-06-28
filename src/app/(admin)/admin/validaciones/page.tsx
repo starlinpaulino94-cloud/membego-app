@@ -5,6 +5,7 @@ import { requireSuperAdmin } from '@/lib/auth/guards'
 import { listCompanyValidations } from '@/modules/validacion-qr/queries'
 import { listAllCompanies } from '@/modules/empresas/queries'
 import { ValidationStatusBadge } from '@/components/validations/ValidationStatusBadge'
+import { EmptyState } from '@/components/ui/empty-state'
 import { Button } from '@/components/ui/button'
 import {
   Table,
@@ -65,8 +66,8 @@ export default async function AdminValidacionesPage({
           <TableBody>
             {validations.length === 0 && (
               <TableRow>
-                <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
-                  Sin validaciones para esta empresa.
+                <TableCell colSpan={4} className="p-0">
+                  <EmptyState title="Sin validaciones" description="No hay validaciones registradas para esta empresa." className="py-8" />
                 </TableCell>
               </TableRow>
             )}

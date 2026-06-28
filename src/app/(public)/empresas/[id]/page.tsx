@@ -34,20 +34,7 @@ export default async function EmpresaPublicaPage({ params }: Props) {
   if (!company || company.status !== 'ACTIVE') notFound()
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <header className="border-b">
-        <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
-          <Link href="/" className="text-xl font-bold">PASE Digital</Link>
-          <nav className="flex items-center gap-4 text-sm">
-            <Link href="/empresas" className="text-muted-foreground hover:text-foreground">Empresas</Link>
-            <Button size="sm" asChild>
-              <Link href="/login">Iniciar sesión</Link>
-            </Button>
-          </nav>
-        </div>
-      </header>
-
-      <main className="flex-1 max-w-4xl mx-auto px-6 py-12 space-y-8 w-full">
+    <main className="max-w-4xl mx-auto px-6 py-12 space-y-8 w-full">
         {/* Company header */}
         <div className="space-y-3">
           <div className="flex items-start gap-3 flex-wrap">
@@ -114,11 +101,6 @@ export default async function EmpresaPublicaPage({ params }: Props) {
             <Link href="/registro">Crear cuenta gratis</Link>
           </Button>
         </div>
-      </main>
-
-      <footer className="border-t py-6 text-center text-xs text-muted-foreground">
-        © {new Date().getFullYear()} PASE Digital. Todos los derechos reservados.
-      </footer>
-    </div>
+    </main>
   )
 }

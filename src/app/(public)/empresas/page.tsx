@@ -1,8 +1,7 @@
 export const dynamic = 'force-dynamic'
 
-import Link from 'next/link'
 import { listAllCompanies } from '@/modules/empresas/queries'
-import { Button } from '@/components/ui/button'
+import Link from 'next/link'
 import { Badge } from '@/components/ui/badge'
 
 export const metadata = {
@@ -14,26 +13,7 @@ export default async function EmpresasPublicasPage() {
   const { items: empresas, total } = await listAllCompanies({ status: 'ACTIVE' })
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
-      <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-md border-b border-border">
-        <div className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between gap-6">
-          <Link href="/" className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-md bg-primary flex items-center justify-center shrink-0">
-              <span className="text-[10px] font-bold text-primary-foreground">P</span>
-            </div>
-            <span className="font-semibold text-sm text-foreground">PASE Digital</span>
-          </Link>
-          <nav className="flex items-center gap-1">
-            <Link href="/empresas" className="px-3 py-1.5 text-sm font-medium text-foreground bg-muted rounded-lg">Empresas</Link>
-            <Link href="/faq" className="px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground rounded-lg hover:bg-muted transition-colors">FAQ</Link>
-          </nav>
-          <Button size="sm" asChild>
-            <Link href="/login">Iniciar sesión</Link>
-          </Button>
-        </div>
-      </header>
-
-      <main className="flex-1 max-w-6xl mx-auto px-6 py-12 w-full">
+    <main className="max-w-6xl mx-auto px-6 py-12 w-full">
         <div className="mb-8">
           <h1 className="text-2xl font-bold text-foreground">Empresas participantes</h1>
           <p className="mt-1 text-sm text-muted-foreground">
@@ -74,11 +54,6 @@ export default async function EmpresasPublicasPage() {
             ))}
           </div>
         )}
-      </main>
-
-      <footer className="border-t border-border py-6 text-center text-xs text-muted-foreground">
-        © {new Date().getFullYear()} PASE Digital. Todos los derechos reservados.
-      </footer>
-    </div>
+    </main>
   )
 }
