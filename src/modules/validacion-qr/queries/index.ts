@@ -86,8 +86,7 @@ export async function listCustomerValidations(
 }
 
 export async function getDigitalPassByToken(token: string) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return (db as any).digitalPass.findUnique({
+  return db.digitalPass.findUnique({
     where: { token },
     include: {
       customer: {
