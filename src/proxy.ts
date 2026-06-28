@@ -36,9 +36,11 @@ function isAllowed(role: AppRole, allowedRoles: AppRole[]): boolean {
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
 
-  // If Supabase env vars are not configured, pass through to avoid crashing.
+  // Fail hard if Supabase is not configured — never expose protected routes.
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-    return NextResponse.next()
+    return new NextResponse('Server misconfigured: missing Supabase environment variables', {
+      status: 500,
+    })
   }
 
   let supabaseResponse: NextResponse

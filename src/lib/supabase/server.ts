@@ -45,7 +45,9 @@ export async function createServiceClient() {
             cookiesToSet.forEach(({ name, value, options }) =>
               cookieStore.set(name, value, options)
             )
-          } catch {}
+          } catch {
+            // Called from a Server Component — cookie mutations will be ignored
+          }
         },
       },
       auth: {

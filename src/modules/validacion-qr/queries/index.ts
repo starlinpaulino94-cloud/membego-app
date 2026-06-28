@@ -86,8 +86,8 @@ export async function listCustomerValidations(
 }
 
 export async function getDigitalPassByToken(token: string) {
-  return db.digitalPass.findUnique({
-    where: { token },
+  return db.digitalPass.findFirst({
+    where: { token, isActive: true },
     include: {
       customer: {
         include: {

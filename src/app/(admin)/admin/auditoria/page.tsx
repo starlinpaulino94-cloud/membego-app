@@ -12,16 +12,19 @@ import {
   TableRow,
 } from '@/components/ui/table'
 
+const PAGE_SIZE = 50
+
 export default async function AuditoriaPage({
   searchParams,
 }: {
-  searchParams: Promise<{ companyId?: string; event?: string }>
+  searchParams: Promise<{ companyId?: string; event?: string; page?: string }>
 }) {
   await requireSuperAdmin()
-  const { companyId, event } = await searchParams
+  const { companyId, event, page: pageParam } = await searchParams
+  const page = Math.max(1, Number(pageParam ?? '1') || 1)
 
   const { items: companies } = await listAllCompanies()
-  const { items: logs, total } = await listAuditLogs({ companyId, event })
+  const { items: logs, total } = await listAuditLogs({ companyId, event, page, pageSize: PAGE_SIZE })
 
   return (
     <div className="p-6 space-y-6">
@@ -49,7 +52,9 @@ export default async function AuditoriaPage({
         </button>
       </form>
 
-      <p className="text-sm text-muted-foreground">{total} registros</p>
+      <p className="text-sm text-muted-foreground">
+        {total} registros · página {page} de {Math.max(1, Math.ceil(total / PAGE_SIZE))}
+      </p>
 
       <div className="rounded-md border">
         <Table>
@@ -93,6 +98,27 @@ export default async function AuditoriaPage({
           </TableBody>
         </Table>
       </div>
+      {/* Pagination */}
+      {total > PAGE_SIZE && (
+        <div className="flex items-center justify-between pt-2">
+          {page > 1 ? (
+            <a
+              href={`?${new URLSearchParams({ ...(companyId ? { companyId } : {}), ...(event ? { event } : {}), page: String(page - 1) })}`}
+              className="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-accent transition-colors"
+            >
+              ← Anterior
+            </a>
+          ) : <span />}
+          {page * PAGE_SIZE < total && (
+            <a
+              href={`?${new URLSearchParams({ ...(companyId ? { companyId } : {}), ...(event ? { event } : {}), page: String(page + 1) })}`}
+              className="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-accent transition-colors"
+            >
+              Siguiente →
+            </a>
+          )}
+        </div>
+      )}
     </div>
   )
 }

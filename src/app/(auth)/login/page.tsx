@@ -11,12 +11,19 @@ export default function LoginPage() {
 
       <LoginForm />
 
-      <p className="text-sm text-muted-foreground">
-        ¿No tienes cuenta?{' '}
-        <Link href="/registro" className="font-medium text-foreground underline underline-offset-4 hover:no-underline">
-          Regístrate gratis
-        </Link>
-      </p>
+      <div className="flex flex-col gap-2 text-sm text-muted-foreground">
+        <p>
+          ¿No tienes cuenta?{' '}
+          <Link href="/registro" className="font-medium text-foreground underline underline-offset-4 hover:no-underline">
+            Regístrate gratis
+          </Link>
+        </p>
+        <p>
+          <Link href="/forgot-password" className="font-medium text-foreground underline underline-offset-4 hover:no-underline">
+            ¿Olvidaste tu contraseña?
+          </Link>
+        </p>
+      </div>
     </div>
   )
 }

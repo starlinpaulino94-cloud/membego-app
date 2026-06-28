@@ -51,11 +51,19 @@ export async function createPromotionAction(
     const companyId = await resolveCompanyId(user, targetCompanyId)
 
     const configRaw = formData.get('config')
+    let configParsed: Record<string, unknown> = {}
+    if (configRaw) {
+      try {
+        configParsed = JSON.parse(configRaw as string)
+      } catch {
+        return { success: false, error: 'El campo config contiene JSON inválido' }
+      }
+    }
     const raw = {
       name: formData.get('name'),
       description: formData.get('description'),
       type: formData.get('type'),
-      config: configRaw ? JSON.parse(configRaw as string) : {},
+      config: configParsed,
       maxUses: formData.get('maxUses') || undefined,
       startsAt: formData.get('startsAt') || undefined,
       expiresAt: formData.get('expiresAt') || undefined,
@@ -102,10 +110,18 @@ export async function updatePromotionAction(
     }
 
     const configRaw = formData.get('config')
+    let configParsedUpdate: Record<string, unknown> | undefined
+    if (configRaw) {
+      try {
+        configParsedUpdate = JSON.parse(configRaw as string)
+      } catch {
+        return { success: false, error: 'El campo config contiene JSON inválido' }
+      }
+    }
     const raw = {
       name: formData.get('name') || undefined,
       description: formData.get('description'),
-      config: configRaw ? JSON.parse(configRaw as string) : undefined,
+      config: configParsedUpdate,
       maxUses: formData.get('maxUses') || undefined,
       startsAt: formData.get('startsAt') || undefined,
       expiresAt: formData.get('expiresAt') || undefined,

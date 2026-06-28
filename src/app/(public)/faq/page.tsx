@@ -1,6 +1,10 @@
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 
+export const metadata = {
+  title: 'FAQ — PASE Digital',
+}
+
 const faqs = [
   {
     q: '¿Qué es PASE Digital?',
@@ -30,17 +34,7 @@ const faqs = [
 
 export default function FAQPage() {
   return (
-    <div className="min-h-screen flex flex-col">
-      <header className="border-b">
-        <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
-          <Link href="/" className="text-xl font-bold">PASE Digital</Link>
-          <Button size="sm" asChild>
-            <Link href="/login">Iniciar sesión</Link>
-          </Button>
-        </div>
-      </header>
-
-      <main className="flex-1 max-w-3xl mx-auto px-6 py-16 space-y-8">
+    <main className="max-w-3xl mx-auto px-6 py-16 space-y-8">
         <h1 className="text-3xl font-bold">Preguntas frecuentes</h1>
 
         <div className="space-y-6">
@@ -58,11 +52,6 @@ export default function FAQPage() {
             <Link href="/registro">Crear cuenta gratis</Link>
           </Button>
         </div>
-      </main>
-
-      <footer className="border-t py-6 text-center text-xs text-muted-foreground">
-        © {new Date().getFullYear()} PASE Digital. Todos los derechos reservados.
-      </footer>
-    </div>
+    </main>
   )
 }

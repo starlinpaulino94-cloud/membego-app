@@ -8,6 +8,19 @@ import { createCompany, updateCompany, setCompanyStatus, createBranch, updateBra
 import { getCompanyById, getBranchById } from '../queries'
 import type { Company, Branch, CompanyStatus } from '../types'
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function auditLog(args: Parameters<typeof writeAuditLog>[0]) {
+  if (!args.userId) {
+    console.warn('[audit] writeAuditLog called without userId — event will be unattributed', {
+      event: args.event,
+      entityType: args.entityType,
+      entityId: args.entityId,
+    })
+  }
+  return writeAuditLog(args)
+}
+
 // ─── Company Actions ──────────────────────────────────────────────────────────
 
 export async function createCompanyAction(
@@ -39,7 +52,7 @@ export async function createCompanyAction(
 
     const company = await createCompany(parsed.data)
 
-    await writeAuditLog({
+    await auditLog({
       companyId: company.id,
       userId: user.dbUserId,
       event: 'COMPANY_CREATED',
@@ -91,7 +104,7 @@ export async function updateCompanyAction(
 
     const company = await updateCompany(companyId, parsed.data)
 
-    await writeAuditLog({
+    await auditLog({
       companyId,
       userId: user.dbUserId,
       event: 'COMPANY_UPDATED',
@@ -129,7 +142,7 @@ export async function setCompanyStatusAction(
       PENDING: 'COMPANY_SET_PENDING',
     }
 
-    await writeAuditLog({
+    await auditLog({
       companyId,
       userId: user.dbUserId,
       event: eventMap[status],
@@ -178,7 +191,7 @@ export async function createBranchAction(
 
     const branch = await createBranch({ companyId, ...parsed.data })
 
-    await writeAuditLog({
+    await auditLog({
       companyId,
       userId: user.dbUserId,
       event: 'BRANCH_CREATED',
@@ -228,7 +241,7 @@ export async function updateBranchAction(
 
     const branch = await updateBranch(branchId, parsed.data)
 
-    await writeAuditLog({
+    await auditLog({
       companyId: existing.companyId,
       userId: user.dbUserId,
       event: 'BRANCH_UPDATED',
@@ -260,7 +273,7 @@ export async function toggleBranchStatusAction(branchId: string): Promise<Action
     const newStatus = existing.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE'
     await setBranchStatus(branchId, newStatus)
 
-    await writeAuditLog({
+    await auditLog({
       companyId: existing.companyId,
       userId: user.dbUserId,
       event: newStatus === 'ACTIVE' ? 'BRANCH_ENABLED' : 'BRANCH_DISABLED',
@@ -305,7 +318,7 @@ export async function updateCompanySettingsAction(
       webhookUrl: webhookUrl || null,
     })
 
-    await writeAuditLog({
+    await auditLog({
       companyId,
       userId: user.dbUserId,
       event: 'COMPANY_SETTINGS_UPDATED',

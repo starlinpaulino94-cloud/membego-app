@@ -5,6 +5,7 @@ import { requireRole } from '@/lib/auth/guards'
 import { listCompanyValidations } from '@/modules/validacion-qr/queries'
 import { QRScannerForm } from '@/components/validations/QRScannerForm'
 import { ValidationStatusBadge } from '@/components/validations/ValidationStatusBadge'
+import { EmptyState } from '@/components/ui/empty-state'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import {
@@ -74,8 +75,8 @@ export default async function ValidacionesPage() {
                 ))}
                 {validations.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={4} className="text-center text-muted-foreground py-4">
-                      Sin validaciones.
+                    <TableCell colSpan={4} className="p-0">
+                      <EmptyState title="Sin validaciones" description="Las validaciones escaneadas aparecerán aquí." className="py-8" />
                     </TableCell>
                   </TableRow>
                 )}

@@ -7,9 +7,9 @@ export default async function CustomerLayout({ children }: { children: React.Rea
 
   if (!session) redirect('/login')
 
-  const allowed = ['SUPERADMIN', 'CLIENTE'] as const
+  const allowed = ['CLIENTE'] as const
   if (!allowed.includes(session.role as (typeof allowed)[number])) {
-    redirect('/dashboard')
+    redirect(session.role === 'SUPERADMIN' ? '/admin' : '/dashboard')
   }
 
   return (
