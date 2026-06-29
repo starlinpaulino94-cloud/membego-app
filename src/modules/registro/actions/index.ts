@@ -53,6 +53,7 @@ export async function registerSelectPromotionAction(params: {
     await setUserAppMetadata(supabaseUserId, {
       role: 'CLIENTE',
       dbUserId: user.id,
+      customerId: customer.id,
     })
 
     // Create DigitalPass if none active
