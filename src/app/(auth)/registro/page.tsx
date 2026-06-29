@@ -1,7 +1,12 @@
-import Link from 'next/link'
-import { RegisterForm } from '@/components/auth/RegisterForm'
+export const dynamic = 'force-dynamic'
 
-export default function RegistroPage() {
+import Link from 'next/link'
+import { listAllCompanies } from '@/modules/empresas/queries'
+import { RegisterWizard } from '@/components/auth/RegisterWizard'
+
+export default async function RegistroPage() {
+  const { items: companies } = await listAllCompanies({ status: 'ACTIVE' })
+
   return (
     <div className="space-y-7">
       <div className="space-y-1.5">
@@ -9,7 +14,7 @@ export default function RegistroPage() {
         <p className="text-sm text-muted-foreground">Accede a promociones exclusivas con tu pase digital</p>
       </div>
 
-      <RegisterForm />
+      <RegisterWizard companies={companies} />
 
       <p className="text-sm text-muted-foreground">
         ¿Ya tienes cuenta?{' '}
