@@ -1,11 +1,20 @@
 // Run once: node scripts/create-superadmin.mjs
-// Requires .env with NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY
-
-import { createClient } from '@supabase/supabase-js'
 import { PrismaClient } from '@prisma/client'
-import { config } from 'dotenv'
+import { readFileSync } from 'fs'
+import { resolve } from 'path'
 
-config()
+// Manual .env loader (avoids dotenv ESM issues)
+const envPath = resolve(process.cwd(), '.env')
+const envContent = readFileSync(envPath, 'utf8')
+for (const line of envContent.split('\n')) {
+  const trimmed = line.trim()
+  if (!trimmed || trimmed.startsWith('#')) continue
+  const idx = trimmed.indexOf('=')
+  if (idx === -1) continue
+  const key = trimmed.slice(0, idx).trim()
+  const val = trimmed.slice(idx + 1).trim().replace(/^["']|["']$/g, '')
+  if (!process.env[key]) process.env[key] = val
+}
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -16,35 +25,46 @@ if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
 }
 
 const EMAIL = 'starlin.eltanquemotors@gmail.com'
-const PASSWORD = 'Admin1234!'  // Change after first login
+const PASSWORD = 'Admin1234!'
 
-const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
-  auth: { autoRefreshToken: false, persistSession: false },
-})
+const headers = {
+  'apikey': SERVICE_ROLE_KEY,
+  'Authorization': `Bearer ${SERVICE_ROLE_KEY}`,
+  'Content-Type': 'application/json',
+}
+
+async function adminFetch(path, method = 'GET', body) {
+  const res = await fetch(`${SUPABASE_URL}/auth/v1/admin${path}`, {
+    method,
+    headers,
+    body: body ? JSON.stringify(body) : undefined,
+  })
+  const data = await res.json()
+  if (!res.ok) throw new Error(data.message || data.error || JSON.stringify(data))
+  return data
+}
 
 const prisma = new PrismaClient()
 
 async function main() {
-  console.log(`Creating SUPERADMIN: ${EMAIL}`)
+  console.log(`\nCreating SUPERADMIN: ${EMAIL}\n`)
 
-  // 1. Create or find Supabase auth user
-  const { data: listData } = await supabase.auth.admin.listUsers()
-  let authUser = listData?.users?.find(u => u.email === EMAIL)
+  // 1. List users and find by email
+  const { users } = await adminFetch('/users?per_page=1000')
+  let authUser = users?.find(u => u.email === EMAIL)
 
   if (!authUser) {
-    const { data, error } = await supabase.auth.admin.createUser({
+    authUser = await adminFetch('/users', 'POST', {
       email: EMAIL,
       password: PASSWORD,
       email_confirm: true,
     })
-    if (error) { console.error('❌  Supabase error:', error.message); process.exit(1) }
-    authUser = data.user
     console.log('✅  Supabase auth user created')
   } else {
-    console.log('ℹ️   Supabase auth user already exists')
+    console.log('ℹ️   Supabase auth user already exists:', authUser.id)
   }
 
-  // 2. Create or find DB User
+  // 2. Create or update DB User
   let dbUser = await prisma.user.findUnique({ where: { supabaseId: authUser.id } })
   if (!dbUser) {
     dbUser = await prisma.user.create({
@@ -62,16 +82,15 @@ async function main() {
   }
 
   // 3. Set app_metadata
-  const { error: metaError } = await supabase.auth.admin.updateUserById(authUser.id, {
+  await adminFetch(`/users/${authUser.id}`, 'PUT', {
     app_metadata: { role: 'SUPERADMIN', dbUserId: dbUser.id },
   })
-  if (metaError) { console.error('❌  app_metadata error:', metaError.message); process.exit(1) }
   console.log('✅  app_metadata set')
 
   console.log('\n🎉  SUPERADMIN listo!')
   console.log(`   Email:    ${EMAIL}`)
   console.log(`   Password: ${PASSWORD}`)
-  console.log('   ⚠️  Cambia la contraseña después de iniciar sesión.')
+  console.log('   ⚠️  Cambia la contraseña después de iniciar sesión.\n')
 }
 
-main().catch(e => { console.error(e); process.exit(1) }).finally(() => prisma.$disconnect())
+main().catch(e => { console.error('❌', e.message); process.exit(1) }).finally(() => prisma.$disconnect())
