@@ -34,9 +34,18 @@ export async function registrarCliente(
     return { error: 'La contraseña debe tener al menos 6 caracteres.' }
   }
 
-  const company = await prisma.company.findUnique({
-    where: { slug: companySlug },
-  })
+  const FALLBACK_COMPANIES: Record<string, { id: string; name: string; slug: string; type: string }> = {
+    'cartown-wash': { id: 'company-cartown', name: 'CARTOWN Wash & Detailing', slug: 'cartown-wash', type: 'carwash' },
+    'tonis':        { id: 'company-tonis',   name: "Toni's Restaurante",        slug: 'tonis',        type: 'restaurante' },
+  }
+
+  let company: { id: string; name: string; slug: string; type: string } | null = null
+  try {
+    company = await prisma.company.findUnique({ where: { slug: companySlug } })
+  } catch (e) {
+    console.error('[registro] company lookup error:', e)
+  }
+  if (!company) company = FALLBACK_COMPANIES[companySlug] ?? null
   if (!company) {
     return { error: 'Empresa no encontrada.' }
   }
