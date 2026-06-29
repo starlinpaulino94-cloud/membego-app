@@ -8,11 +8,17 @@ export const dynamic = 'force-dynamic'
 
 export default async function AdminDashboard() {
   const user = await requireRole(['ADMIN_EMPRESA', 'SUPERADMIN'])
-  const metrics = await adminMetrics(user)
 
-  const company = user.metadata.companyId
-    ? await prisma.company.findUnique({ where: { id: user.metadata.companyId } })
-    : null
+  let metrics = { totalClientes: 0, activas: 0, pendientes: 0, visitasHoy: 0 }
+  let company = null
+  try {
+    metrics = await adminMetrics(user)
+    company = user.metadata.companyId
+      ? await prisma.company.findUnique({ where: { id: user.metadata.companyId } })
+      : null
+  } catch (e) {
+    console.error('[admin-dashboard]', e)
+  }
 
   const cards = [
     {

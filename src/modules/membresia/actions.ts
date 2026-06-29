@@ -13,6 +13,7 @@ export async function seleccionarPlan(
   _prev: SeleccionState,
   formData: FormData
 ): Promise<SeleccionState> {
+  try {
   const user = await getUser()
   if (!user || user.metadata.role !== 'CLIENTE' || !user.metadata.clienteId) {
     return { error: 'No autorizado.' }
@@ -62,4 +63,8 @@ export async function seleccionarPlan(
   revalidatePath('/cliente/membresia')
   revalidatePath('/cliente/dashboard')
   return { success: true }
+  } catch (e) {
+    console.error('[membresia] unexpected error:', e)
+    return { error: 'Ocurrió un error inesperado. Intenta de nuevo.' }
+  }
 }

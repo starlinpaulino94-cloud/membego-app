@@ -8,21 +8,32 @@ export const dynamic = 'force-dynamic'
 export default async function SuperadminDashboard() {
   await requireRole('SUPERADMIN')
 
-  const companies = await prisma.company.findMany({
-    orderBy: { name: 'asc' },
-    include: {
-      _count: { select: { clientes: true, plans: true } },
-    },
-  })
-
-  const perCompany = await Promise.all(
-    companies.map(async (c) => {
-      const activas = await prisma.membership.count({
-        where: { estado: 'ACTIVA', cliente: { companyId: c.id } },
-      })
-      return { ...c, activas }
+  const fetchData = async () => {
+    const companies = await prisma.company.findMany({
+      orderBy: { name: 'asc' },
+      include: {
+        _count: { select: { clientes: true, plans: true } },
+      },
     })
-  )
+
+    return Promise.all(
+      companies.map(async (c) => {
+        const activas = await prisma.membership.count({
+          where: { estado: 'ACTIVA', cliente: { companyId: c.id } },
+        })
+        return { ...c, activas }
+      })
+    )
+  }
+
+  let perCompany: Awaited<ReturnType<typeof fetchData>> = []
+  try {
+    perCompany = await fetchData()
+  } catch (e) {
+    console.error('[superadmin-dashboard]', e)
+  }
+
+  const companies = perCompany
 
   const totalClientes = perCompany.reduce(
     (s, c) => s + c._count.clientes,

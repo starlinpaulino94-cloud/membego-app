@@ -48,6 +48,7 @@ export async function confirmarPago(
   _prev: AdminActionState,
   formData: FormData
 ): Promise<AdminActionState> {
+  try {
   const user = await requireAdmin()
   if (!user) return { error: 'No autorizado.' }
 
@@ -82,6 +83,10 @@ export async function confirmarPago(
   revalidatePath('/admin/clientes')
   revalidatePath('/admin/dashboard')
   return { success: true }
+  } catch (e) {
+    console.error('[admin] confirmarPago error:', e)
+    return { error: 'Ocurrió un error inesperado. Intenta de nuevo.' }
+  }
 }
 
 /** Renew: new 30-day period, reset lavadosRestantes, keep same QR. */
@@ -89,6 +94,7 @@ export async function renovarMembresia(
   _prev: AdminActionState,
   formData: FormData
 ): Promise<AdminActionState> {
+  try {
   const user = await requireAdmin()
   if (!user) return { error: 'No autorizado.' }
 
@@ -118,4 +124,8 @@ export async function renovarMembresia(
   revalidatePath(`/admin/clientes/${membership.clienteId}`)
   revalidatePath('/admin/clientes')
   return { success: true }
+  } catch (e) {
+    console.error('[admin] renovarMembresia error:', e)
+    return { error: 'Ocurrió un error inesperado. Intenta de nuevo.' }
+  }
 }

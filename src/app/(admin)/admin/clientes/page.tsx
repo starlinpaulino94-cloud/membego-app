@@ -26,29 +26,37 @@ export default async function ClientesPage({
   const { q } = await searchParams
   const companyId = companyFilter(user)
 
-  const clientes = await prisma.cliente.findMany({
-    where: {
-      ...(companyId ? { companyId } : {}),
-      ...(q
-        ? {
-            OR: [
-              { nombre: { contains: q, mode: 'insensitive' } },
-              { email: { contains: q, mode: 'insensitive' } },
-            ],
-          }
-        : {}),
-    },
-    include: {
-      company: true,
-      memberships: {
-        include: { plan: true },
-        orderBy: { createdAt: 'desc' },
-        take: 1,
+  const fetchClientes = () =>
+    prisma.cliente.findMany({
+      where: {
+        ...(companyId ? { companyId } : {}),
+        ...(q
+          ? {
+              OR: [
+                { nombre: { contains: q, mode: 'insensitive' } },
+                { email: { contains: q, mode: 'insensitive' } },
+              ],
+            }
+          : {}),
       },
-    },
-    orderBy: { createdAt: 'desc' },
-    take: 100,
-  })
+      include: {
+        company: true,
+        memberships: {
+          include: { plan: true },
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 100,
+    })
+
+  let clientes: Awaited<ReturnType<typeof fetchClientes>> = []
+  try {
+    clientes = await fetchClientes()
+  } catch (e) {
+    console.error('[admin-clientes]', e)
+  }
 
   return (
     <div className="space-y-6">

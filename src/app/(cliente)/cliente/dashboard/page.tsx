@@ -23,9 +23,19 @@ function fmtDate(d: Date | null) {
 
 export default async function ClienteDashboard() {
   const user = await requireRole('CLIENTE')
-  const cliente = user.metadata.clienteId
-    ? await getClienteFull(user.metadata.clienteId)
-    : null
+  let cliente = null
+  try {
+    cliente = user.metadata.clienteId
+      ? await getClienteFull(user.metadata.clienteId)
+      : null
+  } catch (e) {
+    console.error('[cliente-dashboard]', e)
+    return (
+      <p className="text-slate-600">
+        No pudimos cargar tu información en este momento. Intenta de nuevo más tarde.
+      </p>
+    )
+  }
 
   if (!cliente) {
     return <p className="text-slate-600">No se encontró tu información.</p>

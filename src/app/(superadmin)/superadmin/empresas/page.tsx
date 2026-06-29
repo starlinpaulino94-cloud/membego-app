@@ -9,12 +9,20 @@ export const dynamic = 'force-dynamic'
 export default async function SuperadminEmpresas() {
   await requireRole('SUPERADMIN')
 
-  const companies = await prisma.company.findMany({
-    orderBy: { name: 'asc' },
-    include: {
-      _count: { select: { clientes: true, plans: true, users: true } },
-    },
-  })
+  const fetchCompanies = () =>
+    prisma.company.findMany({
+      orderBy: { name: 'asc' },
+      include: {
+        _count: { select: { clientes: true, plans: true, users: true } },
+      },
+    })
+
+  let companies: Awaited<ReturnType<typeof fetchCompanies>> = []
+  try {
+    companies = await fetchCompanies()
+  } catch (e) {
+    console.error('[superadmin-empresas]', e)
+  }
 
   return (
     <div className="space-y-6">

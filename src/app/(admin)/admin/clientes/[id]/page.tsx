@@ -28,23 +28,36 @@ export default async function ClienteDetailPage({
   const { id } = await params
   const companyId = companyFilter(user)
 
-  const cliente = await prisma.cliente.findUnique({
-    where: { id },
-    include: {
-      company: true,
-      qrTokens: { where: { activo: true }, take: 1 },
-      vehiculos: true,
-      memberships: {
-        include: { plan: true },
-        orderBy: { createdAt: 'desc' },
+  const fetchCliente = () =>
+    prisma.cliente.findUnique({
+      where: { id },
+      include: {
+        company: true,
+        qrTokens: { where: { activo: true }, take: 1 },
+        vehiculos: true,
+        memberships: {
+          include: { plan: true },
+          orderBy: { createdAt: 'desc' },
+        },
+        visits: {
+          orderBy: { fechaVisita: 'desc' },
+          take: 10,
+          include: { vehiculo: true },
+        },
       },
-      visits: {
-        orderBy: { fechaVisita: 'desc' },
-        take: 10,
-        include: { vehiculo: true },
-      },
-    },
-  })
+    })
+
+  let cliente: Awaited<ReturnType<typeof fetchCliente>> = null
+  try {
+    cliente = await fetchCliente()
+  } catch (e) {
+    console.error('[admin-cliente-detail]', e)
+    return (
+      <p className="text-slate-600">
+        No pudimos cargar este cliente en este momento. Intenta de nuevo más tarde.
+      </p>
+    )
+  }
 
   if (!cliente) notFound()
   if (companyId && cliente.companyId !== companyId) notFound()

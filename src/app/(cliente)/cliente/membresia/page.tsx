@@ -11,9 +11,19 @@ export const dynamic = 'force-dynamic'
 
 export default async function MembresiaPage() {
   const user = await requireRole('CLIENTE')
-  const cliente = user.metadata.clienteId
-    ? await getClienteFull(user.metadata.clienteId)
-    : null
+  let cliente = null
+  try {
+    cliente = user.metadata.clienteId
+      ? await getClienteFull(user.metadata.clienteId)
+      : null
+  } catch (e) {
+    console.error('[cliente-membresia]', e)
+    return (
+      <p className="text-slate-600">
+        No pudimos cargar tu información en este momento. Intenta de nuevo más tarde.
+      </p>
+    )
+  }
 
   if (!cliente) {
     return <p className="text-slate-600">No se encontró tu información.</p>
@@ -22,10 +32,15 @@ export default async function MembresiaPage() {
   const current = cliente.memberships[0]
   const hasActive = current?.estado === 'ACTIVA'
 
-  const planes = await prisma.plan.findMany({
-    where: { companyId: cliente.companyId, activo: true },
-    orderBy: { precio: 'asc' },
-  })
+  let planes: Awaited<ReturnType<typeof prisma.plan.findMany>> = []
+  try {
+    planes = await prisma.plan.findMany({
+      where: { companyId: cliente.companyId, activo: true },
+      orderBy: { precio: 'asc' },
+    })
+  } catch (e) {
+    console.error('[cliente-membresia] planes', e)
+  }
 
   return (
     <div className="space-y-8">

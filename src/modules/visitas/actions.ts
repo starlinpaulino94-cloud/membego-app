@@ -26,6 +26,7 @@ export interface LookupResult {
 
 /** Look up a client by QR token. Scoped to the employee's company. */
 export async function buscarPorToken(token: string): Promise<LookupResult> {
+  try {
   const user = await getUser()
   if (!user || !['EMPLEADO', 'ADMIN_EMPRESA', 'SUPERADMIN'].includes(user.metadata.role)) {
     return { error: 'No autorizado.' }
@@ -101,6 +102,10 @@ export async function buscarPorToken(token: string): Promise<LookupResult> {
       mensaje,
     },
   }
+  } catch (e) {
+    console.error('[visitas] buscarPorToken error:', e)
+    return { error: 'Ocurrió un error inesperado. Intenta de nuevo.' }
+  }
 }
 
 export interface ConfirmState {
@@ -113,6 +118,7 @@ export async function confirmarVisita(
   _prev: ConfirmState,
   formData: FormData
 ): Promise<ConfirmState> {
+  try {
   const user = await getUser()
   if (!user || !['EMPLEADO', 'ADMIN_EMPRESA', 'SUPERADMIN'].includes(user.metadata.role)) {
     return { error: 'No autorizado.' }
@@ -182,5 +188,9 @@ export async function confirmarVisita(
     return { success: true, restantes: result }
   } catch (e) {
     return { error: e instanceof Error ? e.message : 'No se pudo confirmar.' }
+  }
+  } catch (e) {
+    console.error('[visitas] confirmarVisita error:', e)
+    return { error: 'Ocurrió un error inesperado. Intenta de nuevo.' }
   }
 }

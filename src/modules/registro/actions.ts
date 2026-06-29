@@ -12,6 +12,7 @@ export async function registrarCliente(
   _prev: RegistroState,
   formData: FormData
 ): Promise<RegistroState> {
+  try {
   const companySlug = String(formData.get('companySlug') ?? '')
   const nombre = String(formData.get('nombre') ?? '').trim()
   const email = String(formData.get('email') ?? '')
@@ -133,5 +134,9 @@ export async function registrarCliente(
     await admin.auth.admin.deleteUser(supabaseId).catch(() => {})
     console.error(e)
     return { error: 'No se pudo completar el registro. Intenta de nuevo.' }
+  }
+  } catch (e) {
+    console.error('[registro] unexpected error:', e)
+    return { error: 'Ocurrió un error inesperado. Intenta de nuevo.' }
   }
 }
