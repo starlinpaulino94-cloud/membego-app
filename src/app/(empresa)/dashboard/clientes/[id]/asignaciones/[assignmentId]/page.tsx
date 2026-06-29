@@ -29,7 +29,7 @@ export default async function AssignmentDetailPage({
 
   const canManage = user.role === 'ADMIN_EMPRESA' || user.role === 'SUPERADMIN'
 
-  const progressPct = assignment.progressTarget
+  const progressPct = assignment.progressTarget && assignment.progressTarget > 0
     ? Math.min(Math.round((assignment.usesConsumed / assignment.progressTarget) * 100), 100)
     : null
 
