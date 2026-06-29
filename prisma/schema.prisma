@@ -462,6 +462,7 @@ model CompanySettings {
   requirePaymentConfirmation      Boolean  @default(false)
   defaultAssignmentDurationDays   Int?
   maxAssignmentsPerCustomer       Int?
+  validationCooldownHours         Int?     // null = sin cooldown; set by SUPERADMIN per company
   notificationsEmail              String?
   webhookUrl                      String?
   customConfig                    Json?

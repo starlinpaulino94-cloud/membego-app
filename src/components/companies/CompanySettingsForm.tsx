@@ -11,6 +11,7 @@ interface Settings {
   requirePaymentConfirmation: boolean
   defaultAssignmentDurationDays?: number | null
   maxAssignmentsPerCustomer?: number | null
+  validationCooldownHours?: number | null
   notificationsEmail?: string | null
   webhookUrl?: string | null
 }
@@ -84,6 +85,22 @@ export function CompanySettingsForm({ action, defaultValues }: Props) {
           placeholder="Sin límite"
           className="max-w-xs"
         />
+      </div>
+
+      <div className="space-y-1">
+        <Label htmlFor="validationCooldownHours">Cooldown entre usos del QR (horas)</Label>
+        <Input
+          id="validationCooldownHours"
+          name="validationCooldownHours"
+          type="number"
+          min={0}
+          defaultValue={defaultValues.validationCooldownHours ?? ''}
+          placeholder="Sin cooldown"
+          className="max-w-xs"
+        />
+        <p className="text-xs text-muted-foreground">
+          El cliente no podrá usar la misma promoción más de una vez en este período. Ej: 8 = cada 8 horas.
+        </p>
       </div>
 
       <div className="space-y-1">

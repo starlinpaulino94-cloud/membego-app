@@ -154,6 +154,28 @@ export async function confirmValidation(params: {
   })
   if (!assignment) throw new Error('Asignación no encontrada o no está activa')
 
+  // Enforce per-promotion cooldown configured at company level
+  const settings = await db.companySettings.findUnique({ where: { companyId } })
+  const cooldownHours: number | null = settings?.validationCooldownHours ?? null
+
+  if (cooldownHours != null && cooldownHours > 0) {
+    const since = new Date(Date.now() - cooldownHours * 3_600_000)
+    const recentUse = await db.validation.findFirst({
+      where: {
+        customerId: v.customerId,
+        promotionAssignmentId: assignmentId,
+        status: 'CONFIRMED',
+        confirmedAt: { gte: since },
+      },
+    })
+    if (recentUse) {
+      const nextAllowed = new Date(new Date(recentUse.confirmedAt).getTime() + cooldownHours * 3_600_000)
+      throw new Error(
+        `Ya usaste esta promoción recientemente. Próximo uso disponible: ${nextAllowed.toLocaleString('es-DO')}`
+      )
+    }
+  }
+
   // Consume use on the assignment — this auto-completes if exhausted
   await consumeUse(assignmentId, employeeId, companyId)
 

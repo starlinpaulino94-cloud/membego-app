@@ -90,6 +90,7 @@ export async function updateCompanySettings(
     requirePaymentConfirmation?: boolean
     defaultAssignmentDurationDays?: number | null
     maxAssignmentsPerCustomer?: number | null
+    validationCooldownHours?: number | null
     notificationsEmail?: string | null
     webhookUrl?: string | null
   }

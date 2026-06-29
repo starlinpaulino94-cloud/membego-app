@@ -306,6 +306,7 @@ export async function updateCompanySettingsAction(
     const requirePayment = formData.get('requirePaymentConfirmation') === 'on'
     const durationRaw = formData.get('defaultAssignmentDurationDays')
     const maxRaw = formData.get('maxAssignmentsPerCustomer')
+    const cooldownRaw = formData.get('validationCooldownHours')
     const notificationsEmail = formData.get('notificationsEmail') as string | null
     const webhookUrl = formData.get('webhookUrl') as string | null
 
@@ -314,6 +315,7 @@ export async function updateCompanySettingsAction(
       requirePaymentConfirmation: requirePayment,
       defaultAssignmentDurationDays: durationRaw ? Number(durationRaw) : null,
       maxAssignmentsPerCustomer: maxRaw ? Number(maxRaw) : null,
+      validationCooldownHours: cooldownRaw ? Number(cooldownRaw) : null,
       notificationsEmail: notificationsEmail || null,
       webhookUrl: webhookUrl || null,
     })
