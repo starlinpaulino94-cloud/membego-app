@@ -50,7 +50,7 @@ export default async function ClienteDashboard() {
           <AlertTitle>Aún no tienes una membresía</AlertTitle>
           <AlertDescription>
             Elige un plan para empezar a disfrutar tus beneficios.{' '}
-            <Link href="/membresia" className="font-medium text-sky-600">
+            <Link href="/cliente/membresia" className="font-medium text-sky-600">
               Ver planes
             </Link>
           </AlertDescription>
@@ -124,14 +124,14 @@ export default async function ClienteDashboard() {
                     </AlertDescription>
                   </Alert>
                 )}
-                <Link href="/membresia">
+                <Link href="/cliente/membresia">
                   <Button variant="outline" className="w-full">
                     Ver detalles del plan
                   </Button>
                 </Link>
               </>
             ) : (
-              <Link href="/membresia">
+              <Link href="/cliente/membresia">
                 <Button className="w-full bg-sky-500 hover:bg-sky-400">
                   Elegir un plan
                 </Button>

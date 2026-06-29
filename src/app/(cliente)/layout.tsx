@@ -12,8 +12,8 @@ export default async function ClienteLayout({
       <AppNav
         title="PASE Digital"
         items={[
-          { href: '/dashboard', label: 'Mi panel' },
-          { href: '/membresia', label: 'Mi membresía' },
+          { href: '/cliente/dashboard', label: 'Mi panel' },
+          { href: '/cliente/membresia', label: 'Mi membresía' },
         ]}
       />
       <main className="mx-auto max-w-6xl px-4 py-8">{children}</main>

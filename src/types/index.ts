@@ -18,6 +18,6 @@ export interface SessionUser {
 export const ROLE_HOME: Record<AppRole, string> = {
   SUPERADMIN: '/superadmin/dashboard',
   ADMIN_EMPRESA: '/admin/dashboard',
-  EMPLEADO: '/scanner',
-  CLIENTE: '/dashboard',
+  EMPLEADO: '/empleado/scanner',
+  CLIENTE: '/cliente/dashboard',
 }

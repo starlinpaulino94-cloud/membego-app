@@ -15,7 +15,7 @@ export default async function AdminLayout({
           { href: '/admin/dashboard', label: 'Resumen' },
           { href: '/admin/clientes', label: 'Clientes' },
           { href: '/admin/planes', label: 'Planes' },
-          { href: '/scanner', label: 'Escáner' },
+          { href: '/empleado/scanner', label: 'Escáner' },
         ]}
       />
       <main className="mx-auto max-w-6xl px-4 py-8">{children}</main>

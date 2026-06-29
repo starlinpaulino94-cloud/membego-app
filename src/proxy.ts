@@ -7,17 +7,16 @@ type CookieToSet = { name: string; value: string; options?: CookieOptions }
 const ROLE_HOME: Record<AppRole, string> = {
   SUPERADMIN: '/superadmin/dashboard',
   ADMIN_EMPRESA: '/admin/dashboard',
-  EMPLEADO: '/scanner',
-  CLIENTE: '/dashboard',
+  EMPLEADO: '/empleado/scanner',
+  CLIENTE: '/cliente/dashboard',
 }
 
 // Route prefix -> roles allowed to access it
 const PROTECTED: { prefix: string; roles: AppRole[] }[] = [
   { prefix: '/superadmin', roles: ['SUPERADMIN'] },
   { prefix: '/admin', roles: ['ADMIN_EMPRESA', 'SUPERADMIN'] },
-  { prefix: '/scanner', roles: ['EMPLEADO', 'ADMIN_EMPRESA', 'SUPERADMIN'] },
-  { prefix: '/dashboard', roles: ['CLIENTE'] },
-  { prefix: '/membresia', roles: ['CLIENTE'] },
+  { prefix: '/empleado', roles: ['EMPLEADO', 'ADMIN_EMPRESA', 'SUPERADMIN'] },
+  { prefix: '/cliente', roles: ['CLIENTE'] },
 ]
 
 export async function middleware(request: NextRequest) {

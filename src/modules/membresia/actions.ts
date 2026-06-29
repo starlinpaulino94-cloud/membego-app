@@ -59,7 +59,7 @@ export async function seleccionarPlan(
     })
   }
 
-  revalidatePath('/membresia')
-  revalidatePath('/dashboard')
+  revalidatePath('/cliente/membresia')
+  revalidatePath('/cliente/dashboard')
   return { success: true }
 }

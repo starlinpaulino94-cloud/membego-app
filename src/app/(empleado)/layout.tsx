@@ -11,7 +11,7 @@ export default async function EmpleadoLayout({
     <div className="min-h-screen bg-slate-50">
       <AppNav
         title="PASE · Escáner"
-        items={[{ href: '/scanner', label: 'Escanear QR' }]}
+        items={[{ href: '/empleado/scanner', label: 'Escanear QR' }]}
       />
       <main className="mx-auto max-w-2xl px-4 py-8">{children}</main>
     </div>
