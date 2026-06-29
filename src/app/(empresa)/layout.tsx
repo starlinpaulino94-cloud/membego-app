@@ -22,6 +22,7 @@ export default async function EmpresaLayout({ children }: { children: React.Reac
     { label: 'Sucursales', href: '/dashboard/sucursales' },
     ...(isAdmin
       ? [
+          { label: 'Pagos pendientes', href: '/dashboard/asignaciones' },
           { label: 'Empleados', href: '/dashboard/empleados' },
         ]
       : []),

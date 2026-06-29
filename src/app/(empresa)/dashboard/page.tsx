@@ -19,6 +19,7 @@ export default async function DashboardPage() {
     { total: totalAsignacionesActivas },
     { total: totalValidaciones },
     { total: totalValidacionesHoy },
+    { total: totalPendingPayment },
   ] = await Promise.all([
     listCompanyPromotions(companyId, { status: 'ACTIVE' }),
     listCustomersByCompany(companyId),
@@ -27,6 +28,7 @@ export default async function DashboardPage() {
     listCompanyValidations(companyId, {
       fromDate: new Date(new Date().setHours(0, 0, 0, 0)).toISOString(),
     }),
+    listCompanyAssignments(companyId, { status: 'PENDING_PAYMENT' }),
   ])
 
   const canManage = user.role === 'ADMIN_EMPRESA' || user.role === 'SUPERADMIN'
@@ -73,6 +75,21 @@ export default async function DashboardPage() {
           sub={`${totalValidaciones} en total`}
         />
       </div>
+
+      {/* Pending payment alert */}
+      {canManage && totalPendingPayment > 0 && (
+        <div className="flex items-center justify-between rounded-xl border border-amber-200 bg-amber-50 dark:border-amber-900/50 dark:bg-amber-950/30 px-5 py-4">
+          <div>
+            <p className="text-sm font-medium text-amber-900 dark:text-amber-200">
+              {totalPendingPayment} asignación{totalPendingPayment !== 1 ? 'es' : ''} pendiente{totalPendingPayment !== 1 ? 's' : ''} de pago
+            </p>
+            <p className="text-xs text-amber-700 dark:text-amber-400 mt-0.5">Requieren confirmación manual</p>
+          </div>
+          <Button size="sm" variant="outline" asChild className="border-amber-300 text-amber-900 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-200 dark:hover:bg-amber-900/40">
+            <Link href="/dashboard/asignaciones">Ver pendientes</Link>
+          </Button>
+        </div>
+      )}
 
       {/* Quick actions */}
       <div className="grid gap-3 sm:grid-cols-2">

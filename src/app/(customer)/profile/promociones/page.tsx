@@ -15,7 +15,7 @@ export default async function MisPromocionesPage() {
   const customer = session.dbUserId ? await getCustomerByUserId(session.dbUserId) : null
   if (!customer) redirect('/profile')
 
-  const assignments = await listCustomerAssignments(customer.id)
+  const assignments = await listCustomerAssignments(customer.id, { status: 'ACTIVE' })
 
   return (
     <div className="p-6 space-y-6 max-w-3xl mx-auto">
