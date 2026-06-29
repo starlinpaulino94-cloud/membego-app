@@ -5,7 +5,13 @@ import { listAllCompanies } from '@/modules/empresas/queries'
 import { RegisterWizard } from '@/components/auth/RegisterWizard'
 
 export default async function RegistroPage() {
-  const { items: companies } = await listAllCompanies({ status: 'ACTIVE' })
+  let companies: Awaited<ReturnType<typeof listAllCompanies>>['items'] = []
+  try {
+    const result = await listAllCompanies({ status: 'ACTIVE' })
+    companies = result.items
+  } catch (err) {
+    console.error('[registro] listAllCompanies error:', err)
+  }
 
   return (
     <div className="space-y-7">
