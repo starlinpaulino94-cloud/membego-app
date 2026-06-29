@@ -1,3 +1,4 @@
+import { Suspense } from 'react'
 import Link from 'next/link'
 import { LoginForm } from '@/components/auth/LoginForm'
 
@@ -9,7 +10,9 @@ export default function LoginPage() {
         <p className="text-sm text-muted-foreground">Ingresa a tu cuenta de PASE Digital</p>
       </div>
 
-      <LoginForm />
+      <Suspense fallback={<div className="h-40 animate-pulse rounded-xl bg-muted" />}>
+        <LoginForm />
+      </Suspense>
 
       <div className="flex flex-col gap-2 text-sm text-muted-foreground">
         <p>
