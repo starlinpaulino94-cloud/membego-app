@@ -21,7 +21,7 @@ const ROLE_HOME: Record<AppRole, string> = {
 const PROTECTED_PREFIXES: Array<{ prefix: string; roles: AppRole[] }> = [
   { prefix: '/admin', roles: ['SUPERADMIN'] },
   { prefix: '/dashboard', roles: ['SUPERADMIN', 'ADMIN_EMPRESA', 'EMPLEADO'] },
-  { prefix: '/profile', roles: ['SUPERADMIN', 'CLIENTE'] },
+  { prefix: '/profile', roles: ['CLIENTE'] },
 ]
 
 function getRoleFromMetadata(appMetadata: Record<string, unknown>): AppRole {

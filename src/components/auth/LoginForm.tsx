@@ -1,14 +1,22 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 
+const ROLE_HOME: Record<string, string> = {
+  SUPERADMIN: '/admin',
+  ADMIN_EMPRESA: '/dashboard',
+  EMPLEADO: '/dashboard',
+  CLIENTE: '/profile',
+}
+
 export function LoginForm() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -20,15 +28,19 @@ export function LoginForm() {
 
     startTransition(async () => {
       const supabase = createClient()
-      const { error: sbError } = await supabase.auth.signInWithPassword({ email, password })
+      const { data, error: sbError } = await supabase.auth.signInWithPassword({ email, password })
 
       if (sbError) {
         setError('Email o contraseña incorrectos.')
         return
       }
 
+      const role = (data.user?.app_metadata?.role as string | undefined) ?? 'CLIENTE'
+      const next = searchParams.get('next')
+      const destination = next ?? ROLE_HOME[role] ?? '/profile'
+
       router.refresh()
-      router.push('/dashboard')
+      router.push(destination)
     })
   }
 
