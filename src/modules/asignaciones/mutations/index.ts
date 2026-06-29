@@ -87,6 +87,9 @@ export async function activateAssignment(
   if (a.status !== 'PENDING_PAYMENT') {
     throw new Error('Solo se pueden activar asignaciones en estado Pendiente de Pago')
   }
+  if (a.paymentAmount == null) {
+    throw new Error('No se puede activar una asignación sin monto de pago registrado. Use Confirmar Pago.')
+  }
 
   const updated = await db.promotionAssignment.update({
     where: { id: assignmentId },

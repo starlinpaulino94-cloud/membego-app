@@ -66,7 +66,7 @@ export default async function ClienteDetailPage({ params }: Props) {
           <CardHeader><CardTitle className="text-base">Información</CardTitle></CardHeader>
           <CardContent className="space-y-2 text-sm">
             <Row label="Email" value={customer.user.email} />
-            <Row label="Teléfono" value={customer.phone} />
+            <Row label="Teléfono" value={customer.phone ?? undefined} />
             <Row label="Registrado" value={customer.createdAt.toLocaleDateString('es-DO')} />
           </CardContent>
         </Card>

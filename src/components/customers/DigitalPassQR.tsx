@@ -28,7 +28,10 @@ export function DigitalPassQR({ token, size = 240 }: Props) {
 
   function handleDownload() {
     const url = dataUrl || canvasRef.current?.toDataURL('image/png')
-    if (!url) return
+    if (!url) {
+      alert('No se pudo generar la imagen del QR. Intenta de nuevo.')
+      return
+    }
     const link = document.createElement('a')
     link.download = `pase-digital-${token.slice(0, 8)}.png`
     link.href = url
