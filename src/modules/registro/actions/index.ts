@@ -3,6 +3,7 @@
 import { prisma } from '@/lib/prisma'
 import { createAssignment } from '@/modules/asignaciones/mutations'
 import { writeAuditLog } from '@/modules/empresas/mutations'
+import { setUserAppMetadata } from '@/lib/supabase/admin'
 import type { ActionResult } from '@/types/auth'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -47,6 +48,12 @@ export async function registerSelectPromotionAction(params: {
         },
       })
     }
+
+    // Stamp app_metadata so the middleware can resolve role + dbUserId on login
+    await setUserAppMetadata(supabaseUserId, {
+      role: 'CLIENTE',
+      dbUserId: user.id,
+    })
 
     // Create DigitalPass if none active
     const existingPass = await db.digitalPass.findFirst({
