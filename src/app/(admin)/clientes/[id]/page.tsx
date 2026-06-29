@@ -1,0 +1,215 @@
+import Link from 'next/link'
+import { notFound } from 'next/navigation'
+import { requireRole } from '@/lib/auth/guards'
+import { companyFilter } from '@/modules/admin/queries'
+import { prisma } from '@/lib/prisma'
+import { QRDisplay } from '@/components/qr/QRDisplay'
+import { EstadoBadge } from '@/components/EstadoBadge'
+import {
+  ConfirmPaymentForm,
+  RenewForm,
+} from '@/components/admin/MembershipActions'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import type { MembershipEstado } from '@/types'
+
+export const dynamic = 'force-dynamic'
+
+function fmtDate(d: Date | null) {
+  if (!d) return '—'
+  return new Intl.DateTimeFormat('es-DO', { dateStyle: 'medium' }).format(d)
+}
+
+export default async function ClienteDetailPage({
+  params,
+}: {
+  params: Promise<{ id: string }>
+}) {
+  const user = await requireRole(['ADMIN_EMPRESA', 'SUPERADMIN'])
+  const { id } = await params
+  const companyId = companyFilter(user)
+
+  const cliente = await prisma.cliente.findUnique({
+    where: { id },
+    include: {
+      company: true,
+      qrTokens: { where: { activo: true }, take: 1 },
+      vehiculos: true,
+      memberships: {
+        include: { plan: true },
+        orderBy: { createdAt: 'desc' },
+      },
+      visits: {
+        orderBy: { fechaVisita: 'desc' },
+        take: 10,
+        include: { vehiculo: true },
+      },
+    },
+  })
+
+  if (!cliente) notFound()
+  if (companyId && cliente.companyId !== companyId) notFound()
+
+  const membership = cliente.memberships[0]
+  const token = cliente.qrTokens[0]?.token
+
+  return (
+    <div className="space-y-6">
+      <Link
+        href="/admin/clientes"
+        className="text-sm text-sky-600 hover:underline"
+      >
+        ← Volver a clientes
+      </Link>
+
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">
+            {cliente.nombre}
+          </h1>
+          <p className="text-slate-500">
+            {cliente.email}
+            {cliente.telefono ? ` · ${cliente.telefono}` : ''}
+          </p>
+        </div>
+        {membership && (
+          <EstadoBadge estado={membership.estado as MembershipEstado} />
+        )}
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-3">
+        {/* QR + info */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Código QR</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col items-center gap-2">
+            {token ? (
+              <QRDisplay token={token} size={200} />
+            ) : (
+              <p className="text-slate-500">Sin código.</p>
+            )}
+            <p className="break-all text-center text-xs text-slate-400">
+              {token}
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* Membership detail + actions */}
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle>Membresía</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {!membership ? (
+              <p className="text-slate-500">
+                El cliente aún no ha seleccionado un plan.
+              </p>
+            ) : (
+              <>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Info label="Plan" value={membership.plan.nombre} />
+                  <Info
+                    label="Precio"
+                    value={`RD$${new Intl.NumberFormat('es-DO').format(
+                      Number(membership.plan.precio)
+                    )}`}
+                  />
+                  <Info
+                    label="Usos restantes"
+                    value={
+                      membership.plan.esIlimitado
+                        ? 'Ilimitado'
+                        : String(membership.lavadosRestantes)
+                    }
+                  />
+                  <Info label="Inicio" value={fmtDate(membership.fechaInicio)} />
+                  <Info
+                    label="Vencimiento"
+                    value={fmtDate(membership.fechaVencimiento)}
+                  />
+                  <Info
+                    label="Pago"
+                    value={membership.pagoConfirmado ? 'Confirmado' : 'Pendiente'}
+                  />
+                </div>
+
+                <div className="border-t pt-4">
+                  {membership.estado === 'PENDIENTE' ? (
+                    <ConfirmPaymentForm
+                      membershipId={membership.id}
+                      precio={String(Number(membership.plan.precio))}
+                    />
+                  ) : (
+                    <RenewForm
+                      membershipId={membership.id}
+                      precio={String(Number(membership.plan.precio))}
+                    />
+                  )}
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Vehicles */}
+      {cliente.vehiculos.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Vehículos</CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-3 sm:grid-cols-2">
+            {cliente.vehiculos.map((v) => (
+              <div key={v.id} className="rounded-lg border p-3 text-sm">
+                <p className="font-medium">
+                  {v.marca} {v.modelo} ({v.anio})
+                </p>
+                <p className="text-slate-500">
+                  {v.color}
+                  {v.placa ? ` · ${v.placa}` : ''}
+                </p>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Visits */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Visitas recientes</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {cliente.visits.length === 0 ? (
+            <p className="text-sm text-slate-500">Sin visitas.</p>
+          ) : (
+            <ul className="divide-y">
+              {cliente.visits.map((v) => (
+                <li key={v.id} className="flex justify-between py-3 text-sm">
+                  <div>
+                    <p className="font-medium">{v.servicio}</p>
+                    {v.vehiculo && (
+                      <p className="text-slate-500">
+                        {v.vehiculo.marca} {v.vehiculo.modelo}
+                      </p>
+                    )}
+                  </div>
+                  <span className="text-slate-500">{fmtDate(v.fechaVisita)}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
+function Info({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <p className="text-sm text-slate-500">{label}</p>
+      <p className="font-medium text-slate-900">{value}</p>
+    </div>
+  )
+}

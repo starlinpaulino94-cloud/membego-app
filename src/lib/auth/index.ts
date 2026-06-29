@@ -1,14 +1,32 @@
-export { getSession, getCurrentUser } from './session'
-export { AuthError, isAuthError, AUTH_ERROR_CODES } from './errors'
-export type { AuthErrorCode } from './errors'
-export { can, getPermissionsForRole, isOperator, isEmpresaStaff } from './permissions'
-export type { Permission } from './permissions'
-export {
-  requireAuth,
-  requireRole,
-  requireSuperAdmin,
-  requireCompanyAccess,
-  requireEmployeeAccess,
-  requireCustomerAccess,
-  requireSelfAccess,
-} from './guards'
+import { createClient } from '@/lib/supabase/server'
+import type { AppMetadata, SessionUser } from '@/types'
+
+export async function getSession() {
+  const supabase = await createClient()
+  const {
+    data: { session },
+  } = await supabase.auth.getSession()
+  return session
+}
+
+export async function getUser(): Promise<SessionUser | null> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) return null
+
+  const metadata = (user.app_metadata ?? {}) as Partial<AppMetadata>
+
+  return {
+    supabaseId: user.id,
+    email: user.email ?? '',
+    metadata: {
+      role: metadata.role ?? 'CLIENTE',
+      dbUserId: metadata.dbUserId ?? '',
+      clienteId: metadata.clienteId ?? null,
+      companyId: metadata.companyId ?? null,
+    },
+  }
+}

@@ -1,0 +1,186 @@
+'use server'
+
+import { prisma } from '@/lib/prisma'
+import { getUser } from '@/lib/auth'
+
+export interface ClienteLookup {
+  clienteId: string
+  nombre: string
+  email: string
+  empresa: string
+  membershipId: string | null
+  planNombre: string | null
+  estado: string | null
+  esIlimitado: boolean
+  lavadosRestantes: number
+  fechaVencimiento: string | null
+  vehiculos: { id: string; label: string }[]
+  puedeUsar: boolean
+  mensaje?: string
+}
+
+export interface LookupResult {
+  error?: string
+  cliente?: ClienteLookup
+}
+
+/** Look up a client by QR token. Scoped to the employee's company. */
+export async function buscarPorToken(token: string): Promise<LookupResult> {
+  const user = await getUser()
+  if (!user || !['EMPLEADO', 'ADMIN_EMPRESA', 'SUPERADMIN'].includes(user.metadata.role)) {
+    return { error: 'No autorizado.' }
+  }
+
+  const clean = token.trim()
+  if (!clean) return { error: 'Código vacío.' }
+
+  const qr = await prisma.qrToken.findUnique({
+    where: { token: clean },
+    include: {
+      cliente: {
+        include: {
+          company: true,
+          vehiculos: true,
+          memberships: { include: { plan: true }, orderBy: { createdAt: 'desc' } },
+        },
+      },
+    },
+  })
+
+  if (!qr || !qr.activo) return { error: 'Código QR no válido.' }
+
+  const cliente = qr.cliente
+
+  // Company scoping (superadmin can see all)
+  if (
+    user.metadata.role !== 'SUPERADMIN' &&
+    user.metadata.companyId &&
+    cliente.companyId !== user.metadata.companyId
+  ) {
+    return { error: 'Este cliente pertenece a otra empresa.' }
+  }
+
+  const now = new Date()
+  const active = cliente.memberships.find(
+    (m) =>
+      m.estado === 'ACTIVA' &&
+      (!m.fechaVencimiento || m.fechaVencimiento > now)
+  )
+  const latest = cliente.memberships[0]
+  const m = active ?? latest
+
+  let puedeUsar = false
+  let mensaje: string | undefined
+  if (!active) {
+    mensaje = latest
+      ? 'La membresía no está activa.'
+      : 'El cliente no tiene membresía.'
+  } else if (!active.plan.esIlimitado && active.lavadosRestantes <= 0) {
+    mensaje = 'No quedan usos disponibles este periodo.'
+  } else {
+    puedeUsar = true
+  }
+
+  return {
+    cliente: {
+      clienteId: cliente.id,
+      nombre: cliente.nombre,
+      email: cliente.email,
+      empresa: cliente.company.name,
+      membershipId: active?.id ?? null,
+      planNombre: m?.plan.nombre ?? null,
+      estado: m?.estado ?? null,
+      esIlimitado: active?.plan.esIlimitado ?? false,
+      lavadosRestantes: active?.lavadosRestantes ?? 0,
+      fechaVencimiento: active?.fechaVencimiento?.toISOString() ?? null,
+      vehiculos: cliente.vehiculos.map((v) => ({
+        id: v.id,
+        label: `${v.marca} ${v.modelo} (${v.anio})${v.placa ? ` · ${v.placa}` : ''}`,
+      })),
+      puedeUsar,
+      mensaje,
+    },
+  }
+}
+
+export interface ConfirmState {
+  error?: string
+  success?: boolean
+  restantes?: number
+}
+
+export async function confirmarVisita(
+  _prev: ConfirmState,
+  formData: FormData
+): Promise<ConfirmState> {
+  const user = await getUser()
+  if (!user || !['EMPLEADO', 'ADMIN_EMPRESA', 'SUPERADMIN'].includes(user.metadata.role)) {
+    return { error: 'No autorizado.' }
+  }
+
+  const membershipId = String(formData.get('membershipId') ?? '')
+  const servicio = String(formData.get('servicio') ?? '').trim()
+  const vehiculoId = String(formData.get('vehiculoId') ?? '').trim() || null
+  const notas = String(formData.get('notas') ?? '').trim() || null
+
+  if (!membershipId) return { error: 'Membresía no válida.' }
+  if (!servicio) return { error: 'Selecciona un servicio.' }
+
+  try {
+    const result = await prisma.$transaction(async (tx) => {
+      const membership = await tx.membership.findUnique({
+        where: { id: membershipId },
+        include: { plan: true, cliente: true },
+      })
+      if (!membership) throw new Error('Membresía no encontrada.')
+
+      // Company scoping
+      if (
+        user.metadata.role !== 'SUPERADMIN' &&
+        user.metadata.companyId &&
+        membership.cliente.companyId !== user.metadata.companyId
+      ) {
+        throw new Error('Cliente de otra empresa.')
+      }
+
+      const now = new Date()
+      const isActive =
+        membership.estado === 'ACTIVA' &&
+        (!membership.fechaVencimiento || membership.fechaVencimiento > now)
+      if (!isActive) throw new Error('La membresía no está activa.')
+
+      const ilimitado = membership.plan.esIlimitado
+      if (!ilimitado && membership.lavadosRestantes <= 0) {
+        throw new Error('No quedan usos disponibles.')
+      }
+
+      let restantes = membership.lavadosRestantes
+      const descontado = !ilimitado
+      if (descontado) {
+        restantes = Math.max(0, membership.lavadosRestantes - 1)
+        await tx.membership.update({
+          where: { id: membership.id },
+          data: { lavadosRestantes: restantes },
+        })
+      }
+
+      await tx.visit.create({
+        data: {
+          clienteId: membership.clienteId,
+          vehiculoId,
+          membershipId: membership.id,
+          empleadoId: user.metadata.dbUserId || null,
+          servicio,
+          descontado,
+          notas,
+        },
+      })
+
+      return restantes
+    })
+
+    return { success: true, restantes: result }
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'No se pudo confirmar.' }
+  }
+}

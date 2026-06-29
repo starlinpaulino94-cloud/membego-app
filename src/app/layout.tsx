@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
-import './globals.css'
 import { Toaster } from '@/components/ui/sonner'
+import './globals.css'
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -14,19 +14,21 @@ const geistMono = Geist_Mono({
 })
 
 export const metadata: Metadata = {
-  title: 'PASE Digital — Plataforma de fidelización y promociones',
+  title: 'PASE Digital',
   description:
-    'Gestiona tu programa de fidelización con QR, promociones personalizadas y seguimiento en tiempo real.',
-  keywords: ['PASE Digital', 'fidelización', 'QR', 'promociones', 'clientes', 'SaaS'],
-  authors: [{ name: 'PASE Digital' }],
+    'Membresías digitales para CARTOWN Wash & Detailing y Toni\'s Restaurante',
 }
 
-export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+export default function RootLayout({
+  children,
+}: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="es" suppressHydrationWarning>
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}>
+    <html lang="es">
+      <body
+        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+      >
         {children}
-        <Toaster />
+        <Toaster richColors position="top-center" />
       </body>
     </html>
   )
