@@ -17,6 +17,7 @@ export default async function ClienteLayout({
           { href: '/cliente/membresia', label: 'Mi membresía' },
           { href: '/cliente/historial', label: 'Historial' },
           { href: '/cliente/pagos', label: 'Mis pagos' },
+          { href: '/cliente/perfil', label: 'Perfil' },
         ]}
       />
       <main className="mx-auto max-w-4xl px-4 py-8">{children}</main>
