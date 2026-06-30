@@ -9,6 +9,8 @@ import {
   Clock,
   ChevronRight,
   History,
+  Zap,
+  ShieldCheck,
 } from 'lucide-react'
 import { requireRole } from '@/lib/auth/guards'
 import { getClienteFull, activeMembership } from '@/modules/cliente/queries'
@@ -59,80 +61,52 @@ export default async function ClienteDashboard() {
   const isCarwash = cliente.company.type === 'carwash'
   const unidad = isCarwash ? 'lavados' : 'consumos'
 
-  // Compute alerts
-  const alertas: { type: 'warn' | 'error' | 'info'; title: string; body: string; href?: string }[] = []
+  const daysLeft = membership?.fechaVencimiento
+    ? Math.max(0, Math.ceil((membership.fechaVencimiento.getTime() - Date.now()) / 86400000))
+    : null
+
+  // Alerts
+  const alertas: {
+    type: 'warn' | 'error' | 'info'
+    title: string
+    body: string
+    href?: string
+  }[] = []
 
   if (!membership && !latest) {
-    alertas.push({
-      type: 'info',
-      title: 'Sin membresía',
-      body: 'Elige un plan para empezar a disfrutar tus beneficios.',
-      href: '/cliente/membresia',
-    })
+    alertas.push({ type: 'info', title: 'Sin membresía', body: 'Elige un plan para empezar.', href: '/cliente/membresia' })
   }
-
   if (latest?.estado === 'RECHAZADA') {
     alertas.push({
       type: 'error',
       title: 'Pago rechazado',
-      body: latest.rechazadoReason
-        ? `Motivo: ${latest.rechazadoReason}`
-        : 'Tu comprobante de pago fue rechazado.',
+      body: latest.rechazadoReason ? `Motivo: ${latest.rechazadoReason}` : 'Tu comprobante fue rechazado.',
       href: '/cliente/membresia',
     })
   }
-
   if (latest?.estado === 'PENDIENTE_PAGO') {
-    alertas.push({
-      type: 'info',
-      title: 'Comprobante en revisión',
-      body: 'Tu comprobante fue enviado y está siendo revisado por el equipo.',
-    })
+    alertas.push({ type: 'info', title: 'Comprobante en revisión', body: 'El equipo lo revisará pronto.' })
   }
-
   if (latest?.estado === 'PENDIENTE') {
-    alertas.push({
-      type: 'warn',
-      title: 'Pago pendiente',
-      body: 'Realiza tu pago y sube el comprobante para activar tu membresía.',
-      href: '/cliente/membresia',
-    })
+    alertas.push({ type: 'warn', title: 'Pago pendiente', body: 'Sube tu comprobante para activar tu membresía.', href: '/cliente/membresia' })
   }
-
-  if (membership?.fechaVencimiento) {
-    const daysLeft = Math.ceil(
-      (membership.fechaVencimiento.getTime() - Date.now()) / (1000 * 60 * 60 * 24)
-    )
-    if (daysLeft <= 7) {
-      alertas.push({
-        type: 'warn',
-        title: `Membresía vence en ${daysLeft} día${daysLeft !== 1 ? 's' : ''}`,
-        body: 'Contacta a la empresa o renueva tu plan para no perder acceso.',
-      })
-    }
+  if (daysLeft !== null && daysLeft <= 7) {
+    alertas.push({ type: 'warn', title: `Membresía vence en ${daysLeft} día${daysLeft !== 1 ? 's' : ''}`, body: 'Contacta a la empresa para renovar.' })
   }
-
   if (membership && !membership.plan.esIlimitado && membership.lavadosRestantes === 0) {
-    alertas.push({
-      type: 'error',
-      title: 'Sin usos disponibles',
-      body: 'Agotaste los usos de este período. Contacta a la empresa para renovar.',
-    })
+    alertas.push({ type: 'error', title: 'Sin usos disponibles', body: 'Agotaste los usos de este período.' })
   } else if (membership && !membership.plan.esIlimitado && membership.lavadosRestantes === 1) {
-    alertas.push({
-      type: 'warn',
-      title: 'Último uso disponible',
-      body: 'Solo te queda 1 uso en este período.',
-    })
+    alertas.push({ type: 'warn', title: 'Último uso disponible', body: 'Solo te queda 1 uso en este período.' })
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-up">
+      {/* Greeting */}
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">
-          Hola, {cliente.nombre.split(' ')[0]}
+        <p className="text-sm font-medium text-muted-foreground">{cliente.company.name}</p>
+        <h1 className="text-2xl font-bold tracking-tight text-foreground">
+          Hola, {cliente.nombre.split(' ')[0]} 👋
         </h1>
-        <p className="text-slate-500">{cliente.company.name}</p>
       </div>
 
       {/* Alerts */}
@@ -142,22 +116,18 @@ export default async function ClienteDashboard() {
           variant={a.type === 'error' ? 'destructive' : 'default'}
           className={
             a.type === 'warn'
-              ? 'border-amber-300 bg-amber-50 text-amber-800'
+              ? 'border-amber-300 bg-amber-50 text-amber-800 [&>svg]:text-amber-600'
               : a.type === 'info'
-              ? 'border-blue-200 bg-blue-50 text-blue-800'
+              ? 'border-blue-200 bg-blue-50 text-blue-800 [&>svg]:text-blue-500'
               : undefined
           }
         >
-          {a.type === 'error' ? (
-            <AlertCircle className="h-4 w-4" />
-          ) : (
-            <AlertTriangle className="h-4 w-4" />
-          )}
-          <AlertTitle>{a.title}</AlertTitle>
+          {a.type === 'error' ? <AlertCircle className="h-4 w-4" /> : <AlertTriangle className="h-4 w-4" />}
+          <AlertTitle className="font-semibold">{a.title}</AlertTitle>
           <AlertDescription>
             {a.body}
             {a.href && (
-              <Link href={a.href} className="ml-2 font-semibold underline">
+              <Link href={a.href} className="ml-2 font-semibold underline underline-offset-2">
                 Ver →
               </Link>
             )}
@@ -165,155 +135,177 @@ export default async function ClienteDashboard() {
         </Alert>
       ))}
 
-      <div className="grid gap-6 md:grid-cols-2">
-        {/* QR Code */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Tu código QR</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col items-center gap-3">
-            {token ? (
-              <>
-                <QRDisplay token={token} />
-                <p className="text-center text-sm text-slate-500">
-                  Muéstralo en {cliente.company.name} para registrar tu visita.
+      {/* QR + Membership */}
+      <div className="grid gap-4 md:grid-cols-2">
+        {/* QR Card */}
+        <Card className="overflow-hidden border-0 shadow-card-hover">
+          <div className="bg-gradient-to-br from-[#0f172a] to-[#1e3a5f] p-5">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-widest text-white/50">
+                  PASE Digital
                 </p>
-              </>
-            ) : (
-              <div className="py-8 text-center">
-                <p className="text-slate-400 text-sm">
-                  Tu QR se generará cuando tu membresía sea activada.
-                </p>
-                <Link href="/cliente/membresia" className="mt-3 block">
-                  <Button variant="outline" size="sm">
-                    Ver planes
-                  </Button>
-                </Link>
+                <p className="font-bold text-white">{cliente.nombre}</p>
               </div>
-            )}
-          </CardContent>
-        </Card>
+              {membership && (
+                <div className="flex items-center gap-1.5 rounded-full bg-white/10 px-2.5 py-1">
+                  <ShieldCheck className="h-3.5 w-3.5 text-green-400" />
+                  <span className="text-xs font-medium text-green-300">Activo</span>
+                </div>
+              )}
+            </div>
 
-        {/* Membership status */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>Mi membresía</CardTitle>
-            {latest && (
-              <EstadoBadge estado={latest.estado as MembershipEstado} />
-            )}
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {membership ? (
-              <>
+            <div className="flex justify-center py-3">
+              {token ? (
+                <div className="rounded-2xl bg-white p-3">
+                  <QRDisplay token={token} size={160} />
+                </div>
+              ) : (
+                <div className="flex h-40 w-40 items-center justify-center rounded-2xl border-2 border-dashed border-white/20">
+                  <p className="text-center text-xs text-white/40 px-4">
+                    QR se activa al confirmar tu pago
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {membership && (
+              <div className="mt-3 flex items-center justify-between rounded-xl bg-white/10 px-4 py-2.5">
                 <div>
-                  <p className="text-sm text-slate-500">Plan</p>
-                  <p className="text-lg font-semibold">{membership.plan.nombre}</p>
+                  <p className="text-xs text-white/60">Plan</p>
+                  <p className="text-sm font-semibold text-white">{membership.plan.nombre}</p>
                 </div>
-                <div className="rounded-xl bg-sky-50 p-4">
-                  <div className="flex items-center gap-2 text-sky-700">
-                    {membership.plan.esIlimitado ? (
-                      <>
-                        <InfinityIcon className="h-5 w-5" />
-                        <span className="text-lg font-bold">{unidad} ilimitados</span>
-                      </>
-                    ) : (
-                      <>
-                        <Droplets className="h-5 w-5" />
-                        <span className="text-lg font-bold">
-                          {membership.lavadosRestantes} {unidad} restantes
-                        </span>
-                      </>
-                    )}
-                  </div>
+                <div className="text-right">
+                  <p className="text-xs text-white/60">Vence</p>
+                  <p className="text-sm font-semibold text-white">{fmtDate(membership.fechaVencimiento)}</p>
                 </div>
-                <div className="flex items-center gap-2 text-sm text-slate-600">
-                  <Calendar className="h-4 w-4 text-slate-400" />
-                  Vence: {fmtDate(membership.fechaVencimiento)}
-                </div>
-              </>
-            ) : latest ? (
-              <div className="space-y-3">
-                <p className="text-sm text-slate-600">
-                  Plan: <strong>{latest.plan.nombre}</strong>
-                </p>
-                <p className="text-xs text-slate-400">
-                  Solicitado: {fmtDate(latest.createdAt)}
-                </p>
-                <Link href="/cliente/membresia">
-                  <Button variant="outline" size="sm" className="w-full">
-                    Ver detalles
-                  </Button>
-                </Link>
               </div>
-            ) : (
+            )}
+          </div>
+
+          {!token && (
+            <CardContent className="pt-4">
               <Link href="/cliente/membresia">
                 <Button className="w-full bg-sky-500 hover:bg-sky-400">
-                  Elegir un plan
+                  Activar membresía
                 </Button>
               </Link>
-            )}
-          </CardContent>
+            </CardContent>
+          )}
         </Card>
+
+        {/* Stats */}
+        <div className="flex flex-col gap-4">
+          {membership ? (
+            <>
+              <Card className="border-border/60">
+                <CardContent className="p-5">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-sm font-medium text-muted-foreground">
+                      {unidad.charAt(0).toUpperCase() + unidad.slice(1)} restantes
+                    </p>
+                    <div className="rounded-lg bg-sky-50 p-1.5 ring-1 ring-sky-100">
+                      {membership.plan.esIlimitado
+                        ? <InfinityIcon className="h-4 w-4 text-sky-600" />
+                        : <Droplets className="h-4 w-4 text-sky-600" />
+                      }
+                    </div>
+                  </div>
+                  <p className="text-4xl font-bold tracking-tight text-foreground tabular-nums">
+                    {membership.plan.esIlimitado ? '∞' : membership.lavadosRestantes}
+                  </p>
+                  {!membership.plan.esIlimitado && (
+                    <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
+                      <div
+                        className="h-full rounded-full bg-sky-500 transition-all"
+                        style={{
+                          width: `${Math.min(100, (membership.lavadosRestantes / (membership.plan.lavadosIncluidos || 1)) * 100)}%`,
+                        }}
+                      />
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              <div className="grid grid-cols-2 gap-4">
+                <Card className="border-border/60">
+                  <CardContent className="p-4 text-center">
+                    <div className="mx-auto mb-1.5 flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-50">
+                      <Zap className="h-4 w-4 text-indigo-600" />
+                    </div>
+                    <p className="text-2xl font-bold tabular-nums">{cliente.visits.length}</p>
+                    <p className="text-xs text-muted-foreground">visitas totales</p>
+                  </CardContent>
+                </Card>
+                <Card className="border-border/60">
+                  <CardContent className="p-4 text-center">
+                    <div className="mx-auto mb-1.5 flex h-8 w-8 items-center justify-center rounded-lg bg-green-50">
+                      <Calendar className="h-4 w-4 text-green-600" />
+                    </div>
+                    <p className="text-2xl font-bold tabular-nums">{daysLeft ?? '—'}</p>
+                    <p className="text-xs text-muted-foreground">días restantes</p>
+                  </CardContent>
+                </Card>
+              </div>
+
+              <Link href="/cliente/membresia">
+                <Button variant="outline" className="w-full gap-1.5 text-slate-600">
+                  Ver detalles del plan
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </Link>
+            </>
+          ) : (
+            <Card className="flex flex-1 flex-col items-center justify-center border-dashed py-10 text-center">
+              <CardContent className="space-y-3">
+                <p className="text-slate-500">
+                  {latest ? `Estado: ${latest.estado}` : 'Sin plan activo'}
+                </p>
+                <Link href="/cliente/membresia">
+                  <Button className="bg-sky-500 hover:bg-sky-400">
+                    {latest ? 'Ver estado' : 'Elegir plan'}
+                  </Button>
+                </Link>
+              </CardContent>
+            </Card>
+          )}
+        </div>
       </div>
 
-      {/* Stats row */}
-      {membership && (
-        <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
-          <Card>
-            <CardContent className="p-4 text-center">
-              <p className="text-2xl font-bold text-slate-900">
-                {cliente.visits.length}
-              </p>
-              <p className="text-xs text-slate-500 mt-1">Visitas totales</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4 text-center">
-              <p className="text-2xl font-bold text-slate-900">
-                {membership.plan.esIlimitado ? '∞' : membership.lavadosRestantes}
-              </p>
-              <p className="text-xs text-slate-500 mt-1">{unidad} restantes</p>
-            </CardContent>
-          </Card>
-          <Card className="col-span-2 md:col-span-1">
-            <CardContent className="p-4 text-center">
-              <p className="text-2xl font-bold text-slate-900">
-                {membership.fechaVencimiento
-                  ? Math.max(
-                      0,
-                      Math.ceil(
-                        (membership.fechaVencimiento.getTime() - Date.now()) /
-                          (1000 * 60 * 60 * 24)
-                      )
-                    )
-                  : '—'}
-              </p>
-              <p className="text-xs text-slate-500 mt-1">días restantes</p>
-            </CardContent>
-          </Card>
+      {/* Membership badge */}
+      {latest && (
+        <div className="flex items-center justify-between rounded-xl border border-border/60 bg-card px-4 py-3">
+          <div className="flex items-center gap-3">
+            <EstadoBadge estado={latest.estado as MembershipEstado} />
+            <p className="text-sm text-muted-foreground">
+              {latest.plan.nombre}
+            </p>
+          </div>
+          <Link href="/cliente/pagos" className="text-xs text-sky-600 hover:underline">
+            Ver historial de pagos →
+          </Link>
         </div>
       )}
 
       {/* Vehicles */}
       {isCarwash && cliente.vehiculos.length > 0 && (
-        <Card>
+        <Card className="border-border/60">
           <CardHeader>
-            <CardTitle>Mis vehículos</CardTitle>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Car className="h-4 w-4 text-muted-foreground" />
+              Mis vehículos
+            </CardTitle>
           </CardHeader>
           <CardContent className="grid gap-3 sm:grid-cols-2">
             {cliente.vehiculos.map((v) => (
-              <div
-                key={v.id}
-                className="flex items-center gap-3 rounded-xl border border-slate-200 p-3"
-              >
-                <Car className="h-5 w-5 text-slate-400" />
+              <div key={v.id} className="flex items-center gap-3 rounded-xl border border-border/60 p-3">
+                <div className="rounded-lg bg-slate-100 p-2">
+                  <Car className="h-4 w-4 text-slate-500" />
+                </div>
                 <div>
-                  <p className="font-medium">
-                    {v.marca} {v.modelo} ({v.anio})
-                  </p>
-                  <p className="text-sm text-slate-500">
-                    {v.color}
-                    {v.placa ? ` · ${v.placa}` : ''}
+                  <p className="font-medium text-sm">{v.marca} {v.modelo} ({v.anio})</p>
+                  <p className="text-xs text-muted-foreground">
+                    {v.color}{v.placa ? ` · ${v.placa}` : ''}
                   </p>
                 </div>
               </div>
@@ -323,16 +315,16 @@ export default async function ClienteDashboard() {
       )}
 
       {/* Recent visits */}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="flex items-center gap-2">
-            <Clock className="h-5 w-5 text-slate-400" />
+      <Card className="border-border/60">
+        <CardHeader className="flex flex-row items-center justify-between pb-2">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Clock className="h-4 w-4 text-muted-foreground" />
             Visitas recientes
           </CardTitle>
           {cliente.visits.length >= 10 && (
             <Link href="/cliente/historial">
-              <Button variant="ghost" size="sm" className="gap-1 text-sky-600">
-                Ver todo <ChevronRight className="h-4 w-4" />
+              <Button variant="ghost" size="sm" className="gap-1 text-sky-600 text-xs h-7 px-2">
+                Ver todo <ChevronRight className="h-3.5 w-3.5" />
               </Button>
             </Link>
           )}
@@ -340,22 +332,22 @@ export default async function ClienteDashboard() {
         <CardContent>
           {cliente.visits.length === 0 ? (
             <div className="py-8 text-center">
-              <History className="mx-auto h-8 w-8 text-slate-300" />
-              <p className="mt-2 text-sm text-slate-500">Aún no tienes visitas registradas.</p>
+              <History className="mx-auto h-8 w-8 text-slate-200" />
+              <p className="mt-2 text-sm text-muted-foreground">Aún no tienes visitas registradas.</p>
             </div>
           ) : (
-            <ul className="divide-y divide-slate-100">
+            <ul className="divide-y divide-border/60">
               {cliente.visits.map((v) => (
-                <li key={v.id} className="flex items-center justify-between py-3">
+                <li key={v.id} className="flex items-center justify-between py-2.5">
                   <div>
-                    <p className="font-medium text-slate-800">{v.servicio}</p>
-                    <p className="text-sm text-slate-500">
+                    <p className="text-sm font-medium">{v.servicio}</p>
+                    <p className="text-xs text-muted-foreground">
                       {fmtDateTime(v.fechaVisita)}
                       {v.sucursal ? ` · ${v.sucursal.nombre}` : ''}
                     </p>
                   </div>
                   {v.descontado && (
-                    <span className="rounded-full bg-red-50 px-2 py-0.5 text-xs text-red-600">
+                    <span className="rounded-full bg-red-50 px-2 py-0.5 text-[11px] font-medium text-red-500">
                       −1 {unidad.slice(0, -1)}
                     </span>
                   )}
