@@ -7,6 +7,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { headers } from 'next/headers'
 import { crearNotificacion, notificarAdmins } from '@/modules/notificaciones/actions'
 import { procesarReferidoCompletado } from '@/modules/referidos/actions'
+import { activarMembresia } from '@/modules/pagos/activacion'
 
 async function requireAdmin() {
   const user = await getUser()
@@ -69,72 +70,16 @@ export async function confirmarPago(
   if (!user) return { error: 'No autorizado.' }
 
   const membershipId = String(formData.get('membershipId') ?? '')
-  const montoRaw = String(formData.get('monto') ?? '').trim()
   const meta = await getRequestMeta()
 
   const membership = await assertOwnership(membershipId, user)
   if (!membership) return { error: 'Membresía no encontrada.' }
-  if (membership.estado === 'ACTIVA') {
-    return { error: 'La membresía ya está activa.' }
-  }
 
-  const now = new Date()
-  const monto = montoRaw ? Number(montoRaw) : Number(membership.plan.precio)
-  const vigenciaDias = membership.plan.vigenciaDias ?? 30
+  const result = await activarMembresia(membershipId, user.metadata.dbUserId ?? null, meta)
+  if (!result.ok) return { error: result.error }
 
-  const previasConfirmadas = await prisma.membership.count({
-    where: { clienteId: membership.clienteId, pagoConfirmado: true },
-  })
-  const esPrimeraActivacion = previasConfirmadas === 0
-
-  await prisma.$transaction(async (tx) => {
-    // 1. Activate membership
-    await tx.membership.update({
-      where: { id: membership.id },
-      data: {
-        estado: 'ACTIVA',
-        fechaInicio: now,
-        fechaVencimiento: periodEnd(now, vigenciaDias),
-        lavadosRestantes: membership.plan.esIlimitado
-          ? 0
-          : membership.plan.lavadosIncluidos,
-        montoPagado: Number.isNaN(monto) ? Number(membership.plan.precio) : monto,
-        pagoConfirmado: true,
-        rechazadoReason: null,
-      },
-    })
-
-    // 2. Generate QR only if the client doesn't have one yet
-    const existingQr = await tx.qrToken.findFirst({
-      where: { clienteId: membership.clienteId, activo: true },
-    })
-    if (!existingQr) {
-      await tx.qrToken.create({
-        data: { clienteId: membership.clienteId },
-      })
-    }
-
-    // 3. Audit log
-    await tx.auditLog.create({
-      data: {
-        companyId: membership.cliente.companyId,
-        userId: user.metadata.dbUserId ?? null,
-        accion: 'PAGO_APROBADO',
-        entidadTipo: 'Membership',
-        entidadId: membership.id,
-        payload: {
-          planId: membership.planId,
-          clienteId: membership.clienteId,
-          monto: Number.isNaN(monto) ? Number(membership.plan.precio) : monto,
-        },
-        ...meta,
-      },
-    })
-  })
-
-  // Notify the client
   const clienteUser = await prisma.user.findUnique({
-    where: { supabaseId: membership.cliente.supabaseId },
+    where: { supabaseId: result.supabaseId },
     select: { id: true },
   })
   if (clienteUser) {
@@ -142,18 +87,19 @@ export async function confirmarPago(
       userId: clienteUser.id,
       tipo: 'PAGO_APROBADO',
       titulo: '¡Tu membresía está activa!',
-      mensaje: `Tu pago para el plan "${membership.plan.nombre}" fue confirmado. Ya puedes usar tu membresía.`,
+      mensaje: `Tu pago para el plan "${result.planNombre}" fue confirmado. Ya puedes usar tu membresía.`,
       href: '/cliente/membresia',
     })
   }
 
-  if (esPrimeraActivacion) {
-    await procesarReferidoCompletado(membership.clienteId, membership.cliente.companyId)
+  if (result.esPrimera) {
+    await procesarReferidoCompletado(result.clienteId, result.companyId)
   }
 
-  revalidatePath(`/admin/clientes/${membership.clienteId}`)
+  revalidatePath(`/admin/clientes/${result.clienteId}`)
   revalidatePath('/admin/clientes')
   revalidatePath('/admin/dashboard')
+  revalidatePath('/admin/pagos')
   revalidatePath('/superadmin/membresias')
   return { success: true }
   } catch (e) {
@@ -474,4 +420,91 @@ export async function eliminarEmpleado(
     console.error('[admin] eliminarEmpleado error:', e)
     return { error: 'Ocurrió un error inesperado. Intenta de nuevo.' }
   }
+}
+
+/**
+ * Solicitar nueva evidencia: mantiene PENDIENTE_PAGO → RECHAZADA
+ * pero con mensaje específico solicitando reenvío del comprobante.
+ */
+export async function solicitarNuevaEvidencia(
+  _prev: AdminActionState,
+  formData: FormData
+): Promise<AdminActionState> {
+  const user = await requireAdmin()
+  if (!user) return { error: 'No autorizado.' }
+
+  const membershipId = String(formData.get('membershipId') ?? '')
+  const motivo = String(formData.get('motivo') ?? '').trim()
+  const meta = await getRequestMeta()
+
+  if (!motivo) return { error: 'Indica el motivo de la solicitud.' }
+
+  const membership = await assertOwnership(membershipId, user)
+  if (!membership) return { error: 'Membresía no encontrada.' }
+  if (membership.estado !== 'PENDIENTE_PAGO') {
+    return { error: 'Solo se puede solicitar nueva evidencia cuando hay un comprobante pendiente.' }
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.membership.update({
+      where: { id: membership.id },
+      data: { estado: 'RECHAZADA', rechazadoReason: motivo, comprobanteUrl: null },
+    })
+
+    await tx.auditLog.create({
+      data: {
+        companyId: membership.cliente.companyId,
+        userId: user.metadata.dbUserId ?? null,
+        accion: 'PAGO_RECHAZADO',
+        entidadTipo: 'Membership',
+        entidadId: membership.id,
+        payload: { motivo, tipo: 'solicitud_nueva_evidencia', clienteId: membership.clienteId },
+        ...meta,
+      },
+    })
+  })
+
+  const clienteUser = await prisma.user.findUnique({
+    where: { supabaseId: membership.cliente.supabaseId },
+    select: { id: true },
+  })
+  if (clienteUser) {
+    await crearNotificacion({
+      userId: clienteUser.id,
+      tipo: 'PAGO_RECHAZADO',
+      titulo: 'Se requiere una nueva evidencia',
+      mensaje: `El equipo revisó tu comprobante y necesita una imagen más clara. Motivo: ${motivo}. Por favor sube un nuevo comprobante.`,
+      href: '/cliente/membresia',
+    })
+  }
+
+  revalidatePath('/admin/pagos')
+  revalidatePath(`/admin/clientes/${membership.clienteId}`)
+  return { success: true }
+}
+
+/**
+ * Guardar nota interna sobre una membresía (solo visible para admins).
+ */
+export async function guardarNotaInterna(
+  _prev: AdminActionState,
+  formData: FormData
+): Promise<AdminActionState> {
+  const user = await requireAdmin()
+  if (!user) return { error: 'No autorizado.' }
+
+  const membershipId = String(formData.get('membershipId') ?? '')
+  const nota = String(formData.get('nota') ?? '').trim()
+
+  const membership = await assertOwnership(membershipId, user)
+  if (!membership) return { error: 'Membresía no encontrada.' }
+
+  await prisma.membership.update({
+    where: { id: membership.id },
+    data: { adminNota: nota || null },
+  })
+
+  revalidatePath('/admin/pagos')
+  revalidatePath(`/admin/clientes/${membership.clienteId}`)
+  return { success: true }
 }

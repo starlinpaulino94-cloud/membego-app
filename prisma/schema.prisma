@@ -304,6 +304,7 @@ model Membership {
   comprobanteUrl   String?          // URL del comprobante subido (Supabase Storage)
   comprobanteNota  String?          // nota del cliente al enviar comprobante
   rechazadoReason  String?          // motivo de rechazo por admin
+  adminNota        String?          // nota interna del admin, no visible al cliente
   pagoConfirmado   Boolean          @default(false)
   montoPagado      Decimal?         @db.Decimal(10, 2)
   // Período activo
