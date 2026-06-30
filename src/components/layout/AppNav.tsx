@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { logout } from '@/modules/auth/actions'
 import { NotificationBell } from '@/components/layout/NotificationBell'
+import { CompanySwitcher, type CompanyOption } from '@/components/cliente/CompanySwitcher'
 
 export interface NavItem {
   href: string
@@ -17,10 +18,12 @@ export function AppNav({
   items,
   title,
   notifCount = 0,
+  companies,
 }: {
   items: NavItem[]
   title: string
   notifCount?: number
+  companies?: CompanyOption[]
 }) {
   const pathname = usePathname()
 
@@ -70,6 +73,7 @@ export function AppNav({
 
         {/* Right side: bell + logout */}
         <div className="flex items-center gap-1">
+          {companies && <CompanySwitcher companies={companies} />}
           <NotificationBell initialCount={notifCount} />
           <form action={logout}>
             <button

@@ -185,7 +185,7 @@ export default async function PlanesPage() {
                       Ya tienes plan activo
                     </Button>
                   ) : (
-                    <Link href={`/cliente/pagar/${plan.id}`} className="block">
+                    <Link href={`/cliente/membresia?planId=${plan.id}`} className="block">
                       <Button
                         className={
                           isFeatured
