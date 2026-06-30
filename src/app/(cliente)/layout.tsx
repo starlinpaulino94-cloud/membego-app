@@ -26,6 +26,7 @@ export default async function ClienteLayout({
         items={[
           { href: '/cliente/dashboard', label: 'Mi panel' },
           { href: '/cliente/planes', label: 'Oportunidades' },
+          { href: '/cliente/promociones', label: 'Promociones' },
           { href: '/cliente/membresia', label: 'Mi membresía' },
           { href: '/cliente/historial', label: 'Historial' },
           { href: '/cliente/pagos', label: 'Mis pagos' },
