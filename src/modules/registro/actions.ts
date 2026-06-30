@@ -8,6 +8,30 @@ export interface RegistroState {
   success?: boolean
 }
 
+/** Crea el registro Referido si refCode corresponde a un cliente válido de la misma empresa. */
+async function vincularReferido(
+  refCode: string,
+  companyId: string,
+  referidoClienteId: string
+) {
+  if (!refCode) return
+  try {
+    const referente = await prisma.cliente.findUnique({
+      where: { codigoReferido: refCode },
+    })
+    if (!referente || referente.companyId !== companyId) return
+    await prisma.referido.create({
+      data: {
+        companyId,
+        referenteClienteId: referente.id,
+        referidoClienteId,
+      },
+    })
+  } catch (e) {
+    console.error('[registro] vincularReferido error:', e)
+  }
+}
+
 export async function registrarCliente(
   _prev: RegistroState,
   formData: FormData
@@ -20,6 +44,7 @@ export async function registrarCliente(
     .toLowerCase()
   const password = String(formData.get('password') ?? '')
   const telefono = String(formData.get('telefono') ?? '').trim()
+  const refCode = String(formData.get('refCode') ?? '').trim()
 
   // Vehiculo (optional, for carwash)
   const marca = String(formData.get('marca') ?? '').trim()
@@ -101,6 +126,8 @@ export async function registrarCliente(
         },
       })
 
+      await vincularReferido(refCode, company.id, cliente.id)
+
       return { success: true }
     } catch (e) {
       console.error('[registro] afiliación a nueva empresa error:', e)
@@ -179,6 +206,8 @@ export async function registrarCliente(
         companyId: company.id,
       },
     })
+
+    await vincularReferido(refCode, company.id, result.cliente.id)
 
     return { success: true }
   } catch (e) {

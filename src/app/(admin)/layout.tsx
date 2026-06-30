@@ -24,6 +24,7 @@ export default async function AdminLayout({
           { href: '/admin/sucursales', label: 'Sucursales' },
           { href: '/admin/planes', label: 'Planes' },
           { href: '/admin/promociones', label: 'Promociones' },
+          { href: '/admin/referidos', label: 'Referidos' },
           { href: '/admin/empleados', label: 'Empleados' },
           { href: '/admin/reportes', label: 'Reportes' },
           { href: '/empleado/scanner', label: 'Escáner' },

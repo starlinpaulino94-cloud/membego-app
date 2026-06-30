@@ -6,6 +6,7 @@ import { getUser } from '@/lib/auth'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { headers } from 'next/headers'
 import { crearNotificacion, notificarAdmins } from '@/modules/notificaciones/actions'
+import { procesarReferidoCompletado } from '@/modules/referidos/actions'
 
 async function requireAdmin() {
   const user = await getUser()
@@ -81,6 +82,11 @@ export async function confirmarPago(
   const monto = montoRaw ? Number(montoRaw) : Number(membership.plan.precio)
   const vigenciaDias = membership.plan.vigenciaDias ?? 30
 
+  const previasConfirmadas = await prisma.membership.count({
+    where: { clienteId: membership.clienteId, pagoConfirmado: true },
+  })
+  const esPrimeraActivacion = previasConfirmadas === 0
+
   await prisma.$transaction(async (tx) => {
     // 1. Activate membership
     await tx.membership.update({
@@ -139,6 +145,10 @@ export async function confirmarPago(
       mensaje: `Tu pago para el plan "${membership.plan.nombre}" fue confirmado. Ya puedes usar tu membresía.`,
       href: '/cliente/membresia',
     })
+  }
+
+  if (esPrimeraActivacion) {
+    await procesarReferidoCompletado(membership.clienteId, membership.cliente.companyId)
   }
 
   revalidatePath(`/admin/clientes/${membership.clienteId}`)

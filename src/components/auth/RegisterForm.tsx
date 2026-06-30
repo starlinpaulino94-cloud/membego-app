@@ -1,7 +1,7 @@
 'use client'
 
 import { useActionState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Loader2, CheckCircle2, Sparkles } from 'lucide-react'
 import { toast } from 'sonner'
 import { registrarCliente, type RegistroState } from '@/modules/registro/actions'
@@ -42,6 +42,8 @@ export function RegisterForm({
   plans?: Plan[]
 }) {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const refCode = searchParams.get('ref') ?? ''
   const [state, formAction, pending] = useActionState(registrarCliente, initial)
 
   useEffect(() => {
@@ -106,6 +108,7 @@ export function RegisterForm({
         <CardContent>
           <form action={formAction} className="space-y-4">
             <input type="hidden" name="companySlug" value={companySlug} />
+            {refCode && <input type="hidden" name="refCode" value={refCode} />}
             {state.error && (
               <Alert variant="destructive">
                 <AlertDescription>{state.error}</AlertDescription>
