@@ -15,7 +15,10 @@ export default async function SuperadminLayout({
           { href: '/superadmin/dashboard', label: 'Resumen' },
           { href: '/superadmin/empresas', label: 'Empresas' },
           { href: '/superadmin/reportes', label: 'Reportes' },
+          { href: '/superadmin/planes', label: 'Planes' },
+          { href: '/superadmin/membresias', label: 'Membresías' },
           { href: '/admin/clientes', label: 'Clientes' },
+          { href: '/admin/reportes', label: 'Reportes' },
         ]}
       />
       <main className="mx-auto max-w-6xl px-4 py-8">{children}</main>
