@@ -9,19 +9,19 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
 const QRScanner = dynamic(
   () => import('@/components/scanner/QRScanner').then((m) => m.QRScanner),
   { ssr: false, loading: () => <p className="text-center text-slate-500">Cargando cámara...</p> }
 )
 
-export function ScannerClient() {
+interface Sucursal {
+  id: string
+  nombre: string
+}
+
+export function ScannerClient({ sucursales = [] }: { sucursales?: Sucursal[] }) {
   const [scanning, setScanning] = useState(false)
   const [manual, setManual] = useState('')
   const [cliente, setCliente] = useState<ClienteLookup | null>(null)
@@ -55,7 +55,7 @@ export function ScannerClient() {
           <CardTitle>Confirmar visita</CardTitle>
         </CardHeader>
         <CardContent>
-          <ConfirmVisit cliente={cliente} onDone={reset} />
+          <ConfirmVisit cliente={cliente} sucursales={sucursales} onDone={reset} />
         </CardContent>
       </Card>
     )
@@ -93,6 +93,9 @@ export function ScannerClient() {
             onClick={() => setScanning(true)}
             disabled={pending}
           >
+            {pending ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : null}
             Abrir cámara
           </Button>
         )}
@@ -104,6 +107,7 @@ export function ScannerClient() {
               id="manual"
               value={manual}
               onChange={(e) => setManual(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && manual && lookup(manual)}
               placeholder="Token del QR"
             />
             <Button

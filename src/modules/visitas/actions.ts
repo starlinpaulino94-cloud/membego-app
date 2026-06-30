@@ -12,6 +12,13 @@ async function getRequestMeta() {
   }
 }
 
+export interface VisitaReciente {
+  id: string
+  servicio: string
+  fecha: string
+  descontado: boolean
+}
+
 export interface ClienteLookup {
   clienteId: string
   nombre: string
@@ -27,6 +34,8 @@ export interface ClienteLookup {
   vehiculos: { id: string; label: string }[]
   puedeUsar: boolean
   mensaje?: string
+  alertas: string[]
+  visitasRecientes: VisitaReciente[]
 }
 
 export interface LookupResult {
@@ -53,6 +62,10 @@ export async function buscarPorToken(token: string): Promise<LookupResult> {
           company: true,
           vehiculos: true,
           memberships: { include: { plan: true }, orderBy: { createdAt: 'desc' } },
+          visits: {
+            orderBy: { fechaVisita: 'desc' },
+            take: 5,
+          },
         },
       },
     },
@@ -62,7 +75,6 @@ export async function buscarPorToken(token: string): Promise<LookupResult> {
 
   const cliente = qr.cliente
 
-  // Company scoping (superadmin can see all)
   if (
     user.metadata.role !== 'SUPERADMIN' &&
     user.metadata.companyId &&
@@ -92,6 +104,24 @@ export async function buscarPorToken(token: string): Promise<LookupResult> {
     puedeUsar = true
   }
 
+  // Compute alerts for active memberships
+  const alertas: string[] = []
+  if (active) {
+    if (active.fechaVencimiento) {
+      const daysLeft = Math.ceil(
+        (active.fechaVencimiento.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
+      )
+      if (daysLeft <= 7) {
+        alertas.push(`Membresía vence en ${daysLeft} día${daysLeft !== 1 ? 's' : ''}.`)
+      }
+    }
+    if (!active.plan.esIlimitado) {
+      if (active.lavadosRestantes === 1) {
+        alertas.push('Último uso disponible en este período.')
+      }
+    }
+  }
+
   return {
     cliente: {
       clienteId: cliente.id,
@@ -111,6 +141,13 @@ export async function buscarPorToken(token: string): Promise<LookupResult> {
       })),
       puedeUsar,
       mensaje,
+      alertas,
+      visitasRecientes: cliente.visits.map((v) => ({
+        id: v.id,
+        servicio: v.servicio,
+        fecha: v.fechaVisita.toISOString(),
+        descontado: v.descontado,
+      })),
     },
   }
   } catch (e) {
@@ -124,6 +161,7 @@ export interface ConfirmState {
   success?: boolean
   restantes?: number
   visitId?: string
+  servicio?: string
 }
 
 export async function confirmarVisita(
@@ -155,7 +193,6 @@ export async function confirmarVisita(
       })
       if (!membership) throw new Error('Membresía no encontrada.')
 
-      // Company scoping
       if (
         user.metadata.role !== 'SUPERADMIN' &&
         user.metadata.companyId &&
@@ -185,7 +222,6 @@ export async function confirmarVisita(
         })
       }
 
-      // Create visit with full audit fields
       const visit = await tx.visit.create({
         data: {
           clienteId: membership.clienteId,
@@ -201,7 +237,6 @@ export async function confirmarVisita(
         },
       })
 
-      // Audit log
       await tx.auditLog.create({
         data: {
           companyId: membership.cliente.companyId,
@@ -209,14 +244,7 @@ export async function confirmarVisita(
           accion: 'VISITA_CONFIRMADA',
           entidadTipo: 'Visit',
           entidadId: visit.id,
-          payload: {
-            clienteId: membership.clienteId,
-            membershipId: membership.id,
-            servicio,
-            descontado,
-            restantes,
-            sucursalId,
-          },
+          payload: { clienteId: membership.clienteId, membershipId: membership.id, servicio, descontado, restantes, sucursalId },
           ...meta,
         },
       })
@@ -224,12 +252,47 @@ export async function confirmarVisita(
       return { restantes, visitId: visit.id }
     })
 
-    return { success: true, restantes: result.restantes, visitId: result.visitId }
+    return { success: true, restantes: result.restantes, visitId: result.visitId, servicio }
   } catch (e) {
     return { error: e instanceof Error ? e.message : 'No se pudo confirmar.' }
   }
   } catch (e) {
     console.error('[visitas] confirmarVisita error:', e)
     return { error: 'Ocurrió un error inesperado. Intenta de nuevo.' }
+  }
+}
+
+export interface ImpresionState {
+  error?: string
+  success?: boolean
+}
+
+export async function registrarImpresion(visitId: string): Promise<ImpresionState> {
+  const user = await getUser()
+  if (!user || !['EMPLEADO', 'ADMIN_EMPRESA', 'SUPERADMIN'].includes(user.metadata.role)) {
+    return { error: 'No autorizado.' }
+  }
+  const meta = await getRequestMeta()
+  try {
+    const visit = await prisma.visit.findUnique({
+      where: { id: visitId },
+      include: { membership: { include: { cliente: true } } },
+    })
+    if (!visit) return { error: 'Visita no encontrada.' }
+
+    await prisma.auditLog.create({
+      data: {
+        companyId: visit.membership?.cliente.companyId ?? null,
+        userId: user.metadata.dbUserId ?? null,
+        accion: 'COMPROBANTE_IMPRESO',
+        entidadTipo: 'Visit',
+        entidadId: visitId,
+        payload: { visitId },
+        ...meta,
+      },
+    })
+    return { success: true }
+  } catch {
+    return { error: 'No se pudo registrar la impresión.' }
   }
 }
