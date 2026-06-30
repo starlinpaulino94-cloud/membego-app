@@ -55,6 +55,7 @@ enum AuditAccion {
   COMPROBANTE_IMPRESO
   REFERIDO_COMPLETADO
   RECOMPENSA_OTORGADA
+  NOTA_INTERNA
 }
 
 // ─────────────────────────────────────────────
@@ -317,6 +318,8 @@ model Membership {
   visits           Visit[]
   comprobantes     Comprobante[]
 
+  @@index([estado])
+  @@index([clienteId])
   @@map("memberships")
 }
 
@@ -329,6 +332,7 @@ model QrToken {
   activo    Boolean  @default(true)
   createdAt DateTime @default(now())
 
+  @@index([clienteId, activo])
   @@map("qr_tokens")
 }
 

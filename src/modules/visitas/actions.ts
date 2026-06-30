@@ -2,15 +2,7 @@
 
 import { prisma } from '@/lib/prisma'
 import { getUser } from '@/lib/auth'
-import { headers } from 'next/headers'
-
-async function getRequestMeta() {
-  const h = await headers()
-  return {
-    ipAddress: h.get('x-forwarded-for') ?? h.get('x-real-ip') ?? null,
-    userAgent: h.get('user-agent') ?? null,
-  }
-}
+import { getRequestMeta } from '@/lib/server-utils'
 
 export interface VisitaReciente {
   id: string
@@ -217,11 +209,16 @@ export async function confirmarVisita(
 
       let qrToken: { id: string } | null = null
       if (qrTokenId) {
-        const found = await tx.qrToken.findUnique({ where: { id: qrTokenId } })
-        if (!found || !found.activo || found.clienteId !== membership.clienteId) {
+        // Invalidación atómica: solo tiene éxito si el token sigue activo y
+        // pertenece al cliente correcto. Previene race conditions bajo concurrencia.
+        const invalidado = await tx.qrToken.updateMany({
+          where: { id: qrTokenId, activo: true, clienteId: membership.clienteId },
+          data: { activo: false },
+        })
+        if (invalidado.count === 0) {
           throw new Error('Este código QR ya fue utilizado o no es válido. Pide al cliente que actualice su QR.')
         }
-        qrToken = found
+        qrToken = { id: qrTokenId }
       }
 
       let restantes = membership.lavadosRestantes
@@ -262,10 +259,6 @@ export async function confirmarVisita(
       })
 
       if (qrToken) {
-        await tx.qrToken.update({
-          where: { id: qrToken.id },
-          data: { activo: false },
-        })
         const nuevoQr = await tx.qrToken.create({
           data: { clienteId: membership.clienteId },
         })

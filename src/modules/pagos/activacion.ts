@@ -7,6 +7,7 @@
  */
 
 import { prisma } from '@/lib/prisma'
+import { periodEnd } from '@/lib/server-utils'
 
 type Meta = { ipAddress: string | null; userAgent: string | null }
 
@@ -14,11 +15,8 @@ type ActivarResult =
   | { ok: true; clienteId: string; companyId: string; supabaseId: string; planNombre: string; esPrimera: boolean }
   | { ok: false; error: string }
 
-function periodEnd(from: Date, dias: number) {
-  const d = new Date(from)
-  d.setDate(d.getDate() + dias)
-  return d
-}
+// Estados desde los que se permite activar una membresía.
+const ESTADOS_ACTIVABLES = new Set(['PENDIENTE', 'PENDIENTE_PAGO', 'RECHAZADA', 'VENCIDA'])
 
 export async function activarMembresia(
   membershipId: string,
@@ -31,16 +29,21 @@ export async function activarMembresia(
   })
   if (!membership) return { ok: false, error: 'Membresía no encontrada.' }
   if (membership.estado === 'ACTIVA') return { ok: false, error: 'La membresía ya está activa.' }
-
-  const previasConfirmadas = await prisma.membership.count({
-    where: { clienteId: membership.clienteId, pagoConfirmado: true },
-  })
-  const esPrimera = previasConfirmadas === 0
+  if (!ESTADOS_ACTIVABLES.has(membership.estado)) {
+    return { ok: false, error: `No se puede activar una membresía en estado ${membership.estado}.` }
+  }
 
   const now = new Date()
   const vigenciaDias = membership.plan.vigenciaDias ?? 30
 
-  await prisma.$transaction(async (tx) => {
+  // esPrimera se calcula dentro de la transacción para evitar race condition
+  // con activaciones concurrentes del mismo cliente.
+  const { esPrimera } = await prisma.$transaction(async (tx) => {
+    const previasConfirmadas = await tx.membership.count({
+      where: { clienteId: membership.clienteId, pagoConfirmado: true },
+    })
+    const esPrimera = previasConfirmadas === 0
+
     await tx.membership.update({
       where: { id: membership.id },
       data: {
@@ -86,6 +89,8 @@ export async function activarMembresia(
         ...meta,
       },
     })
+
+    return { esPrimera }
   })
 
   return {

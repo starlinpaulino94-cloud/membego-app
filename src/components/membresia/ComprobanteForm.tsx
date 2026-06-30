@@ -14,9 +14,14 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 
+interface MetodoPagoOption {
+  id: string
+  nombre: string
+}
+
 interface Props {
   membershipId: string
-  metodoPagoId?: string | null
+  metodosPago: MetodoPagoOption[]
 }
 
 const initial: ComprobanteState = {}
@@ -24,8 +29,9 @@ const initial: ComprobanteState = {}
 const ALLOWED = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf']
 const MAX_MB = 5
 
-export function ComprobanteForm({ membershipId, metodoPagoId }: Props) {
+export function ComprobanteForm({ membershipId, metodosPago }: Props) {
   const [state, formAction, pending] = useActionState(enviarComprobante, initial)
+  const [metodoPagoId, setMetodoPagoId] = useState(metodosPago[0]?.id ?? '')
   const [uploading, setUploading] = useState(false)
   const [comprobanteUrl, setComprobanteUrl] = useState('')
   const [fileName, setFileName] = useState('')
@@ -213,6 +219,33 @@ export function ComprobanteForm({ membershipId, metodoPagoId }: Props) {
           </div>
         )}
       </div>
+
+      {/* Selector de método de pago (solo visible si hay más de uno) */}
+      {metodosPago.length > 1 && (
+        <div className="space-y-2">
+          <Label>¿Con qué método pagaste? *</Label>
+          <div className="flex flex-col gap-2">
+            {metodosPago.map((m) => (
+              <label
+                key={m.id}
+                className={`flex cursor-pointer items-center gap-3 rounded-lg border px-4 py-2.5 text-sm transition ${
+                  metodoPagoId === m.id
+                    ? 'border-sky-400 bg-sky-50 text-sky-700'
+                    : 'border-slate-200 hover:border-slate-300'
+                }`}
+              >
+                <input
+                  type="radio"
+                  className="accent-sky-500"
+                  checked={metodoPagoId === m.id}
+                  onChange={() => setMetodoPagoId(m.id)}
+                />
+                {m.nombre}
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="space-y-2">
         <Label htmlFor="nota">Nota (opcional)</Label>
