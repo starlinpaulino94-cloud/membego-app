@@ -173,7 +173,7 @@ export default async function MembresiaPage() {
             <CardContent>
               <ComprobanteForm
                 membershipId={current.id}
-                metodoPagoId={metodosPago[0]?.id ?? null}
+                metodosPago={metodosPago.map((m) => ({ id: m.id, nombre: m.nombre }))}
               />
             </CardContent>
           </Card>

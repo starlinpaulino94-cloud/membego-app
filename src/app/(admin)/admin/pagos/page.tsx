@@ -4,7 +4,12 @@ import { requireRole } from '@/lib/auth/guards'
 import { companyFilter } from '@/modules/admin/queries'
 import { prisma } from '@/lib/prisma'
 import { EstadoBadge } from '@/components/EstadoBadge'
-import { ConfirmarPagoButton, RechazarPagoButton } from '@/components/admin/ValidarPagoActions'
+import {
+  ConfirmarPagoButton,
+  RechazarPagoButton,
+  SolicitarEvidenciaButton,
+  NotaInternaForm,
+} from '@/components/admin/ValidarPagoActions'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { FileText, ExternalLink } from 'lucide-react'
@@ -155,10 +160,24 @@ export default async function PagosPage() {
                   </div>
                 )}
 
+                {/* Admin internal note display */}
+                {m.adminNota && (
+                  <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600">
+                    <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">Nota interna</p>
+                    <p>{m.adminNota}</p>
+                  </div>
+                )}
+
                 {/* Actions */}
-                <div className="flex gap-2 pt-1">
+                <div className="flex flex-wrap gap-2 pt-1">
                   <ConfirmarPagoButton membershipId={m.id} />
                   <RechazarPagoButton membershipId={m.id} />
+                  <SolicitarEvidenciaButton membershipId={m.id} />
+                </div>
+
+                {/* Internal note form */}
+                <div className="border-t pt-3">
+                  <NotaInternaForm membershipId={m.id} notaActual={m.adminNota ?? null} />
                 </div>
               </CardContent>
             </Card>

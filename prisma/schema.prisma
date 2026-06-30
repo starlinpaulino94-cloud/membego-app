@@ -55,6 +55,7 @@ enum AuditAccion {
   COMPROBANTE_IMPRESO
   REFERIDO_COMPLETADO
   RECOMPENSA_OTORGADA
+  NOTA_INTERNA
 }
 
 // ─────────────────────────────────────────────
@@ -304,6 +305,7 @@ model Membership {
   comprobanteUrl   String?          // URL del comprobante subido (Supabase Storage)
   comprobanteNota  String?          // nota del cliente al enviar comprobante
   rechazadoReason  String?          // motivo de rechazo por admin
+  adminNota        String?          // nota interna del admin, no visible al cliente
   pagoConfirmado   Boolean          @default(false)
   montoPagado      Decimal?         @db.Decimal(10, 2)
   // Período activo
@@ -316,6 +318,8 @@ model Membership {
   visits           Visit[]
   comprobantes     Comprobante[]
 
+  @@index([estado])
+  @@index([clienteId])
   @@map("memberships")
 }
 
@@ -328,6 +332,7 @@ model QrToken {
   activo    Boolean  @default(true)
   createdAt DateTime @default(now())
 
+  @@index([clienteId, activo])
   @@map("qr_tokens")
 }
 

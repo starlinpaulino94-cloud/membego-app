@@ -96,6 +96,13 @@ export async function enviarComprobante(
   if (!membershipId) return { error: 'Membresía no especificada.' }
   if (!comprobanteUrl) return { error: 'Adjunta el comprobante de pago.' }
 
+  // Verificar que la URL pertenezca al bucket de Supabase de esta plataforma.
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const expectedPrefix = `${supabaseUrl}/storage/v1/object/public/comprobantes/`
+  if (!supabaseUrl || !comprobanteUrl.startsWith(expectedPrefix)) {
+    return { error: 'URL del comprobante no válida.' }
+  }
+
   const membership = await prisma.membership.findUnique({
     where: { id: membershipId },
     include: { cliente: true },
