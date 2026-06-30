@@ -88,9 +88,13 @@ export function RenewForm({
   const [state, action, pending] = useActionState(renovarMembresia, initial)
   const [open, setOpen] = useState(false)
 
+  // Cerrar el diálogo y refrescar cuando la action tenga éxito.
+  // El setState en effect aquí es intencional: reacciona al resultado async
+  // de useActionState y no causa cascadas (solo corre una vez por éxito).
   useEffect(() => {
     if (state.success) {
       toast.success('Membresía renovada por 30 días.')
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setOpen(false)
       router.refresh()
     }
@@ -141,6 +145,7 @@ export function CancelForm({ membershipId }: { membershipId: string }) {
   useEffect(() => {
     if (state.success) {
       toast.success('Membresía cancelada.')
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setOpen(false)
       router.refresh()
     }

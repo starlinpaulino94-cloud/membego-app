@@ -1,8 +1,8 @@
-# Pase Digital QR
+# PASE Digital QR
 
-Sistema interno de promociones y pases digitales QR para negocios participantes.
+Sistema interno de membresías y pases digitales QR para negocios participantes.
 
-Los clientes se registran, activan su **Pase Digital** y reciben un código QR único. Los empleados escanean ese QR en el establecimiento para validar y registrar el uso de la promoción.
+Los clientes se registran, activan su **Pase Digital** y reciben un código QR único. Los empleados escanean ese QR en el establecimiento para validar y registrar el uso de la membresía.
 
 > **Nota:** Este es un sistema interno de gestión, no un producto SaaS público.
 
@@ -12,301 +12,281 @@ Los clientes se registran, activan su **Pase Digital** y reciben un código QR �
 
 | Capa | Tecnología |
 |------|-----------|
-| Framework | Next.js 16 + React 19 |
+| Framework | Next.js 16 (App Router) + React 19 |
 | Lenguaje | TypeScript 5 |
 | Estilos | Tailwind CSS v4 + shadcn/ui |
-| Base de datos | SQLite (local) · Supabase PostgreSQL (producción) |
+| Base de datos | Supabase PostgreSQL |
 | ORM | Prisma 6 |
-| Auth | Sesiones custom — scrypt + cookies httpOnly |
-| Estado | Zustand |
+| Auth | Supabase Auth (cookies SSR + middleware) |
+| Acciones | Server Actions (Next.js) |
 | QR | `qrcode` (generación) + `html5-qrcode` (escaneo por cámara) |
 | Runtime | Bun |
 | Deploy | Vercel (serverless) |
 
 ---
 
-## Requisitos previos
+## Arquitectura
 
-- [Bun](https://bun.sh) `>= 1.0`
-- Node.js `>= 18` (para Prisma CLI)
+El proyecto usa **App Router con route groups** para separar las áreas por audiencia:
+
+```
+src/app/
+├── (public)/                 # Landing pública + listado de empresas
+│   ├── page.tsx              # Hero + planes
+│   └── empresas/page.tsx
+├── (auth)/                   # Login, registro, recuperar
+│   ├── login/page.tsx
+│   ├── recuperar/page.tsx
+│   └── registro/[companySlug]/page.tsx
+├── (cliente)/                # Panel del cliente (rol CLIENTE)
+│   ├── cliente/dashboard/    # Mi panel + QR
+│   ├── cliente/membresia/
+│   ├── cliente/historial/
+│   └── cliente/perfil/
+├── (admin)/                  # Panel de empresa (rol ADMIN_EMPRESA)
+│   └── admin/{dashboard,clientes,membresias,planes,empleados,reportes}/
+├── (empleado)/               # Escáner QR (rol EMPLEADO)
+│   └── empleado/scanner/
+├── (superadmin)/             # Panel global (rol SUPERADMIN)
+│   └── superadmin/{dashboard,empresas,reportes}/
+├── api/health/               # Health check
+├── layout.tsx                # Layout raíz
+├── error.tsx                 # Página de error
+└── not-found.tsx             # 404
+```
+
+Cada route group tiene su propio `layout.tsx` que aplica el guard de rol correspondiente (`requireRole`) y renderiza la navegación (`AppNav`).
+
+### Middleware (`src/proxy.ts`)
+
+Un middleware (exportado como `proxy`) protege todas las rutas:
+
+- Si no hay sesión → redirige a `/login?redirect=...`
+- Si el rol no está permitido para esa ruta → redirige al home del rol
+- Usuarios logueados que visitan `/login` → redirige a su home
+
+El rol se lee de `user.app_metadata.role` (seteado por el seed o por el registro).
+
+### Server Actions (`src/modules/`)
+
+Toda la mutación de datos se hace con Server Actions, agrupadas por dominio:
+
+```
+src/modules/
+├── auth/         # logout
+├── registro/     # registrarCliente (crea user en Supabase + en BD)
+├── admin/        # confirmarPago, renovarMembresia, cancelarMembresia, crearMembresia, empleados
+├── cliente/      # actualizarPerfil
+├── membresia/    # (consultas/acciones de membresía)
+└── visitas/      # buscarPorToken (escáner), confirmarVisita
+```
+
+Las consultas (queries) están en `queries.ts` dentro de cada módulo y usan Prisma directamente.
 
 ---
 
-## Instalación local (SQLite)
+## Modelo de datos
+
+```
+User         → Usuario de Supabase Auth + tabla users (rol, companyId)
+Company      → Empresa participante (slug, type, planes)
+Plan         → Plan de membresía (precio, lavadosIncluidos, beneficios)
+Cliente      → Perfil de cliente por empresa (supabaseId, companyId)
+Vehiculo     → Vehículo del cliente (carwash)
+Membership   → Membresía activa de un cliente a un plan (estado, lavadosRestantes)
+QrToken      → Pase Digital QR único por cliente
+Visit        → Registro de uso (visita al establecimiento)
+```
+
+### Roles (`AppRole`)
+
+| Rol | Acceso |
+|-----|--------|
+| `SUPERADMIN` | Acceso total: empresas, reportes globales, configuración |
+| `ADMIN_EMPRESA` | Su empresa: clientes, membresías, planes, empleados, reportes |
+| `EMPLEADO` | Escáner QR y registro de usos |
+| `CLIENTE` | Su Pase Digital, membresía, historial, perfil |
+
+---
+
+## Requisitos previos
+
+- [Bun](https://bun.sh) `>= 1.0`
+- Un proyecto de [Supabase](https://supabase.com) (gratis para empezar)
+
+---
+
+## Instalación
 
 ```bash
-# 1. Clonar el repositorio
-git clone <URL_DEL_REPO>
-cd pase-digital-qr
+# 1. Clonar
+git clone https://github.com/starlinpaulino94-cloud/pase-digital-platform.git
+cd pase-digital-platform
 
 # 2. Instalar dependencias
 bun install
 
 # 3. Configurar variables de entorno
 cp .env.example .env
-# Editar .env y activar la OPCIÓN A (SQLite local):
-#   DATABASE_URL="file:./db/custom.db"
-#   DIRECT_URL="file:./db/custom.db"
-#   SESSION_SECRET="cualquier-cadena-local"
+# Completa .env con tus claves de Supabase (ver abajo)
 
-# 4. Generar el cliente Prisma
+# 4. Generar cliente Prisma
 bun run db:generate
 
-# 5. Inicializar la base de datos (primera vez)
+# 5. Crear las tablas en Supabase (primera vez)
 bun run db:push
 
-# 6. Cargar datos de prueba
+# 6. Cargar datos de prueba (empresas, planes, usuarios)
+bun run db:seed
+
+# 7. Iniciar el servidor
 bun run dev
-# En otra terminal:
-curl -X POST http://localhost:3000/api/seed
 ```
+
+Abre [http://localhost:3000](http://localhost:3000).
 
 ---
 
 ## Variables de entorno
 
-Copia `.env.example` a `.env`. Nunca subas `.env` a Git.
-
-### Desarrollo local con SQLite
-
-```env
-DATABASE_URL="file:./db/custom.db"
-DIRECT_URL="file:./db/custom.db"
-SESSION_SECRET="dev-secret-local"
-```
-
-### Producción con Supabase PostgreSQL
+Copia `.env.example` a `.env` y completa con los valores de tu proyecto Supabase
+(**Settings → API** y **Settings → Database**):
 
 ```env
+# Supabase Auth (públicas en el frontend)
+NEXT_PUBLIC_SUPABASE_URL=https://TU-PROYECTO.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...   # anon/pública
+
+# Supabase Admin (PRIVADA — solo backend)
+SUPABASE_SERVICE_ROLE_KEY=eyJ...        # service_role
+
+# Postgres (Prisma)
 # Transaction pooler (pgBouncer) — para la app
 DATABASE_URL="postgresql://postgres.XXXXX:PASSWORD@aws-0-REGION.pooler.supabase.com:6543/postgres?pgbouncer=true"
-
 # Conexión directa — solo para migraciones
-DIRECT_URL="postgresql://postgres.XXXXX:PASSWORD@aws-0-REGION.pooler.supabase.com:5432/postgres"
+DIRECT_URL="postgresql://postgres.XXXXX:PASSWORD@aws-0-REGION.supabase.com:5432/postgres"
 
-# Genera con: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
-SESSION_SECRET="cadena-aleatoria-larga-para-produccion"
+# Sesión (no usado con Supabase Auth, pero requerido por lib/env)
+SESSION_SECRET=cadena-aleatoria-larga
 ```
 
----
-
-## Comandos principales
-
-```bash
-# Desarrollo
-bun run dev              # Inicia en http://localhost:3000
-
-# Base de datos (local)
-bun run db:generate      # Genera el cliente Prisma
-bun run db:push          # Sincroniza el schema sin migraciones (dev / primera vez)
-bun run db:migrate       # Crea y aplica una migración nueva (dev)
-bun run db:reset         # Resetea la base de datos ¡destruye datos!
-
-# Base de datos (producción)
-bun run db:migrate:deploy  # Aplica migraciones pendientes en producción
-
-# Producción
-bun run build            # Compila el proyecto
-bun run start            # Inicia el servidor compilado
-
-# Calidad
-bun run lint             # Revisa el código con ESLint
-```
-
----
-
-## Correr localmente
-
-```bash
-bun run dev
-```
-
-Abre [http://localhost:3000](http://localhost:3000). La app usa routing por hash — todo está bajo `/`:
-
-| Hash | Vista |
-|------|-------|
-| `/` | Landing pública (Pase Digital) |
-| `/#registro` | Registro de cliente |
-| `/#mi-qr` | Login / panel de cliente |
-| `/#admin-login` | Login del panel interno *(no enlazado desde la landing)* |
-| `/#admin` | Panel interno *(requiere autenticación)* |
+> ⚠️ **Nunca subas `.env` a Git.** Ya está en `.gitignore`.
 
 ---
 
 ## Cuentas de prueba
 
-> Disponibles después de ejecutar `POST /api/seed`.
+Disponibles tras ejecutar `bun run db:seed`:
 
 | Rol | Email | Contraseña |
 |-----|-------|------------|
-| Superadmin | `superadmin@fidelix.com` | `admin123` |
-| Admin Carwash | `admin.carwash@fidelix.com` | `admin123` |
-| Admin Restaurante | `admin.restaurante@fidelix.com` | `admin123` |
-| Empleado Carwash | `empleado.carwash@fidelix.com` | `admin123` |
-| Cliente | `cliente@fidelix.com` | `cliente123` |
+| Superadmin | `superadmin@pasedigital.com` | `admin123` |
+| Admin Carwash | `admin.cartown@pasedigital.com` | `admin123` |
+| Admin Restaurante | `admin.tonis@pasedigital.com` | `admin123` |
+| Empleado Carwash | `empleado.cartown@pasedigital.com` | `admin123` |
+| Cliente | `cliente@pasedigital.com` | `cliente123` |
+
+El seed crea los usuarios en **Supabase Auth** (con `app_metadata.role`) y en la tabla `users`, para que el login funcione de inmediato.
 
 ---
 
-## Despliegue en producción: Supabase + Vercel
-
-### 1. Crear proyecto en Supabase
-
-1. Ve a [supabase.com](https://supabase.com) y crea un nuevo proyecto.
-2. En **Settings → Database → Connection string**, copia:
-   - **Transaction pooler** (puerto `6543`) → `DATABASE_URL` (agrega `?pgbouncer=true` al final)
-   - **Direct connection** (puerto `5432`) → `DIRECT_URL`
-
-### 2. Crear las tablas en Supabase (primera vez)
-
-Con las variables apuntando a Supabase en tu `.env` local:
+## Comandos
 
 ```bash
-# Opción A — push directo (sin historial de migraciones)
-bun run db:push
+bun run dev                # Desarrollo en http://localhost:3000
+bun run build              # Build de producción
+bun run start              # Servir el build
+bun run lint               # ESLint
 
-# Opción B — con migraciones formales
-bun run db:migrate       # crea la migración inicial
-bun run db:migrate:deploy  # aplica en producción
-```
-
-### 3. Cargar datos iniciales
-
-Con la app corriendo localmente (apuntando a Supabase):
-
-```bash
-curl -X POST http://localhost:3000/api/seed
-```
-
-O una vez que esté en Vercel:
-
-```bash
-curl -X POST https://TU-DOMINIO.vercel.app/api/seed
-```
-
-### 4. Configurar Vercel
-
-1. Conecta el repositorio en [vercel.com](https://vercel.com).
-2. En **Settings → Environment Variables**, agrega:
-
-| Variable | Valor |
-|----------|-------|
-| `DATABASE_URL` | Transaction pooler de Supabase (`?pgbouncer=true`) |
-| `DIRECT_URL` | Conexión directa de Supabase |
-| `SESSION_SECRET` | Cadena aleatoria larga (mín. 32 caracteres) |
-
-3. En **Settings → General → Build & Output Settings**:
-   - Build Command: `next build` (o deja el que Vercel detecta)
-   - Output Directory: `.next`
-
-4. Haz deploy. Vercel ejecuta `bun install` → `prisma generate` (via `postinstall`) → `next build`.
-
-> **Sin migraciones en Vercel:** Vercel no ejecuta migraciones automáticamente. Ejecuta `bun run db:migrate:deploy` desde tu máquina local antes de cada release que cambie el schema.
-
----
-
-## Estructura del proyecto
-
-```
-pase-digital-qr/
-├── .env.example              # Variables de entorno documentadas
-├── prisma/
-│   └── schema.prisma         # Modelos de datos (13 modelos)
-├── db/                       # Base de datos SQLite local (excluida de Git)
-├── public/                   # Archivos estáticos
-└── src/
-    ├── app/
-    │   ├── page.tsx          # Punto de entrada → <AppRoot />
-    │   ├── layout.tsx        # Layout raíz con metadatos
-    │   └── api/              # Rutas API (Next.js Route Handlers)
-    │       ├── auth/         # Login, logout, registro
-    │       ├── empresas/     # CRUD empresas
-    │       ├── clientes/     # CRUD clientes
-    │       ├── estrategias/  # CRUD promociones
-    │       ├── qr/           # Escaneo y confirmación de QR
-    │       ├── transacciones/
-    │       ├── reportes/
-    │       └── datos-publicos/ # Datos para la landing (sin auth)
-    ├── components/
-    │   ├── fidelix/          # Lógica de negocio
-    │   │   ├── AppRoot.tsx   # Enrutador principal (por hash)
-    │   │   ├── AuthScreens.tsx # Landing + Login + Registro
-    │   │   ├── AdminShell.tsx  # Panel interno (admin/empleado)
-    │   │   ├── AdminLogin.tsx  # Login del panel interno
-    │   │   ├── ClienteShell.tsx # Panel del cliente
-    │   │   ├── QrComponents.tsx # QrDisplay + QrScanner
-    │   │   ├── api-client.ts   # Cliente HTTP del frontend
-    │   │   ├── store.ts        # Estado global (Zustand)
-    │   │   └── panels/         # Paneles por rol
-    │   │       ├── SuperadminPanel.tsx
-    │   │       ├── EmpresaPanel.tsx
-    │   │       ├── EmpleadoPanel.tsx
-    │   │       └── ScannerFlow.tsx
-    │   └── ui/               # Componentes shadcn/ui
-    └── lib/
-        ├── auth.ts           # Hashing, sesiones, permisos
-        ├── db.ts             # Singleton PrismaClient
-        ├── constants.ts      # Roles, tipos, servicios por negocio
-        ├── seed.ts           # Datos iniciales idempotentes
-        └── api.ts            # Helpers ok/err/apiError
+bun run db:generate        # Generar cliente Prisma
+bun run db:push            # Sincronizar schema (dev / primera vez)
+bun run db:migrate         # Crear + aplicar migración (dev)
+bun run db:migrate:deploy  # Aplicar migraciones pendientes (prod)
+bun run db:reset           # Resetear BD (¡destruye datos!)
+bun run db:seed            # Cargar datos iniciales + usuarios de prueba
 ```
 
 ---
 
-## Modelos de datos principales
+## Despliegue en Vercel
 
-```
-User              → Todos los usuarios del sistema (4 roles)
-Session           → Sesiones activas
-Empresa           → Negocios participantes
-TipoNegocio       → Carwash, Restaurante, etc.
-Cliente           → Perfil de cliente por empresa
-Estrategia        → Definición de una promoción
-ClienteEstrategia → Promoción asignada a un cliente
-QrToken           → Pase Digital QR único por cliente/empresa
-Transaccion       → Historial de usos registrados
-```
-
----
-
-## Roles del sistema
-
-| Rol | Acceso |
-|-----|--------|
-| `SUPERADMIN` | Acceso total: empresas, clientes, reportes globales, configuración |
-| `ADMIN_EMPRESA` | Su empresa: clientes, promociones, pagos, usos, reportes |
-| `EMPLEADO` | Solo escáner QR y usos registrados |
-| `CLIENTE` | Su Pase Digital, establecimientos, historial de actividad |
-
----
-
-## Tipos de promociones implementadas
-
-| Tipo | Descripción |
-|------|-------------|
-| `MEMBRESIA` | Plan con N usos en X días (ej. 4 lavados al mes por RD$999) |
-| `CONTEO_VISITAS` | Acumula visitas, al llegar a la meta recibe recompensa (ej. 5+1 gratis) |
-| `CUPON` | Descuento directo en la próxima visita (uso único) |
+1. **Conecta el repositorio** en [vercel.com](https://vercel.com).
+2. **Variables de entorno** (Settings → Environment Variables): agrega las 5 del `.env`.
+3. **Build**: Vercel detecta Next.js automáticamente. El `postinstall` corre `prisma generate`.
+4. **Migraciones**: Vercel no las corre. Antes de cada release con cambios de schema, ejecuta desde tu máquina:
+   ```bash
+   bun run db:migrate:deploy
+   # o si usas push directo:
+   bun run db:push
+   ```
+5. **Seed inicial** (solo la primera vez, apuntando `.env` a producción):
+   ```bash
+   bun run db:seed
+   ```
 
 ---
 
 ## Flujo del cliente
 
-1. Entra a la landing → presiona **"Quiero mi Pase Digital"**
-2. Elige tipo de establecimiento
-3. Elige empresa y promoción disponible
-4. Completa su registro
-5. Recibe su **Pase Digital QR**
-6. Visita el establecimiento y presenta el QR
-7. El empleado escanea, valida y confirma el uso
-8. El sistema registra la transacción y descuenta usos
+1. Entra a la landing → elige una empresa
+2. Presiona **Registrarme** → completa sus datos (+ vehículo si es carwash)
+3. Recibe su **Pase Digital QR**
+4. Visita el establecimiento y presenta el QR
+5. El empleado escanea → el sistema valida la membresía
+6. El empleado confirma el uso → se descuenta un lavado/consumo
+7. El cliente ve su historial y lavados restantes en su panel
 
 ---
 
 ## Seguridad
 
-- Las contraseñas se hashean con **scrypt** + salt aleatorio por usuario
-- Las sesiones usan cookies **httpOnly + sameSite:lax** con TTL de 7 días
-- El QR contiene solo un **UUID anónimo**, nunca datos personales
-- El aislamiento por empresa está forzado en el backend
-- Las rutas del panel interno no están enlazadas desde la landing pública
-- `.env` nunca se sube a Git (está en `.gitignore`)
+- **Auth**: Supabase Auth con cookies httpOnly (vía `@supabase/ssr`)
+- **Middleware**: protege rutas por rol y redirige si no hay permiso
+- **Aislamiento por empresa**: las queries filtran por `companyId` del usuario (excepto superadmin)
+- **QR**: contiene solo un UUID anónimo, nunca datos personales
+- **Server Actions**: validan el rol y la pertenencia antes de mutar
+- `.env` nunca se sube a Git
+
+---
+
+## Estructura de carpetas
+
+```
+pase-digital-platform/
+├── prisma/
+│   ├── schema.prisma         # 8 modelos + 2 enums
+│   └── seed.ts               # Datos iniciales + usuarios de prueba
+├── public/                   # Assets estáticos
+└── src/
+    ├── app/                  # App Router con route groups
+    │   ├── (public)/
+    │   ├── (auth)/
+    │   ├── (cliente)/
+    │   ├── (admin)/
+    │   ├── (empleado)/
+    │   └── (superadmin)/
+    ├── components/
+    │   ├── admin/            # Formularios de admin (membresías, empleados)
+    │   ├── auth/             # LoginForm, RegisterForm
+    │   ├── cliente/          # PerfilForm
+    │   ├── layout/           # AppNav
+    │   ├── qr/               # QRDisplay
+    │   ├── scanner/          # QRScanner, ConfirmVisit
+    │   └── ui/               # shadcn/ui
+    ├── lib/
+    │   ├── auth/             # guards.ts (requireRole) + index.ts (getUser)
+    │   ├── supabase/         # server.ts, client.ts, admin.ts
+    │   ├── data/             # companies.ts (datos seed)
+    │   ├── prisma.ts         # Singleton PrismaClient
+    │   ├── env.ts            # Validación de env vars
+    │   └── utils.ts          # cn() y helpers
+    ├── modules/              # Server Actions por dominio
+    │   ├── auth/
+    │   ├── registro/
+    │   ├── admin/
+    │   ├── cliente/
+    │   ├── membresia/
+    │   └── visitas/
+    ├── types/                # Tipos compartidos (AppRole, SessionUser, ...)
+    └── proxy.ts              # Middleware (auth + routing por rol)
+```
