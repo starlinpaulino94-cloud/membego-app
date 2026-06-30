@@ -18,6 +18,7 @@ export default async function AdminLayout({
           { href: '/admin/membresias', label: 'Membresías' },
           { href: '/admin/pagos', label: 'Pagos' },
           { href: '/admin/metodos-pago', label: 'Métodos de pago' },
+          { href: '/admin/sucursales', label: 'Sucursales' },
           { href: '/admin/planes', label: 'Planes' },
           { href: '/admin/empleados', label: 'Empleados' },
           { href: '/admin/reportes', label: 'Reportes' },
