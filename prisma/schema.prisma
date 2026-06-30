@@ -25,6 +25,8 @@ enum NotifTipo {
   NUEVO_COMPROBANTE
   MEMBRESIA_POR_VENCER
   MEMBRESIA_ACTIVADA
+  PROMOCION_NUEVA
+  RECOMPENSA_REFERIDO
   SISTEMA
 }
 
@@ -49,7 +51,10 @@ enum AuditAccion {
   MEMBRESIA_CANCELADA
   MEMBRESIA_RENOVADA
   QR_GENERADO
+  QR_USADO
   COMPROBANTE_IMPRESO
+  REFERIDO_COMPLETADO
+  RECOMPENSA_OTORGADA
 }
 
 // ─────────────────────────────────────────────
@@ -92,6 +97,10 @@ model Company {
   sucursales    Sucursal[]
   metodosPago   MetodoPago[]
   auditLogs     AuditLog[]
+  promociones   Promocion[]
+  referidos     Referido[]
+  reglasRecompensa ReglaRecompensa[]
+  whatsappConfig WhatsAppConfig?
 
   @@map("companies")
 }
@@ -132,6 +141,26 @@ model MetodoPago {
   @@map("metodos_pago")
 }
 
+// Promociones publicadas por una empresa, visibles para sus clientes
+// (incluyendo clientes afiliados a varias empresas, vía Cliente.companyId).
+model Promocion {
+  id             String    @id @default(cuid())
+  companyId      String
+  company        Company   @relation(fields: [companyId], references: [id])
+  titulo         String
+  descripcion    String
+  imagenUrl      String?
+  vigenciaDesde  DateTime  @default(now())
+  vigenciaHasta  DateTime?
+  activo         Boolean   @default(true)
+  publicadaEn    DateTime  @default(now())
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([companyId, activo])
+  @@map("promociones")
+}
+
 model Plan {
   id               String       @id @default(cuid())
   companyId        String
@@ -163,6 +192,7 @@ model Cliente {
   email           String
   fechaNacimiento DateTime?
   avatarUrl       String?
+  codigoReferido  String       @unique @default(cuid())
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
 
@@ -170,9 +200,77 @@ model Cliente {
   memberships     Membership[]
   qrTokens        QrToken[]    // vacío hasta que tenga membresía activa
   visits          Visit[]
+  referidosHechos Referido[]   @relation("Referente")
+  referidoComo    Referido[]   @relation("Referido")
 
   @@unique([supabaseId, companyId])
   @@map("clientes")
+}
+
+enum ReferidoEstado {
+  PENDIENTE
+  COMPLETADO
+}
+
+enum CondicionRecompensa {
+  N_REFERIDOS_COMPLETADOS
+}
+
+enum TipoRecompensa {
+  LAVADOS_GRATIS
+  DESCUENTO_PORCENTAJE
+  DESCUENTO_MONTO
+}
+
+// Referido: vínculo entre quien invita y quien se registró con su código.
+model Referido {
+  id                  String         @id @default(cuid())
+  companyId           String
+  company             Company        @relation(fields: [companyId], references: [id])
+  referenteClienteId  String
+  referenteCliente    Cliente        @relation("Referente", fields: [referenteClienteId], references: [id])
+  referidoClienteId   String         @unique
+  referidoCliente     Cliente        @relation("Referido", fields: [referidoClienteId], references: [id])
+  estado              ReferidoEstado @default(PENDIENTE)
+  recompensaAplicada  Boolean        @default(false)
+  createdAt           DateTime       @default(now())
+  completadoEn        DateTime?
+
+  @@index([companyId, referenteClienteId])
+  @@map("referidos")
+}
+
+// Regla de recompensa 100% configurable desde el panel admin: sin valores
+// fijos en código. El admin define cuándo y qué recompensa otorgar.
+model ReglaRecompensa {
+  id               String              @id @default(cuid())
+  companyId        String
+  company          Company             @relation(fields: [companyId], references: [id])
+  nombre           String
+  condicion        CondicionRecompensa
+  valorCondicion   Int                 // ej: 3 referidos completados
+  tipoRecompensa   TipoRecompensa
+  valorRecompensa  Decimal             @db.Decimal(10, 2) // lavados, % o monto según tipo
+  activo           Boolean             @default(true)
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+
+  @@index([companyId, activo])
+  @@map("reglas_recompensa")
+}
+
+// Configuración de contacto/WhatsApp por empresa, 100% editable desde el panel.
+model WhatsAppConfig {
+  id              String   @id @default(cuid())
+  companyId       String   @unique
+  company         Company  @relation(fields: [companyId], references: [id])
+  numero          String   // formato internacional, ej: 18095550000
+  mensajePlantilla String  @default("Hola, quisiera más información.")
+  activo          Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("whatsapp_config")
 }
 
 model Vehiculo {

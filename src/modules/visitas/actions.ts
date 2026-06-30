@@ -26,6 +26,7 @@ export interface ClienteLookup {
   avatarUrl: string | null
   empresa: string
   membershipId: string | null
+  qrTokenId: string | null
   planNombre: string | null
   estado: string | null
   esIlimitado: boolean
@@ -130,6 +131,7 @@ export async function buscarPorToken(token: string): Promise<LookupResult> {
       avatarUrl: cliente.avatarUrl ?? null,
       empresa: cliente.company.name,
       membershipId: active?.id ?? null,
+      qrTokenId: qr.id,
       planNombre: m?.plan.nombre ?? null,
       estado: m?.estado ?? null,
       esIlimitado: active?.plan.esIlimitado ?? false,
@@ -179,6 +181,7 @@ export async function confirmarVisita(
   const vehiculoId = String(formData.get('vehiculoId') ?? '').trim() || null
   const notas = String(formData.get('notas') ?? '').trim() || null
   const sucursalId = String(formData.get('sucursalId') ?? '').trim() || null
+  const qrTokenId = String(formData.get('qrTokenId') ?? '').trim() || null
 
   if (!membershipId) return { error: 'Membresía no válida.' }
   if (!servicio) return { error: 'Selecciona un servicio.' }
@@ -210,6 +213,15 @@ export async function confirmarVisita(
       const ilimitado = membership.plan.esIlimitado
       if (!ilimitado && membership.lavadosRestantes <= 0) {
         throw new Error('No quedan usos disponibles.')
+      }
+
+      let qrToken: { id: string } | null = null
+      if (qrTokenId) {
+        const found = await tx.qrToken.findUnique({ where: { id: qrTokenId } })
+        if (!found || !found.activo || found.clienteId !== membership.clienteId) {
+          throw new Error('Este código QR ya fue utilizado o no es válido. Pide al cliente que actualice su QR.')
+        }
+        qrToken = found
       }
 
       let restantes = membership.lavadosRestantes
@@ -248,6 +260,38 @@ export async function confirmarVisita(
           ...meta,
         },
       })
+
+      if (qrToken) {
+        await tx.qrToken.update({
+          where: { id: qrToken.id },
+          data: { activo: false },
+        })
+        const nuevoQr = await tx.qrToken.create({
+          data: { clienteId: membership.clienteId },
+        })
+        await tx.auditLog.create({
+          data: {
+            companyId: membership.cliente.companyId,
+            userId: user.metadata.dbUserId ?? null,
+            accion: 'QR_USADO',
+            entidadTipo: 'QrToken',
+            entidadId: qrToken.id,
+            payload: { clienteId: membership.clienteId, visitId: visit.id },
+            ...meta,
+          },
+        })
+        await tx.auditLog.create({
+          data: {
+            companyId: membership.cliente.companyId,
+            userId: user.metadata.dbUserId ?? null,
+            accion: 'QR_GENERADO',
+            entidadTipo: 'QrToken',
+            entidadId: nuevoQr.id,
+            payload: { clienteId: membership.clienteId, motivo: 'regeneracion_post_uso' },
+            ...meta,
+          },
+        })
+      }
 
       return { restantes, visitId: visit.id }
     })

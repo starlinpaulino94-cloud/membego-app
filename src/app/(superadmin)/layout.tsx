@@ -20,6 +20,7 @@ export default async function SuperadminLayout({
           { href: '/superadmin/reportes', label: 'Reportes' },
           { href: '/superadmin/planes', label: 'Planes' },
           { href: '/superadmin/membresias', label: 'Membresías' },
+          { href: '/superadmin/operaciones', label: 'Operaciones' },
           { href: '/admin/clientes', label: 'Clientes' },
         ]}
       />

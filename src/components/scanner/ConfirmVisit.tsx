@@ -192,6 +192,7 @@ export function ConfirmVisit({
       ) : (
         <form action={formAction} className="space-y-4">
           <input type="hidden" name="membershipId" value={cliente.membershipId ?? ''} />
+          <input type="hidden" name="qrTokenId" value={cliente.qrTokenId ?? ''} />
           <input type="hidden" name="servicio" value={servicio} />
           <input type="hidden" name="vehiculoId" value={vehiculoId} />
           <input type="hidden" name="sucursalId" value={sucursalId} />

@@ -8,6 +8,30 @@ export interface RegistroState {
   success?: boolean
 }
 
+/** Crea el registro Referido si refCode corresponde a un cliente válido de la misma empresa. */
+async function vincularReferido(
+  refCode: string,
+  companyId: string,
+  referidoClienteId: string
+) {
+  if (!refCode) return
+  try {
+    const referente = await prisma.cliente.findUnique({
+      where: { codigoReferido: refCode },
+    })
+    if (!referente || referente.companyId !== companyId) return
+    await prisma.referido.create({
+      data: {
+        companyId,
+        referenteClienteId: referente.id,
+        referidoClienteId,
+      },
+    })
+  } catch (e) {
+    console.error('[registro] vincularReferido error:', e)
+  }
+}
+
 export async function registrarCliente(
   _prev: RegistroState,
   formData: FormData
@@ -20,6 +44,7 @@ export async function registrarCliente(
     .toLowerCase()
   const password = String(formData.get('password') ?? '')
   const telefono = String(formData.get('telefono') ?? '').trim()
+  const refCode = String(formData.get('refCode') ?? '').trim()
 
   // Vehiculo (optional, for carwash)
   const marca = String(formData.get('marca') ?? '').trim()
@@ -52,6 +77,63 @@ export async function registrarCliente(
   }
 
   const admin = createAdminClient()
+
+  // Si ya existe una cuenta de cliente con este correo, esto es una
+  // afiliación a una empresa adicional, no un registro nuevo.
+  const existingUser = await prisma.user.findUnique({ where: { email } })
+  if (existingUser && existingUser.role !== 'CLIENTE') {
+    return { error: 'Ya existe una cuenta con este correo.' }
+  }
+  if (existingUser) {
+    const existingCliente = await prisma.cliente.findUnique({
+      where: {
+        supabaseId_companyId: {
+          supabaseId: existingUser.supabaseId,
+          companyId: company.id,
+        },
+      },
+    })
+    if (existingCliente) {
+      return { error: 'Ya tienes una cuenta en esta empresa. Inicia sesión.' }
+    }
+
+    try {
+      const cliente = await prisma.cliente.create({
+        data: {
+          companyId: company.id,
+          supabaseId: existingUser.supabaseId,
+          nombre: existingUser.name,
+          email,
+          telefono: telefono || null,
+        },
+      })
+
+      if (marca && modelo && anioRaw && color) {
+        const anio = Number(anioRaw)
+        if (!Number.isNaN(anio)) {
+          await prisma.vehiculo.create({
+            data: { clienteId: cliente.id, marca, modelo, anio, color, placa: placa || null },
+          })
+        }
+      }
+
+      await admin.auth.admin.updateUserById(existingUser.supabaseId, {
+        app_metadata: {
+          role: 'CLIENTE',
+          dbUserId: existingUser.id,
+          clienteId: cliente.id,
+          companyId: company.id,
+        },
+      })
+
+      await vincularReferido(refCode, company.id, cliente.id)
+
+      return { success: true }
+    } catch (e) {
+      console.error('[registro] afiliación a nueva empresa error:', e)
+      return { error: 'No se pudo completar el registro. Intenta de nuevo.' }
+    }
+  }
 
   // 1. Create Supabase auth user
   const { data: created, error: createError } =
@@ -124,6 +206,8 @@ export async function registrarCliente(
         companyId: company.id,
       },
     })
+
+    await vincularReferido(refCode, company.id, result.cliente.id)
 
     return { success: true }
   } catch (e) {

@@ -1,8 +1,10 @@
 import { requireRole } from '@/lib/auth/guards'
 import { getClienteFull } from '@/modules/cliente/queries'
+import { prisma } from '@/lib/prisma'
 import { ProfileForm } from '@/components/cliente/ProfileForm'
 import { VehiculoForm } from '@/components/cliente/VehiculoForm'
 import { DeleteVehiculoButton } from '@/components/cliente/DeleteVehiculoButton'
+import { WhatsAppButton } from '@/components/cliente/WhatsAppButton'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Car, User } from 'lucide-react'
 
@@ -17,12 +19,20 @@ export default async function PerfilPage() {
   if (!cliente) return <p className="text-muted-foreground">No se encontró tu información.</p>
 
   const isCarwash = cliente.company.type === 'carwash'
+  const whatsapp = await prisma.whatsAppConfig.findUnique({
+    where: { companyId: cliente.companyId },
+  })
 
   return (
     <div className="space-y-6 animate-fade-up">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight text-foreground">Mi perfil</h1>
-        <p className="text-sm text-muted-foreground">{cliente.company.name}</p>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">Mi perfil</h1>
+          <p className="text-sm text-muted-foreground">{cliente.company.name}</p>
+        </div>
+        {whatsapp?.activo && (
+          <WhatsAppButton numero={whatsapp.numero} mensaje={whatsapp.mensajePlantilla} />
+        )}
       </div>
 
       {/* Personal info */}
