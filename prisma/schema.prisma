@@ -99,6 +99,7 @@ model Company {
   promociones   Promocion[]
   referidos     Referido[]
   reglasRecompensa ReglaRecompensa[]
+  whatsappConfig WhatsAppConfig?
 
   @@map("companies")
 }
@@ -255,6 +256,20 @@ model ReglaRecompensa {
 
   @@index([companyId, activo])
   @@map("reglas_recompensa")
+}
+
+// Configuración de contacto/WhatsApp por empresa, 100% editable desde el panel.
+model WhatsAppConfig {
+  id              String   @id @default(cuid())
+  companyId       String   @unique
+  company         Company  @relation(fields: [companyId], references: [id])
+  numero          String   // formato internacional, ej: 18095550000
+  mensajePlantilla String  @default("Hola, quisiera más información.")
+  activo          Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("whatsapp_config")
 }
 
 model Vehiculo {
