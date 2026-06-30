@@ -32,11 +32,15 @@ export function ScannerClient({ sucursales = [] }: { sucursales?: Sucursal[] }) 
     setError(null)
     setScanning(false)
     startTransition(async () => {
-      const res = await buscarPorToken(token)
-      if (res.error) {
-        setError(res.error)
-      } else if (res.cliente) {
-        setCliente(res.cliente)
+      try {
+        const res = await buscarPorToken(token)
+        if (res.error) {
+          setError(res.error)
+        } else if (res.cliente) {
+          setCliente(res.cliente)
+        }
+      } catch {
+        setError('No se pudo verificar el código QR. Intenta de nuevo.')
       }
     })
   }
