@@ -129,17 +129,33 @@ export async function cancelarMembresia(
   _prev: PlanActionState,
   formData: FormData
 ): Promise<PlanActionState> {
-  if (!(await requireSuperAdmin())) return { error: 'No autorizado.' }
+  const user = await requireSuperAdmin()
+  if (!user) return { error: 'No autorizado.' }
 
   const membershipId = String(formData.get('membershipId') ?? '').trim()
   if (!membershipId) return { error: 'Membresía no especificada.' }
 
-  const m = await prisma.membership.findUnique({ where: { id: membershipId } })
+  const m = await prisma.membership.findUnique({
+    where: { id: membershipId },
+    include: { cliente: true },
+  })
   if (!m) return { error: 'Membresía no encontrada.' }
 
-  await prisma.membership.update({
-    where: { id: membershipId },
-    data: { estado: 'CANCELADA' },
+  await prisma.$transaction(async (tx) => {
+    await tx.membership.update({
+      where: { id: membershipId },
+      data: { estado: 'CANCELADA' },
+    })
+    await tx.auditLog.create({
+      data: {
+        companyId: m.cliente.companyId,
+        userId: user.metadata.dbUserId ?? null,
+        accion: 'MEMBRESIA_CANCELADA',
+        entidadTipo: 'Membership',
+        entidadId: m.id,
+        payload: { prevEstado: m.estado },
+      },
+    })
   })
 
   revalidatePath('/superadmin/membresias')
@@ -151,18 +167,34 @@ export async function desactivarMembresia(
   _prev: PlanActionState,
   formData: FormData
 ): Promise<PlanActionState> {
-  if (!(await requireSuperAdmin())) return { error: 'No autorizado.' }
+  const user = await requireSuperAdmin()
+  if (!user) return { error: 'No autorizado.' }
 
   const membershipId = String(formData.get('membershipId') ?? '').trim()
   if (!membershipId) return { error: 'Membresía no especificada.' }
 
-  const m = await prisma.membership.findUnique({ where: { id: membershipId } })
+  const m = await prisma.membership.findUnique({
+    where: { id: membershipId },
+    include: { cliente: true },
+  })
   if (!m) return { error: 'Membresía no encontrada.' }
   if (m.estado !== 'ACTIVA') return { error: 'Solo se puede desactivar una membresía activa.' }
 
-  await prisma.membership.update({
-    where: { id: membershipId },
-    data: { estado: 'VENCIDA' },
+  await prisma.$transaction(async (tx) => {
+    await tx.membership.update({
+      where: { id: membershipId },
+      data: { estado: 'VENCIDA' },
+    })
+    await tx.auditLog.create({
+      data: {
+        companyId: m.cliente.companyId,
+        userId: user.metadata.dbUserId ?? null,
+        accion: 'MEMBRESIA_CANCELADA',
+        entidadTipo: 'Membership',
+        entidadId: m.id,
+        payload: { prevEstado: 'ACTIVA', nuevaAccion: 'VENCIDA' },
+      },
+    })
   })
 
   revalidatePath('/superadmin/membresias')
