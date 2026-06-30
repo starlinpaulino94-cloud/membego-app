@@ -11,7 +11,16 @@ function fmtDate(d: Date | null) {
   return new Intl.DateTimeFormat('es-DO', { dateStyle: 'medium' }).format(d)
 }
 
-const ESTADOS = ['PENDIENTE', 'ACTIVA', 'VENCIDA', 'CANCELADA'] as const
+const ESTADOS = ['PENDIENTE', 'PENDIENTE_PAGO', 'RECHAZADA', 'ACTIVA', 'VENCIDA', 'CANCELADA'] as const
+
+const ESTADO_LABEL: Record<string, string> = {
+  PENDIENTE: 'Pendiente',
+  PENDIENTE_PAGO: 'Pago por revisar',
+  RECHAZADA: 'Rechazada',
+  ACTIVA: 'Activa',
+  VENCIDA: 'Vencida',
+  CANCELADA: 'Cancelada',
+}
 
 export default async function SuperadminMembresiasPage({
   searchParams,
@@ -62,7 +71,7 @@ export default async function SuperadminMembresiasPage({
         >
           <option value="">Todos los estados</option>
           {ESTADOS.map((e) => (
-            <option key={e} value={e}>{e.charAt(0) + e.slice(1).toLowerCase()}</option>
+            <option key={e} value={e}>{ESTADO_LABEL[e]}</option>
           ))}
         </select>
         <select

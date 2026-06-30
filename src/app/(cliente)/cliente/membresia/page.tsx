@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { getClienteFull } from '@/modules/cliente/queries'
 import { PlanSelector } from '@/components/membresia/PlanSelector'
 import { ComprobanteForm } from '@/components/membresia/ComprobanteForm'
+import { RenovarButton } from '@/components/membresia/RenovarButton'
 import { EstadoBadge } from '@/components/EstadoBadge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
@@ -192,10 +193,7 @@ export default async function MembresiaPage() {
 
       {/* Plan selection */}
       {!hasActive && (
-        <div>
-          <h2 className="mb-4 text-lg font-semibold text-slate-900">
-            {current ? 'Planes disponibles' : 'Elige tu plan'}
-          </h2>
+        <div className="space-y-4">
           {current?.estado === 'PENDIENTE_PAGO' ? (
             <Alert>
               <AlertDescription>
@@ -203,18 +201,49 @@ export default async function MembresiaPage() {
                 mientras está en revisión.
               </AlertDescription>
             </Alert>
+          ) : current?.estado === 'VENCIDA' ? (
+            <div className="space-y-6">
+              <div className="rounded-2xl border border-sky-200 bg-sky-50 p-5 flex items-center justify-between gap-4">
+                <div>
+                  <p className="font-semibold text-slate-900">Tu membresía venció</p>
+                  <p className="text-sm text-slate-500">
+                    Renueva con el mismo plan o elige uno diferente abajo.
+                  </p>
+                </div>
+                <RenovarButton planId={current.planId} planNombre={current.plan.nombre} />
+              </div>
+              <div>
+                <h2 className="mb-4 text-lg font-semibold text-slate-900">O elige otro plan</h2>
+                <PlanSelector
+                  disabled={false}
+                  planes={planes.map((p) => ({
+                    id: p.id,
+                    nombre: p.nombre,
+                    precio: new Intl.NumberFormat('es-DO').format(Number(p.precio)),
+                    esIlimitado: p.esIlimitado,
+                    descripcion: p.descripcion,
+                    beneficios: p.beneficios,
+                  }))}
+                />
+              </div>
+            </div>
           ) : (
-            <PlanSelector
-              disabled={hasActive}
-              planes={planes.map((p) => ({
-                id: p.id,
-                nombre: p.nombre,
-                precio: new Intl.NumberFormat('es-DO').format(Number(p.precio)),
-                esIlimitado: p.esIlimitado,
-                descripcion: p.descripcion,
-                beneficios: p.beneficios,
-              }))}
-            />
+            <div>
+              <h2 className="mb-4 text-lg font-semibold text-slate-900">
+                {current ? 'Planes disponibles' : 'Elige tu plan'}
+              </h2>
+              <PlanSelector
+                disabled={hasActive}
+                planes={planes.map((p) => ({
+                  id: p.id,
+                  nombre: p.nombre,
+                  precio: new Intl.NumberFormat('es-DO').format(Number(p.precio)),
+                  esIlimitado: p.esIlimitado,
+                  descripcion: p.descripcion,
+                  beneficios: p.beneficios,
+                }))}
+              />
+            </div>
           )}
         </div>
       )}

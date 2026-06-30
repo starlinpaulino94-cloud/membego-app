@@ -6,6 +6,7 @@ import { useEffect } from 'react'
 import { confirmarPago, renovarMembresia } from '@/modules/admin/actions'
 import { cancelarMembresia, desactivarMembresia } from '@/modules/admin/planActions'
 import { Button } from '@/components/ui/button'
+import { ConfirmarPagoButton, RechazarPagoButton } from '@/components/admin/ValidarPagoActions'
 import type { MembershipEstado } from '@/types'
 
 interface Props {
@@ -55,6 +56,14 @@ export function MembershipAdminActions({
             {activarPending ? '…' : 'Activar'}
           </Button>
         </form>
+      )}
+
+      {/* Validar comprobante — for PENDIENTE_PAGO */}
+      {estado === 'PENDIENTE_PAGO' && (
+        <>
+          <ConfirmarPagoButton membershipId={membershipId} />
+          <RechazarPagoButton membershipId={membershipId} />
+        </>
       )}
 
       {/* Renovar — for ACTIVA or VENCIDA */}
