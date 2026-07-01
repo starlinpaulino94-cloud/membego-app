@@ -70,7 +70,12 @@ export function LoginForm({
     )
 
     if (signInError) {
-      setError('Credenciales inválidas. Verifica tu correo y contraseña.')
+      // Mostramos el mensaje real de Supabase para poder diagnosticar el fallo
+      // (ej. "Invalid login credentials", "Email not confirmed", "Invalid API key").
+      const detalle = [signInError.message, signInError.status ? `código ${signInError.status}` : null]
+        .filter(Boolean)
+        .join(' · ')
+      setError(detalle || 'No se pudo iniciar sesión.')
       setLoading(false)
       return
     }
