@@ -8,6 +8,7 @@ import { getRequestMeta, periodEnd } from '@/lib/server-utils'
 import { crearNotificacion, notificarAdmins } from '@/modules/notificaciones/actions'
 import { procesarReferidoCompletado } from '@/modules/referidos/actions'
 import { activarMembresia } from '@/modules/pagos/activacion'
+import { paymentLimiter } from '@/lib/rate-limit'
 
 async function requireAdmin() {
   const user = await getUser()
@@ -54,6 +55,12 @@ export async function confirmarPago(
   try {
   const user = await requireAdmin()
   if (!user) return { error: 'No autorizado.' }
+
+  // Rate limit payment confirmations to prevent spam
+  const adminId = user.metadata.dbUserId || 'anonymous'
+  if (!paymentLimiter(adminId)) {
+    return { error: 'Demasiados intentos. Intenta de nuevo en unos minutos.' }
+  }
 
   const membershipId = String(formData.get('membershipId') ?? '')
   const meta = await getRequestMeta()

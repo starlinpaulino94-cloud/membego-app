@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { prisma } from '@/lib/prisma'
 import { getUser } from '@/lib/auth'
 import { notificarAdmins } from '@/modules/notificaciones/actions'
+import { formSubmitLimiter } from '@/lib/rate-limit'
 
 export interface SeleccionState {
   error?: string
@@ -18,6 +19,12 @@ export async function seleccionarPlan(
   const user = await getUser()
   if (!user || user.metadata.role !== 'CLIENTE' || !user.metadata.clienteId) {
     return { error: 'No autorizado.' }
+  }
+
+  // Rate limit form submissions to prevent spam
+  const clientId = user.metadata.clienteId
+  if (!formSubmitLimiter(clientId)) {
+    return { error: 'Demasiados intentos. Intenta de nuevo en unos minutos.' }
   }
 
   const planId = String(formData.get('planId') ?? '')
@@ -86,6 +93,12 @@ export async function enviarComprobante(
   const user = await getUser()
   if (!user || user.metadata.role !== 'CLIENTE' || !user.metadata.clienteId) {
     return { error: 'No autorizado.' }
+  }
+
+  // Rate limit form submissions to prevent spam
+  const clientId = user.metadata.clienteId
+  if (!formSubmitLimiter(clientId)) {
+    return { error: 'Demasiados intentos. Intenta de nuevo en unos minutos.' }
   }
 
   const membershipId = String(formData.get('membershipId') ?? '').trim()

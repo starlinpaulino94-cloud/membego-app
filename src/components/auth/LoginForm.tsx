@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Loader2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
@@ -17,6 +17,28 @@ import {
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { ROLE_HOME, type AppRole } from '@/types'
 
+// Simple client-side rate limiting cache
+const loginAttempts = new Map<string, { count: number; resetAt: number }>()
+
+function checkLoginRateLimit(email: string): boolean {
+  const now = Date.now()
+  const entry = loginAttempts.get(email)
+
+  if (!entry || now > entry.resetAt) {
+    // New or expired window (15 minutes)
+    loginAttempts.set(email, { count: 1, resetAt: now + 15 * 60 * 1000 })
+    return true
+  }
+
+  // Within existing window
+  if (entry.count < 5) { // 5 attempts per 15 minutes
+    entry.count++
+    return true
+  }
+
+  return false
+}
+
 export function LoginForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -25,9 +47,15 @@ export function LoginForm() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
-  async function handleSubmit(e: React.FormEvent) {
+  const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
+
+    if (!checkLoginRateLimit(email)) {
+      setError('Demasiados intentos de acceso. Intenta de nuevo en 15 minutos.')
+      return
+    }
+
     setLoading(true)
 
     const supabase = createClient()
@@ -45,7 +73,7 @@ export function LoginForm() {
     const redirect = searchParams.get('redirect') ?? ROLE_HOME[role]
     router.replace(redirect)
     router.refresh()
-  }
+  }, [email, searchParams, router])
 
   return (
     <Card className="border-white/10 bg-white/5 text-white">
