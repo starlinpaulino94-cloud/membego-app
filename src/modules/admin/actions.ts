@@ -9,6 +9,7 @@ import { crearNotificacion, notificarAdmins } from '@/modules/notificaciones/act
 import { procesarReferidoCompletado } from '@/modules/referidos/actions'
 import { activarMembresia } from '@/modules/pagos/activacion'
 import { paymentLimiter } from '@/lib/rate-limit'
+import { validateCsrfToken } from '@/lib/csrf'
 
 async function requireAdmin() {
   const user = await getUser()
@@ -53,6 +54,13 @@ export async function confirmarPago(
   formData: FormData
 ): Promise<AdminActionState> {
   try {
+  // Validate CSRF token
+  try {
+    await validateCsrfToken(formData)
+  } catch {
+    return { error: 'Solicitud inválida. Intenta de nuevo.' }
+  }
+
   const user = await requireAdmin()
   if (!user) return { error: 'No autorizado.' }
 
