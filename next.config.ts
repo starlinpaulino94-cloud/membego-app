@@ -12,6 +12,60 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  headers: async () => {
+    return [
+      {
+        source: '/:path*',
+        headers: [
+          // Prevent clickjacking attacks
+          {
+            key: 'X-Frame-Options',
+            value: 'DENY',
+          },
+          // Prevent MIME type sniffing
+          {
+            key: 'X-Content-Type-Options',
+            value: 'nosniff',
+          },
+          // Enable XSS protection in older browsers
+          {
+            key: 'X-XSS-Protection',
+            value: '1; mode=block',
+          },
+          // Referrer Policy: send minimal info to other sites
+          {
+            key: 'Referrer-Policy',
+            value: 'strict-origin-when-cross-origin',
+          },
+          // Enforce HTTPS
+          {
+            key: 'Strict-Transport-Security',
+            value: 'max-age=31536000; includeSubDomains',
+          },
+          // Content Security Policy: restrict resource loading
+          {
+            key: 'Content-Security-Policy',
+            value: [
+              "default-src 'self'",
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net", // For html5-qrcode library
+              "style-src 'self' 'unsafe-inline'",
+              "img-src 'self' data: https: blob:",
+              "font-src 'self' data:",
+              "connect-src 'self' https://*.supabase.co https://api.github.com",
+              "frame-ancestors 'none'",
+              "base-uri 'self'",
+              "form-action 'self'",
+            ].join('; '),
+          },
+          // Permissions Policy (formerly Feature Policy)
+          {
+            key: 'Permissions-Policy',
+            value: 'geolocation=(), microphone=(), camera=(self), payment=()',
+          },
+        ],
+      },
+    ]
+  },
 }
 
 export default nextConfig
