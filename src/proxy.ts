@@ -74,8 +74,8 @@ export async function proxy(request: NextRequest) {
       }
     }
 
-    // Redirect logged-in users away from login page
-    if (path === '/login' && user) {
+    // Redirect logged-in users away from the login pages
+    if ((path === '/login' || path === '/acceso') && user) {
       const metadata = (user.app_metadata ?? {}) as Partial<AppMetadata>
       const role = metadata.role ?? 'CLIENTE'
       const url = request.nextUrl.clone()

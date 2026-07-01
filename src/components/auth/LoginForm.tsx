@@ -39,7 +39,13 @@ function checkLoginRateLimit(email: string): boolean {
   return false
 }
 
-export function LoginForm() {
+export function LoginForm({
+  audience = 'cliente',
+}: {
+  /** 'cliente' = acceso público; 'staff' = acceso de administradores/empleados. */
+  audience?: 'cliente' | 'staff'
+}) {
+  const isStaff = audience === 'staff'
   const router = useRouter()
   const searchParams = useSearchParams()
   const [email, setEmail] = useState('')
@@ -78,9 +84,13 @@ export function LoginForm() {
   return (
     <Card className="border-white/10 bg-white/5 text-white">
       <CardHeader>
-        <CardTitle className="text-2xl">Iniciar sesión</CardTitle>
+        <CardTitle className="text-2xl">
+          {isStaff ? 'Acceso del equipo' : 'Iniciar sesión'}
+        </CardTitle>
         <CardDescription className="text-slate-400">
-          Accede a tu cuenta de PASE Digital.
+          {isStaff
+            ? 'Panel para administradores y empleados.'
+            : 'Accede a tu cuenta de PASE Digital.'}
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -128,12 +138,22 @@ export function LoginForm() {
             ¿Olvidaste tu contraseña?
           </a>
         </p>
-        <p className="mt-2 text-center text-sm text-slate-400">
-          ¿No tienes cuenta?{' '}
-          <a href="/empresas" className="text-sky-400 hover:underline">
-            Regístrate
-          </a>
-        </p>
+        {!isStaff && (
+          <p className="mt-2 text-center text-sm text-slate-400">
+            ¿No tienes cuenta?{' '}
+            <a href="/empresas" className="text-sky-400 hover:underline">
+              Regístrate
+            </a>
+          </p>
+        )}
+        {isStaff && (
+          <p className="mt-2 text-center text-xs text-slate-500">
+            ¿Eres cliente?{' '}
+            <a href="/login" className="text-sky-400 hover:underline">
+              Entra por aquí
+            </a>
+          </p>
+        )}
       </CardContent>
     </Card>
   )

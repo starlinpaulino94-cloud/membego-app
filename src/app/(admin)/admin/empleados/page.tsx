@@ -1,56 +1,12 @@
 import Link from 'next/link'
-import { Plus, ExternalLink } from 'lucide-react'
-import { type ColumnDef } from '@tanstack/react-table'
+import { Plus } from 'lucide-react'
 import { requireRole } from '@/lib/auth/guards'
 import { companyFilter } from '@/modules/admin/queries'
 import { prisma } from '@/lib/prisma'
 import { Button } from '@/components/ui/button'
-import { DataTable } from '@/components/ui/data-table'
+import { EmpleadosTable, type EmpleadoRow } from '@/components/admin/EmpleadosTable'
 
 export const dynamic = 'force-dynamic'
-
-export interface EmpleadoRow {
-  id: string
-  name: string
-  email: string
-  createdAt: Date
-}
-
-const columns: ColumnDef<EmpleadoRow>[] = [
-  {
-    accessorKey: 'name',
-    header: 'Nombre',
-    cell: ({ row }) => (
-      <Link
-        href={`/admin/empleados/${row.original.id}`}
-        className="font-medium text-sky-600 hover:underline"
-      >
-        {row.getValue('name')}
-      </Link>
-    ),
-  },
-  {
-    accessorKey: 'email',
-    header: 'Correo',
-  },
-  {
-    accessorKey: 'createdAt',
-    header: 'Registrado',
-    cell: ({ row }) => {
-      const date = new Date(row.getValue('createdAt') as Date)
-      return new Intl.DateTimeFormat('es-DO', { dateStyle: 'short' }).format(date)
-    },
-  },
-  {
-    id: 'actions',
-    header: 'Acciones',
-    cell: ({ row }) => (
-      <Link href={`/admin/empleados/${row.original.id}`} title="Ver detalles">
-        <ExternalLink className="h-4 w-4 text-slate-400 hover:text-slate-600" />
-      </Link>
-    ),
-  },
-]
 
 export default async function EmpleadosPage() {
   const user = await requireRole(['ADMIN_EMPRESA', 'SUPERADMIN'])
@@ -65,8 +21,14 @@ export default async function EmpleadosPage() {
       },
       orderBy: { createdAt: 'desc' },
       take: 200,
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        createdAt: true,
+      },
     })
-    empleados = data as unknown as EmpleadoRow[]
+    empleados = data
   } catch (e) {
     console.error('[admin-empleados]', e)
   }
@@ -86,15 +48,7 @@ export default async function EmpleadosPage() {
         </Button>
       </div>
 
-      <DataTable
-        columns={columns as any}
-        data={empleados as any}
-        searchPlaceholder="Buscar por nombre o correo..."
-        searchKey="name"
-        pageSize={10}
-        exportable
-        exportFilename="empleados.csv"
-      />
+      <EmpleadosTable data={empleados} />
     </div>
   )
 }
