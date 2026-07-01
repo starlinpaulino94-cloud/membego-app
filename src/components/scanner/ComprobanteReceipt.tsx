@@ -29,7 +29,7 @@ export function ComprobanteReceipt({ cliente, visitId, servicio, restantes, onDo
   useEffect(() => {
     if (!hasLogged.current) {
       hasLogged.current = true
-      registrarImpresion(visitId)
+      registrarImpresion(visitId).catch(() => {})
     }
   }, [visitId])
 
