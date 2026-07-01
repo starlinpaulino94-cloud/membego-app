@@ -15,7 +15,8 @@ export async function GET() {
     await prisma.$queryRaw`SELECT 1`
     checks.database = 'ok'
   } catch (e) {
-    checks.database = `error: ${e instanceof Error ? e.message : String(e)}`
+    // Never expose technical error details in health check
+    checks.database = 'error'
   }
 
   const allOk = Object.values(checks).every((v) => v === 'ok')

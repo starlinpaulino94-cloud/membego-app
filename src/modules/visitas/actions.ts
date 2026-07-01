@@ -291,7 +291,9 @@ export async function confirmarVisita(
 
     return { success: true, restantes: result.restantes, visitId: result.visitId, servicio }
   } catch (e) {
-    return { error: e instanceof Error ? e.message : 'No se pudo confirmar.' }
+    // Log detailed error for debugging, but return generic message to client
+    console.error('[visitas] confirmarVisita transaction error:', e instanceof Error ? e.message : String(e))
+    return { error: 'No se pudo confirmar la visita. Por favor intenta de nuevo.' }
   }
   } catch (e) {
     console.error('[visitas] confirmarVisita error:', e)

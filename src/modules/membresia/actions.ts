@@ -99,7 +99,23 @@ export async function enviarComprobante(
   // Verificar que la URL pertenezca al bucket de Supabase de esta plataforma.
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const expectedPrefix = `${supabaseUrl}/storage/v1/object/public/comprobantes/`
+
+  // Validar URL: debe pertenecer a Supabase y tener extensión válida
   if (!supabaseUrl || !comprobanteUrl.startsWith(expectedPrefix)) {
+    return { error: 'URL del comprobante no válida.' }
+  }
+
+  // Validar que la URL tenga una extensión de archivo válida
+  const url = new URL(comprobanteUrl)
+  const pathname = url.pathname
+  const validExtensions = ['.pdf', '.jpg', '.jpeg', '.png', '.gif', '.webp']
+  const hasValidExt = validExtensions.some(ext => pathname.toLowerCase().endsWith(ext))
+  if (!hasValidExt) {
+    return { error: 'Formato de archivo no permitido.' }
+  }
+
+  // Validar que la URL no contenga parámetros sospechosos
+  if (url.search.includes('delete') || url.search.includes('token')) {
     return { error: 'URL del comprobante no válida.' }
   }
 
