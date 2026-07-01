@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useCallback, useState, useTransition } from 'react'
 import dynamic from 'next/dynamic'
 import { Loader2, ScanLine, Keyboard } from 'lucide-react'
 import { buscarPorToken, type ClienteLookup } from '@/modules/visitas/actions'
@@ -28,7 +28,7 @@ export function ScannerClient({ sucursales = [] }: { sucursales?: Sucursal[] }) 
   const [error, setError] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
 
-  function lookup(token: string) {
+  const lookup = useCallback((token: string) => {
     setError(null)
     setScanning(false)
     startTransition(async () => {
@@ -43,7 +43,7 @@ export function ScannerClient({ sucursales = [] }: { sucursales?: Sucursal[] }) 
         setError('No se pudo verificar el código QR. Intenta de nuevo.')
       }
     })
-  }
+  }, [startTransition])
 
   function reset() {
     setCliente(null)

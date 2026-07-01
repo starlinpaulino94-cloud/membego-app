@@ -16,15 +16,15 @@ export function QRScanner({ onScan }: { onScan: (text: string) => void }) {
     let cancelled = false
 
     async function start() {
-      const { Html5Qrcode } = await import('html5-qrcode')
-      if (cancelled) return
-      const scanner = new Html5Qrcode(containerId)
-      scannerRef.current = scanner as unknown as {
-        stop: () => Promise<void>
-        clear: () => void
-      }
-
       try {
+        const { Html5Qrcode } = await import('html5-qrcode')
+        if (cancelled) return
+        const scanner = new Html5Qrcode(containerId)
+        scannerRef.current = scanner as unknown as {
+          stop: () => Promise<void>
+          clear: () => void
+        }
+
         await scanner.start(
           { facingMode: 'environment' },
           { fps: 10, qrbox: { width: 220, height: 220 } },
@@ -37,7 +37,7 @@ export function QRScanner({ onScan }: { onScan: (text: string) => void }) {
           () => {}
         )
       } catch {
-        // camera unavailable; user can use manual entry
+        // camera unavailable or already initialised; user can use manual entry
       }
     }
 

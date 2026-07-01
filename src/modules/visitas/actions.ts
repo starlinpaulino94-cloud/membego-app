@@ -305,6 +305,7 @@ export interface ImpresionState {
 }
 
 export async function registrarImpresion(visitId: string): Promise<ImpresionState> {
+  try {
   const user = await getUser()
   if (!user || !['EMPLEADO', 'ADMIN_EMPRESA', 'SUPERADMIN'].includes(user.metadata.role)) {
     return { error: 'No autorizado.' }
@@ -329,6 +330,9 @@ export async function registrarImpresion(visitId: string): Promise<ImpresionStat
       },
     })
     return { success: true }
+  } catch {
+    return { error: 'No se pudo registrar la impresión.' }
+  }
   } catch {
     return { error: 'No se pudo registrar la impresión.' }
   }
