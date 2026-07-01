@@ -3,6 +3,8 @@
 import { prisma } from '@/lib/prisma'
 import { getUser } from '@/lib/auth'
 import { getRequestMeta } from '@/lib/server-utils'
+import { qrScanLimiter } from '@/lib/rate-limit'
+import { validateCsrfToken } from '@/lib/csrf'
 
 export interface VisitaReciente {
   id: string
@@ -42,6 +44,12 @@ export async function buscarPorToken(token: string): Promise<LookupResult> {
   const user = await getUser()
   if (!user || !['EMPLEADO', 'ADMIN_EMPRESA', 'SUPERADMIN'].includes(user.metadata.role)) {
     return { error: 'No autorizado.' }
+  }
+
+  // Rate limit QR scanning to prevent abuse
+  const clientId = user.metadata.dbUserId || 'anonymous'
+  if (!qrScanLimiter(clientId)) {
+    return { error: 'Demasiadas búsquedas. Intenta de nuevo en unos minutos.' }
   }
 
   const clean = token.trim()
@@ -163,6 +171,13 @@ export async function confirmarVisita(
   formData: FormData
 ): Promise<ConfirmState> {
   try {
+  // Validate CSRF token
+  try {
+    await validateCsrfToken(formData)
+  } catch {
+    return { error: 'Solicitud inválida. Intenta de nuevo.' }
+  }
+
   const user = await getUser()
   if (!user || !['EMPLEADO', 'ADMIN_EMPRESA', 'SUPERADMIN'].includes(user.metadata.role)) {
     return { error: 'No autorizado.' }
@@ -291,7 +306,9 @@ export async function confirmarVisita(
 
     return { success: true, restantes: result.restantes, visitId: result.visitId, servicio }
   } catch (e) {
-    return { error: e instanceof Error ? e.message : 'No se pudo confirmar.' }
+    // Log detailed error for debugging, but return generic message to client
+    console.error('[visitas] confirmarVisita transaction error:', e instanceof Error ? e.message : String(e))
+    return { error: 'No se pudo confirmar la visita. Por favor intenta de nuevo.' }
   }
   } catch (e) {
     console.error('[visitas] confirmarVisita error:', e)

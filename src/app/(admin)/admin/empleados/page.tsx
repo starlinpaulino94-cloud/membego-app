@@ -1,41 +1,72 @@
 import Link from 'next/link'
-import { Plus } from 'lucide-react'
+import { Plus, ExternalLink } from 'lucide-react'
+import { type ColumnDef } from '@tanstack/react-table'
 import { requireRole } from '@/lib/auth/guards'
 import { companyFilter } from '@/modules/admin/queries'
 import { prisma } from '@/lib/prisma'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
+import { DataTable } from '@/components/ui/data-table'
 
 export const dynamic = 'force-dynamic'
 
-function fmtDate(d: Date) {
-  return new Intl.DateTimeFormat('es-DO', { dateStyle: 'medium' }).format(d)
+export interface EmpleadoRow {
+  id: string
+  name: string
+  email: string
+  createdAt: Date
 }
+
+const columns: ColumnDef<EmpleadoRow>[] = [
+  {
+    accessorKey: 'name',
+    header: 'Nombre',
+    cell: ({ row }) => (
+      <Link
+        href={`/admin/empleados/${row.original.id}`}
+        className="font-medium text-sky-600 hover:underline"
+      >
+        {row.getValue('name')}
+      </Link>
+    ),
+  },
+  {
+    accessorKey: 'email',
+    header: 'Correo',
+  },
+  {
+    accessorKey: 'createdAt',
+    header: 'Registrado',
+    cell: ({ row }) => {
+      const date = new Date(row.getValue('createdAt') as Date)
+      return new Intl.DateTimeFormat('es-DO', { dateStyle: 'short' }).format(date)
+    },
+  },
+  {
+    id: 'actions',
+    header: 'Acciones',
+    cell: ({ row }) => (
+      <Link href={`/admin/empleados/${row.original.id}`} title="Ver detalles">
+        <ExternalLink className="h-4 w-4 text-slate-400 hover:text-slate-600" />
+      </Link>
+    ),
+  },
+]
 
 export default async function EmpleadosPage() {
   const user = await requireRole(['ADMIN_EMPRESA', 'SUPERADMIN'])
   const companyId = companyFilter(user)
 
-  const fetchEmpleados = () =>
-    prisma.user.findMany({
+  let empleados: EmpleadoRow[] = []
+  try {
+    const data = await prisma.user.findMany({
       where: {
         role: 'EMPLEADO',
         ...(companyId ? { companyId } : {}),
       },
       orderBy: { createdAt: 'desc' },
+      take: 200,
     })
-
-  let empleados: Awaited<ReturnType<typeof fetchEmpleados>> = []
-  try {
-    empleados = await fetchEmpleados()
+    empleados = data as unknown as EmpleadoRow[]
   } catch (e) {
     console.error('[admin-empleados]', e)
   }
@@ -55,44 +86,15 @@ export default async function EmpleadosPage() {
         </Button>
       </div>
 
-      <Card>
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Nombre</TableHead>
-                <TableHead>Correo</TableHead>
-                <TableHead>Fecha de creación</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {empleados.map((e) => (
-                <TableRow key={e.id}>
-                  <TableCell>
-                    <Link
-                      href={`/admin/empleados/${e.id}`}
-                      className="font-medium text-sky-600 hover:underline"
-                    >
-                      {e.name}
-                    </Link>
-                  </TableCell>
-                  <TableCell className="text-slate-600">{e.email}</TableCell>
-                  <TableCell className="text-slate-600">
-                    {fmtDate(e.createdAt)}
-                  </TableCell>
-                </TableRow>
-              ))}
-              {empleados.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={3} className="text-center text-slate-500">
-                    No hay empleados registrados.
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+      <DataTable
+        columns={columns as any}
+        data={empleados as any}
+        searchPlaceholder="Buscar por nombre o correo..."
+        searchKey="name"
+        pageSize={10}
+        exportable
+        exportFilename="empleados.csv"
+      />
     </div>
   )
 }

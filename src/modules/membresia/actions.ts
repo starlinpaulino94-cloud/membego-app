@@ -4,6 +4,8 @@ import { revalidatePath } from 'next/cache'
 import { prisma } from '@/lib/prisma'
 import { getUser } from '@/lib/auth'
 import { notificarAdmins } from '@/modules/notificaciones/actions'
+import { formSubmitLimiter } from '@/lib/rate-limit'
+import { validateCsrfToken } from '@/lib/csrf'
 
 export interface SeleccionState {
   error?: string
@@ -15,9 +17,22 @@ export async function seleccionarPlan(
   formData: FormData
 ): Promise<SeleccionState> {
   try {
+  // Validate CSRF token
+  try {
+    await validateCsrfToken(formData)
+  } catch {
+    return { error: 'Solicitud inválida. Intenta de nuevo.' }
+  }
+
   const user = await getUser()
   if (!user || user.metadata.role !== 'CLIENTE' || !user.metadata.clienteId) {
     return { error: 'No autorizado.' }
+  }
+
+  // Rate limit form submissions to prevent spam
+  const clientId = user.metadata.clienteId
+  if (!formSubmitLimiter(clientId)) {
+    return { error: 'Demasiados intentos. Intenta de nuevo en unos minutos.' }
   }
 
   const planId = String(formData.get('planId') ?? '')
@@ -83,9 +98,22 @@ export async function enviarComprobante(
   _prev: ComprobanteState,
   formData: FormData
 ): Promise<ComprobanteState> {
+  // Validate CSRF token
+  try {
+    await validateCsrfToken(formData)
+  } catch {
+    return { error: 'Solicitud inválida. Intenta de nuevo.' }
+  }
+
   const user = await getUser()
   if (!user || user.metadata.role !== 'CLIENTE' || !user.metadata.clienteId) {
     return { error: 'No autorizado.' }
+  }
+
+  // Rate limit form submissions to prevent spam
+  const clientId = user.metadata.clienteId
+  if (!formSubmitLimiter(clientId)) {
+    return { error: 'Demasiados intentos. Intenta de nuevo en unos minutos.' }
   }
 
   const membershipId = String(formData.get('membershipId') ?? '').trim()
@@ -99,7 +127,23 @@ export async function enviarComprobante(
   // Verificar que la URL pertenezca al bucket de Supabase de esta plataforma.
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const expectedPrefix = `${supabaseUrl}/storage/v1/object/public/comprobantes/`
+
+  // Validar URL: debe pertenecer a Supabase y tener extensión válida
   if (!supabaseUrl || !comprobanteUrl.startsWith(expectedPrefix)) {
+    return { error: 'URL del comprobante no válida.' }
+  }
+
+  // Validar que la URL tenga una extensión de archivo válida
+  const url = new URL(comprobanteUrl)
+  const pathname = url.pathname
+  const validExtensions = ['.pdf', '.jpg', '.jpeg', '.png', '.gif', '.webp']
+  const hasValidExt = validExtensions.some(ext => pathname.toLowerCase().endsWith(ext))
+  if (!hasValidExt) {
+    return { error: 'Formato de archivo no permitido.' }
+  }
+
+  // Validar que la URL no contenga parámetros sospechosos
+  if (url.search.includes('delete') || url.search.includes('token')) {
     return { error: 'URL del comprobante no válida.' }
   }
 
