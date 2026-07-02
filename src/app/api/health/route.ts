@@ -12,9 +12,19 @@ export async function GET() {
   checks.database_url = process.env.DATABASE_URL ? 'ok' : 'MISSING'
   checks.direct_url = process.env.DIRECT_URL ? 'ok' : 'MISSING'
 
-  // Diagnóstico temporal: probamos una query real como la del dashboard y
-  // exponemos el error concreto para poder identificar la causa raíz.
   const diagnostics: Record<string, unknown> = {}
+
+  if (process.env.DATABASE_URL) {
+    try {
+      const url = new URL(process.env.DATABASE_URL)
+      diagnostics.db_host = url.hostname
+      diagnostics.db_port = url.port
+      diagnostics.db_name = url.pathname.replace('/', '')
+      diagnostics.db_has_pgbouncer = url.searchParams.has('pgbouncer')
+    } catch {
+      diagnostics.db_url_parse = 'invalid URL format'
+    }
+  }
 
   try {
     await prisma.$queryRaw`SELECT 1`
