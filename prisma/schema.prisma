@@ -116,6 +116,14 @@ model Company {
   logoUrl     String?
   isActive    Boolean   @default(true)
   createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt @default(now())
+
+  email       String?
+  telefono    String?
+  direccion   String?
+  ciudad      String?
+  categoria   String?
+  website     String?
 
   users         User[]
   plans         Plan[]
