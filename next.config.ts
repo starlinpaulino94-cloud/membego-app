@@ -70,8 +70,8 @@ const nextConfig: NextConfig = {
 }
 
 export default withSentryConfig(nextConfig, {
-  org: process.env.SENTRY_ORG,
-  project: process.env.SENTRY_PROJECT,
+  org: 'flash-tecnologi',
+  project: 'pase-digital',
   authToken: process.env.SENTRY_AUTH_TOKEN,
 
   silent: !process.env.CI,
