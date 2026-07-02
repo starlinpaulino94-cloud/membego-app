@@ -84,7 +84,7 @@ export function LoginForm({
     const redirect = searchParams.get('redirect') ?? ROLE_HOME[role]
     router.replace(redirect)
     router.refresh()
-  }, [email, searchParams, router])
+  }, [email, password, searchParams, router])
 
   return (
     <Card className="border-white/10 bg-white/5 text-white">
