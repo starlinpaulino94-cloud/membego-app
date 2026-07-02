@@ -5,6 +5,8 @@ import { getUser } from '@/lib/auth'
 import { getRequestMeta } from '@/lib/server-utils'
 import { qrScanLimiter } from '@/lib/rate-limit'
 
+const SCANNER_ROLES = ['EMPLEADO', 'ADMIN_EMPRESA', 'SUPERADMIN', 'ADMINISTRADOR', 'GERENTE', 'CAJERO', 'RECEPCION']
+
 export interface VisitaReciente {
   id: string
   servicio: string
@@ -18,142 +20,179 @@ export interface ClienteLookup {
   email: string
   avatarUrl: string | null
   empresa: string
+  empresaType: string
   membershipId: string | null
   qrTokenId: string | null
   planNombre: string | null
+  planBeneficios: string[]
   estado: string | null
   esIlimitado: boolean
+  lavadosIncluidos: number
   lavadosRestantes: number
+  fechaInicio: string | null
   fechaVencimiento: string | null
   vehiculos: { id: string; label: string }[]
   puedeUsar: boolean
   mensaje?: string
   alertas: string[]
   visitasRecientes: VisitaReciente[]
+  totalVisitas: number
+  ultimoUso: string | null
+  promocionesActivas: number
 }
 
 export interface LookupResult {
   error?: string
+  errorCode?: 'QR_NOT_FOUND' | 'QR_INACTIVE' | 'WRONG_COMPANY' | 'NO_MEMBERSHIP' | 'MEMBERSHIP_INACTIVE' | 'MEMBERSHIP_EXPIRED' | 'NO_USES_LEFT' | 'RATE_LIMITED' | 'UNAUTHORIZED' | 'INTERNAL'
   cliente?: ClienteLookup
 }
 
-/** Look up a client by QR token. Scoped to the employee's company. */
 export async function buscarPorToken(token: string): Promise<LookupResult> {
   try {
-  const user = await getUser()
-  if (!user || !['EMPLEADO', 'ADMIN_EMPRESA', 'SUPERADMIN'].includes(user.metadata.role)) {
-    return { error: 'No autorizado.' }
-  }
+    const user = await getUser()
+    if (!user || !SCANNER_ROLES.includes(user.metadata.role)) {
+      return { error: 'No tienes permisos para escanear códigos QR.', errorCode: 'UNAUTHORIZED' }
+    }
 
-  // Rate limit QR scanning to prevent abuse
-  const clientId = user.metadata.dbUserId || 'anonymous'
-  if (!qrScanLimiter(clientId)) {
-    return { error: 'Demasiadas búsquedas. Intenta de nuevo en unos minutos.' }
-  }
+    const clientId = user.metadata.dbUserId || 'anonymous'
+    if (!qrScanLimiter(clientId)) {
+      return { error: 'Demasiadas búsquedas. Espera un momento e intenta de nuevo.', errorCode: 'RATE_LIMITED' }
+    }
 
-  const clean = token.trim()
-  if (!clean) return { error: 'Código vacío.' }
+    const clean = token.trim()
+    if (!clean) return { error: 'El código QR está vacío.', errorCode: 'QR_NOT_FOUND' }
 
-  const qr = await prisma.qrToken.findUnique({
-    where: { token: clean },
-    include: {
-      cliente: {
-        include: {
-          company: true,
-          vehiculos: true,
-          memberships: { include: { plan: true }, orderBy: { createdAt: 'desc' } },
-          visits: {
-            orderBy: { fechaVisita: 'desc' },
-            take: 5,
+    const qr = await prisma.qrToken.findUnique({
+      where: { token: clean },
+      include: {
+        cliente: {
+          include: {
+            company: true,
+            vehiculos: true,
+            memberships: { include: { plan: true }, orderBy: { createdAt: 'desc' } },
+            visits: { orderBy: { fechaVisita: 'desc' }, take: 5 },
+            _count: { select: { visits: true } },
           },
         },
       },
-    },
-  })
+    })
 
-  if (!qr || !qr.activo) return { error: 'Código QR no válido.' }
+    if (!qr) {
+      await logScanInvalido(user.metadata.dbUserId, clean, 'QR_NOT_FOUND')
+      return { error: 'Este código QR no existe. Verifica que sea correcto.', errorCode: 'QR_NOT_FOUND' }
+    }
 
-  const cliente = qr.cliente
+    if (!qr.activo) {
+      await logScanInvalido(user.metadata.dbUserId, clean, 'QR_INACTIVE')
+      return { error: 'Este código QR ya fue utilizado. Pide al cliente que muestre su QR actualizado.', errorCode: 'QR_INACTIVE' }
+    }
 
-  if (
-    user.metadata.role !== 'SUPERADMIN' &&
-    user.metadata.companyId &&
-    cliente.companyId !== user.metadata.companyId
-  ) {
-    return { error: 'Este cliente pertenece a otra empresa.' }
-  }
+    const cliente = qr.cliente
 
-  const now = new Date()
-  const active = cliente.memberships.find(
-    (m) =>
-      m.estado === 'ACTIVA' &&
-      (!m.fechaVencimiento || m.fechaVencimiento > now)
-  )
-  const latest = cliente.memberships[0]
-  const m = active ?? latest
+    if (
+      user.metadata.role !== 'SUPERADMIN' &&
+      user.metadata.companyId &&
+      cliente.companyId !== user.metadata.companyId
+    ) {
+      await logScanInvalido(user.metadata.dbUserId, clean, 'WRONG_COMPANY')
+      return { error: 'Este cliente pertenece a otra empresa.', errorCode: 'WRONG_COMPANY' }
+    }
 
-  let puedeUsar = false
-  let mensaje: string | undefined
-  if (!active) {
-    mensaje = latest
-      ? 'La membresía no está activa.'
-      : 'El cliente no tiene membresía.'
-  } else if (!active.plan.esIlimitado && active.lavadosRestantes <= 0) {
-    mensaje = 'No quedan usos disponibles este período.'
-  } else {
-    puedeUsar = true
-  }
+    const now = new Date()
+    const active = cliente.memberships.find(
+      (m) => m.estado === 'ACTIVA' && (!m.fechaVencimiento || m.fechaVencimiento > now)
+    )
+    const latest = cliente.memberships[0]
+    const m = active ?? latest
 
-  // Compute alerts for active memberships
-  const alertas: string[] = []
-  if (active) {
-    if (active.fechaVencimiento) {
-      const daysLeft = Math.ceil(
-        (active.fechaVencimiento.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
-      )
-      if (daysLeft <= 7) {
-        alertas.push(`Membresía vence en ${daysLeft} día${daysLeft !== 1 ? 's' : ''}.`)
+    const promocionesActivas = await prisma.promocion.count({
+      where: { companyId: cliente.companyId, activo: true, vigenciaDesde: { lte: now }, OR: [{ vigenciaHasta: null }, { vigenciaHasta: { gte: now } }] },
+    }).catch(() => 0)
+
+    let puedeUsar = false
+    let mensaje: string | undefined
+    let errorCode: LookupResult['errorCode'] | undefined
+
+    if (!active && !latest) {
+      mensaje = 'El cliente no tiene ninguna membresía registrada.'
+      errorCode = 'NO_MEMBERSHIP'
+    } else if (!active && latest) {
+      const estadoMap: Record<string, string> = {
+        PENDIENTE: 'La membresía está pendiente de activación.',
+        PENDIENTE_PAGO: 'La membresía está esperando confirmación de pago.',
+        RECHAZADA: 'El pago de la membresía fue rechazado.',
+        VENCIDA: 'La membresía ha vencido. El cliente debe renovar.',
+        CANCELADA: 'La membresía fue cancelada.',
+      }
+      mensaje = estadoMap[latest.estado] ?? 'La membresía no está activa.'
+      errorCode = 'MEMBERSHIP_INACTIVE'
+    } else if (active && active.fechaVencimiento && active.fechaVencimiento <= now) {
+      mensaje = 'La membresía ha vencido.'
+      errorCode = 'MEMBERSHIP_EXPIRED'
+    } else if (active && !active.plan.esIlimitado && active.lavadosRestantes <= 0) {
+      mensaje = 'No quedan usos disponibles en este período.'
+      errorCode = 'NO_USES_LEFT'
+    } else {
+      puedeUsar = true
+    }
+
+    const alertas: string[] = []
+    if (active) {
+      if (active.fechaVencimiento) {
+        const daysLeft = Math.ceil(
+          (active.fechaVencimiento.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
+        )
+        if (daysLeft <= 7 && daysLeft > 0) {
+          alertas.push(`La membresía vence en ${daysLeft} día${daysLeft !== 1 ? 's' : ''}.`)
+        }
+      }
+      if (!active.plan.esIlimitado && active.lavadosRestantes === 1) {
+        alertas.push('Este es el último uso disponible.')
       }
     }
-    if (!active.plan.esIlimitado) {
-      if (active.lavadosRestantes === 1) {
-        alertas.push('Último uso disponible en este período.')
-      }
-    }
-  }
 
-  return {
-    cliente: {
-      clienteId: cliente.id,
-      nombre: cliente.nombre,
-      email: cliente.email,
-      avatarUrl: cliente.avatarUrl ?? null,
-      empresa: cliente.company.name,
-      membershipId: active?.id ?? null,
-      qrTokenId: qr.id,
-      planNombre: m?.plan.nombre ?? null,
-      estado: m?.estado ?? null,
-      esIlimitado: active?.plan.esIlimitado ?? false,
-      lavadosRestantes: active?.lavadosRestantes ?? 0,
-      fechaVencimiento: active?.fechaVencimiento?.toISOString() ?? null,
-      vehiculos: cliente.vehiculos.map((v) => ({
-        id: v.id,
-        label: `${v.marca} ${v.modelo} (${v.anio})${v.placa ? ` · ${v.placa}` : ''}`,
-      })),
-      puedeUsar,
-      mensaje,
-      alertas,
-      visitasRecientes: cliente.visits.map((v) => ({
-        id: v.id,
-        servicio: v.servicio,
-        fecha: v.fechaVisita.toISOString(),
-        descontado: v.descontado,
-      })),
-    },
-  }
+    const lastVisit = cliente.visits[0]
+
+    return {
+      errorCode,
+      cliente: {
+        clienteId: cliente.id,
+        nombre: cliente.nombre,
+        email: cliente.email,
+        avatarUrl: cliente.avatarUrl ?? null,
+        empresa: cliente.company.name,
+        empresaType: cliente.company.type,
+        membershipId: active?.id ?? null,
+        qrTokenId: qr.id,
+        planNombre: m?.plan.nombre ?? null,
+        planBeneficios: active?.plan.beneficios ?? m?.plan.beneficios ?? [],
+        estado: m?.estado ?? null,
+        esIlimitado: active?.plan.esIlimitado ?? false,
+        lavadosIncluidos: active?.plan.lavadosIncluidos ?? 0,
+        lavadosRestantes: active?.lavadosRestantes ?? 0,
+        fechaInicio: active?.fechaInicio?.toISOString() ?? null,
+        fechaVencimiento: active?.fechaVencimiento?.toISOString() ?? null,
+        vehiculos: cliente.vehiculos.map((v) => ({
+          id: v.id,
+          label: `${v.marca} ${v.modelo} (${v.anio})${v.placa ? ` · ${v.placa}` : ''}`,
+        })),
+        puedeUsar,
+        mensaje,
+        alertas,
+        visitasRecientes: cliente.visits.map((v) => ({
+          id: v.id,
+          servicio: v.servicio,
+          fecha: v.fechaVisita.toISOString(),
+          descontado: v.descontado,
+        })),
+        totalVisitas: cliente._count.visits,
+        ultimoUso: lastVisit?.fechaVisita.toISOString() ?? null,
+        promocionesActivas,
+      },
+    }
   } catch (e) {
     console.error('[visitas] buscarPorToken error:', e)
-    return { error: 'Ocurrió un error inesperado. Intenta de nuevo.' }
+    return { error: 'Error interno al verificar el código QR. Intenta de nuevo.', errorCode: 'INTERNAL' }
   }
 }
 
@@ -170,60 +209,59 @@ export async function confirmarVisita(
   formData: FormData
 ): Promise<ConfirmState> {
   try {
-  const user = await getUser()
-  if (!user || !['EMPLEADO', 'ADMIN_EMPRESA', 'SUPERADMIN'].includes(user.metadata.role)) {
-    return { error: 'No autorizado.' }
-  }
+    const user = await getUser()
+    if (!user || !SCANNER_ROLES.includes(user.metadata.role)) {
+      return { error: 'No tienes permisos para confirmar visitas.' }
+    }
 
-  const membershipId = String(formData.get('membershipId') ?? '')
-  const servicio = String(formData.get('servicio') ?? '').trim()
-  const vehiculoId = String(formData.get('vehiculoId') ?? '').trim() || null
-  const notas = String(formData.get('notas') ?? '').trim() || null
-  const sucursalId = String(formData.get('sucursalId') ?? '').trim() || null
-  const qrTokenId = String(formData.get('qrTokenId') ?? '').trim() || null
+    const membershipId = String(formData.get('membershipId') ?? '')
+    const servicio = String(formData.get('servicio') ?? '').trim()
+    const vehiculoId = String(formData.get('vehiculoId') ?? '').trim() || null
+    const notas = String(formData.get('notas') ?? '').trim() || null
+    const sucursalId = String(formData.get('sucursalId') ?? '').trim() || null
+    const qrTokenId = String(formData.get('qrTokenId') ?? '').trim() || null
 
-  if (!membershipId) return { error: 'Membresía no válida.' }
-  if (!servicio) return { error: 'Selecciona un servicio.' }
+    if (!membershipId) return { error: 'No se encontró la membresía. Escanea el QR de nuevo.' }
+    if (!servicio) return { error: 'Selecciona un servicio antes de confirmar.' }
 
-  const meta = await getRequestMeta()
+    const meta = await getRequestMeta()
 
-  try {
     const result = await prisma.$transaction(async (tx) => {
       const membership = await tx.membership.findUnique({
         where: { id: membershipId },
         include: { plan: true, cliente: true },
       })
-      if (!membership) throw new Error('Membresía no encontrada.')
+      if (!membership) throw new TxError('La membresía no fue encontrada. Puede haber sido eliminada.')
 
       if (
         user.metadata.role !== 'SUPERADMIN' &&
         user.metadata.companyId &&
         membership.cliente.companyId !== user.metadata.companyId
       ) {
-        throw new Error('Cliente de otra empresa.')
+        throw new TxError('Este cliente pertenece a otra empresa.')
       }
 
       const now = new Date()
-      const isActive =
-        membership.estado === 'ACTIVA' &&
-        (!membership.fechaVencimiento || membership.fechaVencimiento > now)
-      if (!isActive) throw new Error('La membresía no está activa.')
+      if (membership.estado !== 'ACTIVA') {
+        throw new TxError(`La membresía no está activa (estado: ${membership.estado}).`)
+      }
+      if (membership.fechaVencimiento && membership.fechaVencimiento <= now) {
+        throw new TxError('La membresía ha vencido.')
+      }
 
       const ilimitado = membership.plan.esIlimitado
       if (!ilimitado && membership.lavadosRestantes <= 0) {
-        throw new Error('No quedan usos disponibles.')
+        throw new TxError('No quedan usos disponibles en este período.')
       }
 
       let qrToken: { id: string } | null = null
       if (qrTokenId) {
-        // Invalidación atómica: solo tiene éxito si el token sigue activo y
-        // pertenece al cliente correcto. Previene race conditions bajo concurrencia.
         const invalidado = await tx.qrToken.updateMany({
           where: { id: qrTokenId, activo: true, clienteId: membership.clienteId },
           data: { activo: false },
         })
         if (invalidado.count === 0) {
-          throw new Error('Este código QR ya fue utilizado o no es válido. Pide al cliente que actualice su QR.')
+          throw new TxError('Este código QR ya fue utilizado. Pide al cliente que muestre su QR actualizado.')
         }
         qrToken = { id: qrTokenId }
       }
@@ -298,13 +336,11 @@ export async function confirmarVisita(
 
     return { success: true, restantes: result.restantes, visitId: result.visitId, servicio }
   } catch (e) {
-    // Log detailed error for debugging, but return generic message to client
-    console.error('[visitas] confirmarVisita transaction error:', e instanceof Error ? e.message : String(e))
-    return { error: 'No se pudo confirmar la visita. Por favor intenta de nuevo.' }
-  }
-  } catch (e) {
+    if (e instanceof TxError) {
+      return { error: e.message }
+    }
     console.error('[visitas] confirmarVisita error:', e)
-    return { error: 'Ocurrió un error inesperado. Intenta de nuevo.' }
+    return { error: 'Error interno al confirmar la visita. Intenta de nuevo.' }
   }
 }
 
@@ -315,12 +351,11 @@ export interface ImpresionState {
 
 export async function registrarImpresion(visitId: string): Promise<ImpresionState> {
   try {
-  const user = await getUser()
-  if (!user || !['EMPLEADO', 'ADMIN_EMPRESA', 'SUPERADMIN'].includes(user.metadata.role)) {
-    return { error: 'No autorizado.' }
-  }
-  const meta = await getRequestMeta()
-  try {
+    const user = await getUser()
+    if (!user || !SCANNER_ROLES.includes(user.metadata.role)) {
+      return { error: 'No autorizado.' }
+    }
+    const meta = await getRequestMeta()
     const visit = await prisma.visit.findUnique({
       where: { id: visitId },
       include: { membership: { include: { cliente: true } } },
@@ -342,7 +377,29 @@ export async function registrarImpresion(visitId: string): Promise<ImpresionStat
   } catch {
     return { error: 'No se pudo registrar la impresión.' }
   }
+}
+
+class TxError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'TxError'
+  }
+}
+
+async function logScanInvalido(userId: string | undefined, token: string, reason: string) {
+  try {
+    const meta = await getRequestMeta()
+    await prisma.auditLog.create({
+      data: {
+        userId: userId ?? null,
+        accion: 'QR_USADO',
+        entidadTipo: 'QrToken',
+        entidadId: token.slice(0, 25),
+        payload: { reason, token: token.slice(0, 10) + '…', valido: false },
+        ...meta,
+      },
+    })
   } catch {
-    return { error: 'No se pudo registrar la impresión.' }
+    // best-effort logging
   }
 }
