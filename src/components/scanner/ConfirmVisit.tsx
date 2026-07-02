@@ -1,6 +1,5 @@
 'use client'
 
-import Image from 'next/image'
 import { useActionState, useEffect, useState } from 'react'
 import {
   Loader2,
@@ -151,7 +150,8 @@ export function ConfirmVisit({
       >
         <div className="flex items-start gap-4">
           {cliente.avatarUrl ? (
-            <Image
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
               src={cliente.avatarUrl}
               alt={cliente.nombre}
               width={64}

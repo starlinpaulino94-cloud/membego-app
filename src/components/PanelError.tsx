@@ -30,6 +30,9 @@ export function PanelError({
       <Button onClick={() => reset()} className="mt-6">
         Reintentar
       </Button>
+      {error.digest && (
+        <p className="mt-4 text-xs text-slate-400">Código de error: {error.digest}</p>
+      )}
     </div>
   )
 }
