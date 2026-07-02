@@ -23,14 +23,14 @@ export default function DebugSentryPage() {
 
   function triggerSentryMessage() {
     log('Sending captureMessage to Sentry...')
-    const eventId = Sentry.captureMessage('PASE Debug: Test message from debug-sentry page')
+    const eventId = Sentry.captureMessage('PASE Debug: Test message from sentry-example-page')
     log(`Sent! Event ID: ${eventId}`)
   }
 
   async function triggerServerError() {
-    log('Calling /debug-sentry/api ...')
+    log('Calling /sentry-example-page/api ...')
     try {
-      const res = await fetch('/debug-sentry/api')
+      const res = await fetch('/sentry-example-page/api')
       const data = await res.json()
       log(`Server response: ${JSON.stringify(data)}`)
     } catch (e) {
