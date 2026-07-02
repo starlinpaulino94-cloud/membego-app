@@ -1,82 +1,54 @@
-import { Car, UtensilsCrossed } from 'lucide-react'
 import { requireRole } from '@/lib/auth/guards'
-import { prisma } from '@/lib/prisma'
-import { Badge } from '@/components/ui/badge'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { listEmpresas } from '@/modules/empresas/queries'
+import { EmpresasCRM } from '@/components/superadmin/EmpresasCRM'
 
 export const dynamic = 'force-dynamic'
 
 export default async function SuperadminEmpresas() {
   await requireRole('SUPERADMIN')
 
-  const fetchCompanies = () =>
-    prisma.company.findMany({
-      orderBy: { name: 'asc' },
-      include: {
-        _count: { select: { clientes: true, plans: true, users: true } },
-      },
-    })
-
-  let companies: Awaited<ReturnType<typeof fetchCompanies>> = []
+  let raw: Awaited<ReturnType<typeof listEmpresas>> = []
   try {
-    companies = await fetchCompanies()
+    raw = await listEmpresas()
   } catch (e) {
     console.error('[superadmin-empresas]', e)
   }
 
+  const empresas = raw.map((c) => ({
+    id: c.id,
+    name: c.name,
+    slug: c.slug,
+    type: c.type,
+    description: c.description,
+    logoUrl: c.logoUrl,
+    email: c.email,
+    telefono: c.telefono,
+    direccion: c.direccion,
+    ciudad: c.ciudad,
+    categoria: c.categoria,
+    website: c.website,
+    isActive: c.isActive,
+    createdAt: c.createdAt.toISOString(),
+    updatedAt: c.updatedAt.toISOString(),
+    clientes: c._count.clientes,
+    users: c._count.users,
+    sucursales: c._count.sucursales,
+    plans: c._count.plans,
+    promociones: c._count.promociones,
+    membresiaActivas: c._membresiaActivas,
+    ingresos: c._ingresos,
+    ultimaActividad: c._ultimaActividad?.toISOString() ?? null,
+  }))
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-up">
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">Empresas</h1>
-        <p className="text-slate-500">Gestión de empresas registradas.</p>
+        <h1 className="text-2xl font-bold tracking-tight text-foreground">Empresas</h1>
+        <p className="text-sm text-muted-foreground">
+          CRM de empresas registradas en la plataforma
+        </p>
       </div>
-
-      <div className="grid gap-6 md:grid-cols-2">
-        {companies.map((c) => (
-          <Card key={c.id}>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-sky-100">
-                    {c.type === 'carwash' ? (
-                      <Car className="h-5 w-5 text-sky-600" />
-                    ) : (
-                      <UtensilsCrossed className="h-5 w-5 text-amber-600" />
-                    )}
-                  </div>
-                  <CardTitle>{c.name}</CardTitle>
-                </div>
-                <Badge
-                  className={
-                    c.isActive
-                      ? 'bg-green-100 text-green-700'
-                      : 'bg-slate-200 text-slate-600'
-                  }
-                >
-                  {c.isActive ? 'Activa' : 'Inactiva'}
-                </Badge>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <p className="mb-3 text-sm text-slate-500">{c.description}</p>
-              <div className="grid grid-cols-3 gap-3 text-center">
-                <Stat label="Clientes" value={c._count.clientes} />
-                <Stat label="Planes" value={c._count.plans} />
-                <Stat label="Usuarios" value={c._count.users} />
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-function Stat({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="rounded-lg bg-slate-50 p-3">
-      <p className="text-xl font-bold text-slate-900">{value}</p>
-      <p className="text-xs text-slate-500">{label}</p>
+      <EmpresasCRM empresas={empresas} />
     </div>
   )
 }
