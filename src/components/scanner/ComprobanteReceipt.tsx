@@ -1,9 +1,24 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
-import { Printer, CheckCircle2 } from 'lucide-react'
+import {
+  Printer,
+  CheckCircle2,
+  Share2,
+  ArrowRight,
+  User,
+  Building2,
+  CreditCard,
+  Calendar,
+  Clock,
+  Sparkles,
+  Gift,
+  Shield,
+  Hash,
+} from 'lucide-react'
 import { registrarImpresion } from '@/modules/visitas/actions'
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import type { ClienteLookup } from '@/modules/visitas/actions'
 
 interface Props {
@@ -14,16 +29,35 @@ interface Props {
   onDone: () => void
 }
 
+function fmtDate(d: Date) {
+  return new Intl.DateTimeFormat('es-DO', { dateStyle: 'long' }).format(d)
+}
+
+function fmtTime(d: Date) {
+  return new Intl.DateTimeFormat('es-DO', { timeStyle: 'short' }).format(d)
+}
+
 function fmtDateTime(d: Date) {
-  return new Intl.DateTimeFormat('es-DO', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(d)
+  return new Intl.DateTimeFormat('es-DO', { dateStyle: 'medium', timeStyle: 'short' }).format(d)
+}
+
+function InfoRow({ label, value, icon: Icon }: { label: string; value: string; icon: typeof User }) {
+  return (
+    <div className="flex items-center gap-2.5 py-1.5">
+      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-green-50">
+        <Icon className="h-3.5 w-3.5 text-green-600" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="text-[11px] text-muted-foreground">{label}</p>
+        <p className="text-sm font-medium text-foreground">{value}</p>
+      </div>
+    </div>
+  )
 }
 
 export function ComprobanteReceipt({ cliente, visitId, servicio, restantes, onDone }: Props) {
   const hasLogged = useRef(false)
-  const receiptNum = `PASE-${visitId.slice(-8).toUpperCase()}`
+  const codigoOperacion = `PASE-${visitId.slice(-8).toUpperCase()}`
   const now = new Date()
 
   useEffect(() => {
@@ -37,36 +71,90 @@ export function ComprobanteReceipt({ cliente, visitId, servicio, restantes, onDo
     window.print()
   }
 
+  async function handleShare() {
+    const text = [
+      `✓ Visita confirmada — ${cliente.empresa}`,
+      `Cliente: ${cliente.nombre}`,
+      `Servicio: ${servicio}`,
+      `Código: ${codigoOperacion}`,
+      `Fecha: ${fmtDateTime(now)}`,
+    ].join('\n')
+
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: 'Comprobante de visita', text })
+        return
+      } catch { /* user cancelled */ }
+    }
+    await navigator.clipboard.writeText(text).catch(() => {})
+  }
+
   return (
     <>
-      {/* Screen controls */}
-      <div className="print:hidden space-y-4 text-center">
-        <CheckCircle2 className="mx-auto h-14 w-14 text-green-500" />
-        <h3 className="text-xl font-bold text-slate-800">¡Visita confirmada!</h3>
-        {cliente.esIlimitado ? (
-          <p className="text-slate-600">Plan ilimitado — sin descuento.</p>
-        ) : (
-          <p className="text-slate-600">
-            Usos restantes: <strong>{restantes}</strong>
-          </p>
-        )}
+      {/* Screen view */}
+      <div className="print:hidden space-y-5">
+        {/* Success header */}
+        <div className="text-center">
+          <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
+            <CheckCircle2 className="h-9 w-9 text-green-600" />
+          </div>
+          <h3 className="text-xl font-bold text-foreground">Uso registrado correctamente</h3>
+          <p className="mt-1 text-sm text-muted-foreground">{fmtDateTime(now)}</p>
+        </div>
 
-        <div className="flex gap-3 justify-center">
+        {/* Receipt card */}
+        <div className="rounded-xl border-2 border-green-200 bg-white p-4 space-y-0.5">
+          <InfoRow label="Cliente" value={cliente.nombre} icon={User} />
+          <InfoRow label="Empresa" value={cliente.empresa} icon={Building2} />
+          <InfoRow label="Plan" value={cliente.planNombre ?? 'Sin plan'} icon={CreditCard} />
+          <InfoRow label="Servicio utilizado" value={servicio} icon={Gift} />
+          <InfoRow label="Fecha" value={fmtDate(now)} icon={Calendar} />
+          <InfoRow label="Hora" value={fmtTime(now)} icon={Clock} />
+          <InfoRow label="Código de operación" value={codigoOperacion} icon={Hash} />
+          <InfoRow
+            label="Usos restantes"
+            value={cliente.esIlimitado ? 'Ilimitado' : String(restantes)}
+            icon={cliente.esIlimitado ? Sparkles : Shield}
+          />
+        </div>
+
+        {/* Status badge */}
+        <div className="flex justify-center">
+          <Badge className="bg-green-100 text-green-700 text-xs px-3 py-1">
+            <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
+            QR validado y registrado
+          </Badge>
+        </div>
+
+        {/* Action buttons */}
+        <div className="grid grid-cols-3 gap-3">
           <Button
             onClick={handlePrint}
             variant="outline"
-            className="gap-2"
+            className="flex-col gap-1 h-auto py-3"
           >
-            <Printer className="h-4 w-4" />
-            Imprimir comprobante
+            <Printer className="h-5 w-5" />
+            <span className="text-xs">Imprimir</span>
           </Button>
-          <Button onClick={onDone} className="bg-sky-500 hover:bg-sky-400">
-            Escanear otro
+          <Button
+            onClick={handleShare}
+            variant="outline"
+            className="flex-col gap-1 h-auto py-3"
+          >
+            <Share2 className="h-5 w-5" />
+            <span className="text-xs">Compartir</span>
+          </Button>
+          <Button
+            onClick={onDone}
+            className="flex-col gap-1 h-auto py-3 bg-green-600 hover:bg-green-500 text-white"
+          >
+            <ArrowRight className="h-5 w-5" />
+            <span className="text-xs">Finalizar</span>
           </Button>
         </div>
       </div>
 
-      {/* Printable receipt — hidden on screen, shown on print */}
+      {/* Printable receipt */}
       <div className="hidden print:block">
         <style>{`
           @media print {
@@ -87,7 +175,7 @@ export function ComprobanteReceipt({ cliente, visitId, servicio, restantes, onDo
           <div className="space-y-1 mb-3">
             <div className="flex justify-between">
               <span>No.:</span>
-              <span className="font-bold">{receiptNum}</span>
+              <span className="font-bold">{codigoOperacion}</span>
             </div>
             <div className="flex justify-between">
               <span>Fecha:</span>

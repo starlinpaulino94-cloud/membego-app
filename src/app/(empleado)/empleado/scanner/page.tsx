@@ -1,31 +1,37 @@
 import { requireRole } from '@/lib/auth/guards'
 import { prisma } from '@/lib/prisma'
+import { SCANNER_ROLES } from '@/types'
 import { ScannerClient } from '@/components/scanner/ScannerClient'
 
 export const dynamic = 'force-dynamic'
 
 export default async function ScannerPage() {
-  const user = await requireRole(['EMPLEADO', 'ADMIN_EMPRESA', 'SUPERADMIN'])
+  const user = await requireRole(SCANNER_ROLES)
 
   const companyId = user.metadata.companyId ?? undefined
-  const sucursales = companyId
-    ? await prisma.sucursal.findMany({
+  let sucursales: { id: string; nombre: string }[] = []
+  try {
+    if (companyId) {
+      const rows = await prisma.sucursal.findMany({
         where: { companyId, activa: true },
         orderBy: { nombre: 'asc' },
+        select: { id: true, nombre: true },
       })
-    : []
+      sucursales = rows
+    }
+  } catch (e) {
+    console.error('[empleado-scanner] sucursales error:', e)
+  }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-up">
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">Escáner de visitas</h1>
-        <p className="text-slate-500">
+        <h1 className="text-2xl font-bold tracking-tight text-foreground">Escáner de visitas</h1>
+        <p className="text-sm text-muted-foreground">
           Escanea el QR del cliente para registrar su visita.
         </p>
       </div>
-      <ScannerClient
-        sucursales={sucursales.map((s) => ({ id: s.id, nombre: s.nombre }))}
-      />
+      <ScannerClient sucursales={sucursales} />
     </div>
   )
 }
