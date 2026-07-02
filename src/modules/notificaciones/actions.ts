@@ -84,12 +84,17 @@ export async function getNotificaciones() {
 }
 
 export async function getUnreadCount(): Promise<number> {
-  const user = await getUser()
-  if (!user?.metadata.dbUserId) return 0
+  try {
+    const user = await getUser()
+    if (!user?.metadata.dbUserId) return 0
 
-  return prisma.notificacion.count({
-    where: { userId: user.metadata.dbUserId, leida: false },
-  })
+    return await prisma.notificacion.count({
+      where: { userId: user.metadata.dbUserId, leida: false },
+    })
+  } catch (e) {
+    console.error('[notificacion] getUnreadCount error', e)
+    return 0
+  }
 }
 
 export async function marcarTodasLeidas() {
