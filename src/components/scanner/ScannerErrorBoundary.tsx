@@ -1,6 +1,5 @@
 'use client'
 
-import * as Sentry from '@sentry/nextjs'
 import { Component, type ReactNode } from 'react'
 import { AlertTriangle, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -14,12 +13,6 @@ interface State {
   error: Error | null
 }
 
-/**
- * Captura errores de render del subárbol del scanner (lado cliente) y muestra
- * el mensaje real en pantalla en vez de dejar que suban al error boundary de
- * ruta (que en producción oculta el mensaje). Así podemos diagnosticar en el
- * dispositivo del cajero sin acceso a logs.
- */
 export class ScannerErrorBoundary extends Component<Props, State> {
   state: State = { error: null }
 
@@ -29,7 +22,9 @@ export class ScannerErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error) {
     try {
-      Sentry.captureException(error, { tags: { boundary: 'scanner' } })
+      import('@sentry/nextjs').then((Sentry) => {
+        Sentry.captureException(error, { tags: { boundary: 'scanner' } })
+      }).catch(() => {})
     } catch {}
     // eslint-disable-next-line no-console
     console.error('[scanner-boundary]', error)
