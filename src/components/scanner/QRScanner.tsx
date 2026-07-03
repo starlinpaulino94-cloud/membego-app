@@ -31,8 +31,15 @@ export function QRScanner({ onScan }: { onScan: (text: string) => void }) {
           (decoded) => {
             if (handledRef.current) return
             handledRef.current = true
-            scanner.stop().then(() => scanner.clear()).catch(() => {})
-            onScan(decoded)
+            scanner
+              .stop()
+              .then(() => {
+                try { scanner.clear() } catch {}
+                onScan(decoded)
+              })
+              .catch(() => {
+                onScan(decoded)
+              })
           },
           () => {}
         )
@@ -47,7 +54,8 @@ export function QRScanner({ onScan }: { onScan: (text: string) => void }) {
       cancelled = true
       const s = scannerRef.current
       if (s) {
-        s.stop().then(() => s.clear()).catch(() => {})
+        s.stop().then(() => { try { s.clear() } catch {} }).catch(() => {})
+        scannerRef.current = null
       }
     }
   }, [onScan])

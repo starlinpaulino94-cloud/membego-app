@@ -1,16 +1,15 @@
 import { redirect } from 'next/navigation'
-import * as Sentry from '@sentry/nextjs'
 import { getUser } from '@/lib/auth'
 import type { AppRole, SessionUser } from '@/types'
 
 function setSentryContext(user: SessionUser) {
-  try {
-    Sentry.setUser({ id: user.metadata.dbUserId || user.supabaseId, email: user.email })
-    Sentry.setTag('user.role', user.metadata.role)
-    if (user.metadata.companyId) Sentry.setTag('company.id', user.metadata.companyId)
-  } catch {
-    // Sentry not initialized — safe to ignore
-  }
+  import('@sentry/nextjs')
+    .then((Sentry) => {
+      Sentry.setUser({ id: user.metadata.dbUserId || user.supabaseId, email: user.email })
+      Sentry.setTag('user.role', user.metadata.role)
+      if (user.metadata.companyId) Sentry.setTag('company.id', user.metadata.companyId)
+    })
+    .catch(() => {})
 }
 
 export async function requireUser(): Promise<SessionUser> {

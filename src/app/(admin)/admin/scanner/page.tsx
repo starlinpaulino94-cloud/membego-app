@@ -2,6 +2,7 @@ import { requireRole } from '@/lib/auth/guards'
 import { prisma } from '@/lib/prisma'
 import { ADMIN_ROLES } from '@/types'
 import { ScannerClient } from '@/components/scanner/ScannerClient'
+import { ScannerErrorBoundary } from '@/components/scanner/ScannerErrorBoundary'
 
 export const dynamic = 'force-dynamic'
 
@@ -31,7 +32,9 @@ export default async function AdminScannerPage() {
           Escanea el QR del cliente para registrar su visita.
         </p>
       </div>
-      <ScannerClient sucursales={sucursales} />
+      <ScannerErrorBoundary>
+        <ScannerClient sucursales={sucursales} />
+      </ScannerErrorBoundary>
     </div>
   )
 }
