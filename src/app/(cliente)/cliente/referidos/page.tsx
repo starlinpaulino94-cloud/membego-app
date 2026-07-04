@@ -11,19 +11,31 @@ export const dynamic = 'force-dynamic'
 export default async function ReferidosClientePage() {
   const user = await requireRole('CLIENTE')
 
-  const cliente = user.metadata.clienteId
-    ? await prisma.cliente.findUnique({
-        where: { id: user.metadata.clienteId },
-        include: { company: true },
-      })
-    : null
+  let cliente: { id: string; nombre: string; companyId: string; company: { name: string; slug: string } } | null = null
+  let referidos: Awaited<ReturnType<typeof getClienteReferidos>> = []
+  let completados = 0
+
+  try {
+    cliente = user.metadata.clienteId
+      ? await prisma.cliente.findUnique({
+          where: { id: user.metadata.clienteId },
+          select: { id: true, nombre: true, companyId: true, company: { select: { name: true, slug: true } } },
+        })
+      : null
+  } catch (e) {
+    console.error('[cliente-referidos] cliente', e)
+  }
 
   if (!cliente) {
     return <p className="text-slate-600">No se encontró tu información.</p>
   }
 
-  const referidos = await getClienteReferidos(cliente.id)
-  const completados = referidos.filter((r) => r.estado === 'COMPLETADO').length
+  try {
+    referidos = await getClienteReferidos(cliente.id)
+    completados = referidos.filter((r) => r.estado === 'COMPLETADO').length
+  } catch (e) {
+    console.error('[cliente-referidos]', e)
+  }
 
   return (
     <div className="space-y-6">
@@ -38,7 +50,7 @@ export default async function ReferidosClientePage() {
       <Card className="border-sky-200 bg-sky-50">
         <CardContent className="space-y-3 py-5">
           <p className="text-sm font-medium text-sky-700">Tu enlace de referido</p>
-          <CopyReferralLink code={cliente.codigoReferido} companySlug={cliente.company.slug} />
+          <CopyReferralLink code={(cliente as Record<string, unknown>).codigoReferido as string ?? cliente.id.slice(-8)} companySlug={cliente.company.slug} />
         </CardContent>
       </Card>
 

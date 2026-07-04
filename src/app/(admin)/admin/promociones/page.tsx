@@ -19,11 +19,17 @@ export default async function PromocionesPage() {
   const user = await requireRole(['ADMIN_EMPRESA', 'SUPERADMIN'])
   const companyId = companyFilter(user)
 
-  const promociones = await prisma.promocion.findMany({
-    where: companyId ? { companyId } : {},
-    include: { company: true },
-    orderBy: { createdAt: 'desc' },
-  })
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let promociones: any[] = []
+  try {
+    promociones = await prisma.promocion.findMany({
+      where: companyId ? { companyId } : {},
+      include: { company: true },
+      orderBy: { createdAt: 'desc' },
+    })
+  } catch (e) {
+    console.error('[admin-promociones]', e)
+  }
 
   return (
     <div className="space-y-6">

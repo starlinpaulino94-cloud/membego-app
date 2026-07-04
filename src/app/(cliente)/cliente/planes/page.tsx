@@ -18,32 +18,50 @@ function formatPrice(n: number) {
 export default async function PlanesPage() {
   const user = await requireRole('CLIENTE')
 
-  // Obtener el cliente con su empresa
-  const cliente = user.metadata.clienteId
-    ? await prisma.cliente.findUnique({
-        where: { id: user.metadata.clienteId },
-        include: {
-          company: true,
-          memberships: {
-            include: { plan: true },
-            orderBy: { createdAt: 'desc' },
-            take: 1,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let cliente: any = null
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let planes: any[] = []
+
+  try {
+    cliente = user.metadata.clienteId
+      ? await prisma.cliente.findUnique({
+          where: { id: user.metadata.clienteId },
+          select: {
+            id: true,
+            company: { select: { id: true, name: true, type: true } },
+            memberships: {
+              select: {
+                estado: true, fechaVencimiento: true,
+                plan: { select: { id: true, nombre: true, precio: true, esIlimitado: true, beneficios: true, descripcion: true, lavadosIncluidos: true } },
+              },
+              orderBy: { createdAt: 'desc' },
+              take: 1,
+            },
           },
-        },
-      })
-    : null
+        })
+      : null
+  } catch (e) {
+    console.error('[cliente-planes]', e)
+    return <p className="text-slate-600">No pudimos cargar tu información. Intenta más tarde.</p>
+  }
 
   if (!cliente) {
     return <p className="text-slate-600">No se encontró tu información.</p>
   }
 
-  // Obtener planes activos de la empresa del cliente
-  const planes = await prisma.plan.findMany({
-    where: { companyId: cliente.company.id, activo: true },
-    orderBy: { precio: 'asc' },
-  })
+  try {
+    planes = await prisma.plan.findMany({
+      where: { companyId: cliente.company.id, activo: true },
+      select: { id: true, nombre: true, precio: true, esIlimitado: true, beneficios: true, descripcion: true, lavadosIncluidos: true },
+      orderBy: { precio: 'asc' },
+    })
+  } catch (e) {
+    console.error('[cliente-planes] plans', e)
+  }
 
-  const active = activeMembership(cliente.memberships)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const active: any = activeMembership(cliente.memberships)
   const latestMembership = cliente.memberships[0]
 
   return (
@@ -164,7 +182,7 @@ export default async function PlanesPage() {
 
                   {plan.beneficios.length > 0 && (
                     <ul className="space-y-2">
-                      {plan.beneficios.map((b) => (
+                      {plan.beneficios.map((b: string) => (
                         <li
                           key={b}
                           className="flex items-start gap-2 text-sm text-slate-600"

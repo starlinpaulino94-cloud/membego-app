@@ -11,14 +11,28 @@ export default async function PlanesPage() {
   const user = await requireRole(['ADMIN_EMPRESA', 'SUPERADMIN'])
   const companyId = companyFilter(user)
 
-  const planes = await prisma.plan.findMany({
-    where: companyId ? { companyId } : {},
-    include: {
-      company: true,
-      _count: { select: { memberships: true } },
-    },
-    orderBy: [{ companyId: 'asc' }, { precio: 'asc' }],
-  })
+  let planes: {
+    id: string; nombre: string; precio: unknown; esIlimitado: boolean;
+    lavadosIncluidos: number; activo: boolean; descripcion: string | null;
+    beneficios: string[]; companyId: string;
+    company: { name: string }; _count: { memberships: number }
+  }[] = []
+
+  try {
+    planes = await prisma.plan.findMany({
+      where: companyId ? { companyId } : {},
+      select: {
+        id: true, nombre: true, precio: true, esIlimitado: true,
+        lavadosIncluidos: true, activo: true, descripcion: true,
+        beneficios: true, companyId: true,
+        company: { select: { name: true } },
+        _count: { select: { memberships: true } },
+      },
+      orderBy: [{ companyId: 'asc' }, { precio: 'asc' }],
+    })
+  } catch (e) {
+    console.error('[admin-planes]', e)
+  }
 
   return (
     <div className="space-y-6">

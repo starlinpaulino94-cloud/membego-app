@@ -57,13 +57,15 @@ export default async function MembresiaPage() {
     console.error('[cliente-membresia] planes', e)
   }
 
-  // Load payment methods for this company
-  const metodosPago = current
-    ? await prisma.metodoPago.findMany({
+  let metodosPago: { id: string; nombre: string; tipo: string; titular: string | null; numeroCuenta: string | null; tipoCuenta: string | null; instrucciones: string | null }[] = []
+  if (current) {
+    try {
+      metodosPago = await prisma.metodoPago.findMany({
         where: { companyId: cliente.companyId, activo: true },
         orderBy: { createdAt: 'asc' },
       })
-    : []
+    } catch {}
+  }
 
   const needsComprobante =
     current &&
@@ -106,7 +108,7 @@ export default async function MembresiaPage() {
               <Alert variant="destructive">
                 <AlertCircle className="h-4 w-4" />
                 <AlertTitle>Pago rechazado</AlertTitle>
-                <AlertDescription>{current.rechazadoReason}</AlertDescription>
+                <AlertDescription>{String(current.rechazadoReason)}</AlertDescription>
               </Alert>
             )}
           </CardContent>

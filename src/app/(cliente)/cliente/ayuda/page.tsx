@@ -30,17 +30,32 @@ export default async function AyudaPage() {
   const companyId = user.metadata.companyId
   const clienteId = user.metadata.clienteId
 
-  const [config, cliente, faqs, tickets] = await Promise.all([
-    companyId ? prisma.whatsAppConfig.findUnique({ where: { companyId } }) : null,
-    clienteId
-      ? prisma.cliente.findUnique({
-          where: { id: clienteId },
-          include: { company: { select: { name: true } } },
-        })
-      : null,
-    getFaqs(companyId ?? null, { activeOnly: true }),
-    clienteId ? listTicketsCliente(clienteId) : [],
-  ])
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let config: any = null
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let cliente: any = null
+  let faqs: Awaited<ReturnType<typeof getFaqs>> = []
+  let tickets: Awaited<ReturnType<typeof listTicketsCliente>> = []
+
+  try {
+    const results = await Promise.all([
+      companyId ? prisma.whatsAppConfig.findUnique({ where: { companyId } }).catch(() => null) : null,
+      clienteId
+        ? prisma.cliente.findUnique({
+            where: { id: clienteId },
+            select: { nombre: true, company: { select: { name: true } } },
+          })
+        : null,
+      getFaqs(companyId ?? null, { activeOnly: true }).catch(() => []),
+      clienteId ? listTicketsCliente(clienteId).catch(() => []) : [],
+    ])
+    config = results[0]
+    cliente = results[1]
+    faqs = results[2] as typeof faqs
+    tickets = results[3] as typeof tickets
+  } catch (e) {
+    console.error('[cliente-ayuda]', e)
+  }
 
   const empresaNombre = cliente?.company.name ?? 'la empresa'
   const mensajeWa = config

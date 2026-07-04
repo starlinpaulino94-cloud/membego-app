@@ -20,24 +20,37 @@ export default async function ReferidosPage() {
   const companyId = companyFilter(user)
   const where = companyId ? { companyId } : {}
 
-  const [reglas, totalReferidos, completados, topReferentes] = await Promise.all([
-    prisma.reglaRecompensa.findMany({ where, orderBy: { valorCondicion: 'asc' } }),
-    prisma.referido.count({ where }),
-    prisma.referido.count({ where: { ...where, estado: 'COMPLETADO' } }),
-    prisma.referido.groupBy({
-      by: ['referenteClienteId'],
-      where: { ...where, estado: 'COMPLETADO' },
-      _count: { referenteClienteId: true },
-      orderBy: { _count: { referenteClienteId: 'desc' } },
-      take: 5,
-    }),
-  ])
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let reglas: any[] = []
+  let totalReferidos = 0
+  let completados = 0
+  let topReferentes: { referenteClienteId: string; _count: { referenteClienteId: number } }[] = []
 
-  const referentes = await prisma.cliente.findMany({
-    where: { id: { in: topReferentes.map((t) => t.referenteClienteId) } },
-    select: { id: true, nombre: true },
-  })
-  const nombreMap = new Map(referentes.map((r) => [r.id, r.nombre]))
+  try {
+    ;[reglas, totalReferidos, completados, topReferentes] = await Promise.all([
+      prisma.reglaRecompensa.findMany({ where, orderBy: { valorCondicion: 'asc' } }),
+      prisma.referido.count({ where }),
+      prisma.referido.count({ where: { ...where, estado: 'COMPLETADO' } }),
+      prisma.referido.groupBy({
+        by: ['referenteClienteId'],
+        where: { ...where, estado: 'COMPLETADO' },
+        _count: { referenteClienteId: true },
+        orderBy: { _count: { referenteClienteId: 'desc' } },
+        take: 5,
+      }),
+    ])
+  } catch (e) {
+    console.error('[admin-referidos]', e)
+  }
+
+  let nombreMap = new Map<string, string>()
+  try {
+    const referentes = await prisma.cliente.findMany({
+      where: { id: { in: topReferentes.map((t) => t.referenteClienteId) } },
+      select: { id: true, nombre: true },
+    })
+    nombreMap = new Map(referentes.map((r) => [r.id, r.nombre]))
+  } catch {}
 
   return (
     <div className="space-y-8">

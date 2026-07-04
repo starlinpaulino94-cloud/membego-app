@@ -35,7 +35,13 @@ export default async function PagosPage() {
   const clienteId = user.metadata.clienteId
   if (!clienteId) return <p>No autorizado.</p>
 
-  const membresias = await getClienteMembresias(clienteId)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let membresias: any[] = []
+  try {
+    membresias = await getClienteMembresias(clienteId)
+  } catch (e) {
+    console.error('[cliente-pagos]', e)
+  }
 
   return (
     <div className="space-y-6">

@@ -30,24 +30,58 @@ export default async function SuperadminMembresiasPage({
   await requireRole('SUPERADMIN')
   const { estado, empresa, q } = await searchParams
 
-  const [companies, membresias] = await Promise.all([
-    prisma.company.findMany({ where: { isActive: true }, orderBy: { name: 'asc' } }),
-    prisma.membership.findMany({
+  let companies: { id: string; name: string }[] = []
+  let membresias: {
+    id: string
+    estado: string
+    fechaInicio: Date | null
+    fechaVencimiento: Date | null
+    clienteId: string
+    cliente: { nombre: string; email: string; company: { name: string } }
+    plan: { nombre: string; precio: unknown; lavadosIncluidos: number; esIlimitado: boolean }
+  }[] = []
+
+  try {
+    companies = await prisma.company.findMany({
+      where: { isActive: true },
+      orderBy: { name: 'asc' },
+      select: { id: true, name: true },
+    })
+  } catch (e) {
+    console.error('[superadmin-membresias] companies', e)
+  }
+
+  try {
+    const data = await prisma.membership.findMany({
       where: {
         ...(estado ? { estado: estado as MembershipEstado } : {}),
         cliente: {
           ...(empresa ? { companyId: empresa } : {}),
-          ...(q ? { OR: [{ nombre: { contains: q, mode: 'insensitive' } }, { email: { contains: q, mode: 'insensitive' } }] } : {}),
+          ...(q ? { OR: [{ nombre: { contains: q, mode: 'insensitive' as const } }, { email: { contains: q, mode: 'insensitive' as const } }] } : {}),
         },
       },
-      include: {
-        plan: true,
-        cliente: { include: { company: true } },
+      select: {
+        id: true,
+        estado: true,
+        fechaInicio: true,
+        fechaVencimiento: true,
+        clienteId: true,
+        plan: { select: { nombre: true, precio: true, lavadosIncluidos: true, esIlimitado: true } },
+        cliente: {
+          select: {
+            nombre: true,
+            email: true,
+            company: { select: { name: true } },
+          },
+        },
       },
       orderBy: { createdAt: 'desc' },
       take: 100,
-    }),
-  ])
+    })
+    membresias = data
+  } catch (e) {
+    console.error('[superadmin-membresias]', e)
+  }
 
   return (
     <div className="space-y-6">

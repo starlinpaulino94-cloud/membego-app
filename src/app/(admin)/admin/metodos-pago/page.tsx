@@ -14,11 +14,21 @@ export default async function MetodosPagoPage() {
   const user = await requireRole(['ADMIN_EMPRESA', 'SUPERADMIN'])
   const companyId = companyFilter(user)
 
-  const metodos = await prisma.metodoPago.findMany({
-    where: companyId ? { companyId } : {},
-    include: { company: true },
-    orderBy: { createdAt: 'asc' },
-  })
+  let metodos: {
+    id: string; nombre: string; tipo: string; titular: string | null;
+    numeroCuenta: string | null; tipoCuenta: string | null;
+    instrucciones: string | null; activo: boolean;
+    company: { name: string }
+  }[] = []
+  try {
+    metodos = await prisma.metodoPago.findMany({
+      where: companyId ? { companyId } : {},
+      include: { company: true },
+      orderBy: { createdAt: 'asc' },
+    })
+  } catch (e) {
+    console.error('[admin-metodos-pago]', e)
+  }
 
   return (
     <div className="space-y-6">

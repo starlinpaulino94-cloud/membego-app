@@ -12,16 +12,37 @@ import { DeletePlanButton } from '@/components/admin/DeletePlanButton'
 export default async function SuperadminPlanesPage() {
   await requireRole('SUPERADMIN')
 
-  const [planes, companies] = await Promise.all([
-    prisma.plan.findMany({
-      include: {
-        company: true,
-        _count: { select: { memberships: true } },
-      },
-      orderBy: [{ companyId: 'asc' }, { precio: 'asc' }],
-    }),
-    prisma.company.findMany({ where: { isActive: true }, orderBy: { name: 'asc' } }),
-  ])
+  let planes: {
+    id: string; nombre: string; precio: unknown; esIlimitado: boolean;
+    lavadosIncluidos: number; activo: boolean; descripcion: string | null;
+    beneficios: string[]; companyId: string;
+    company: { name: string }; _count: { memberships: number }
+  }[] = []
+  let companies: { id: string; name: string }[] = []
+
+  try {
+    const [p, c] = await Promise.all([
+      prisma.plan.findMany({
+        select: {
+          id: true, nombre: true, precio: true, esIlimitado: true,
+          lavadosIncluidos: true, activo: true, descripcion: true,
+          beneficios: true, companyId: true,
+          company: { select: { name: true } },
+          _count: { select: { memberships: true } },
+        },
+        orderBy: [{ companyId: 'asc' }, { precio: 'asc' }],
+      }),
+      prisma.company.findMany({
+        where: { isActive: true },
+        orderBy: { name: 'asc' },
+        select: { id: true, name: true },
+      }),
+    ])
+    planes = p
+    companies = c
+  } catch (e) {
+    console.error('[superadmin-planes]', e)
+  }
 
   const byCompany = companies.map((c) => ({
     ...c,

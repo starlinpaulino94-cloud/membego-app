@@ -29,22 +29,82 @@ function isImage(url: string) {
   return /\.(jpg|jpeg|png|webp|gif)(\?.*)?$/i.test(url)
 }
 
+interface PendienteRow {
+  id: string
+  estado: string
+  clienteId: string
+  updatedAt: Date
+  comprobanteUrl: string | null
+  comprobanteNota: string | null
+  adminNota: string | null
+  cliente: { nombre: string; email: string; company: { name: string } }
+  plan: { nombre: string; precio: unknown }
+  metodoPago: { nombre: string } | null
+}
+
 export default async function PagosPage() {
   const user = await requireRole(['ADMIN_EMPRESA', 'SUPERADMIN'])
   const companyId = companyFilter(user)
 
-  const pendientes = await prisma.membership.findMany({
-    where: {
-      estado: 'PENDIENTE_PAGO',
-      ...(companyId ? { cliente: { companyId } } : {}),
-    },
-    include: {
-      cliente: { include: { company: true } },
-      plan: true,
-      metodoPago: true,
-    },
-    orderBy: { updatedAt: 'desc' },
-  })
+  let pendientes: PendienteRow[] = []
+  try {
+    const data = await prisma.membership.findMany({
+      where: {
+        estado: 'PENDIENTE_PAGO',
+        ...(companyId ? { cliente: { companyId } } : {}),
+      },
+      select: {
+        id: true,
+        estado: true,
+        clienteId: true,
+        updatedAt: true,
+        cliente: {
+          select: { nombre: true, email: true, company: { select: { name: true } } },
+        },
+        plan: { select: { nombre: true, precio: true } },
+      },
+      orderBy: { updatedAt: 'desc' },
+    })
+    pendientes = data.map((m) => ({
+      ...m,
+      comprobanteUrl: null,
+      comprobanteNota: null,
+      adminNota: null,
+      metodoPago: null,
+    }))
+  } catch (e) {
+    console.error('[admin-pagos] basic query', e)
+  }
+
+  // Try loading extended fields
+  if (pendientes.length === 0) {
+    try {
+      const data = await prisma.membership.findMany({
+        where: {
+          estado: 'PENDIENTE_PAGO',
+          ...(companyId ? { cliente: { companyId } } : {}),
+        },
+        include: {
+          cliente: { include: { company: true } },
+          plan: true,
+          metodoPago: true,
+        },
+        orderBy: { updatedAt: 'desc' },
+      })
+      pendientes = data.map((m) => ({
+        id: m.id,
+        estado: m.estado,
+        clienteId: m.clienteId,
+        updatedAt: m.updatedAt,
+        comprobanteUrl: (m as Record<string, unknown>).comprobanteUrl as string | null ?? null,
+        comprobanteNota: (m as Record<string, unknown>).comprobanteNota as string | null ?? null,
+        adminNota: (m as Record<string, unknown>).adminNota as string | null ?? null,
+        cliente: { nombre: m.cliente.nombre, email: m.cliente.email, company: { name: m.cliente.company.name } },
+        plan: { nombre: m.plan.nombre, precio: m.plan.precio },
+        metodoPago: (m as Record<string, unknown>).metodoPago as { nombre: string } | null ?? null,
+      }))
+    } catch {}
+  }
 
   return (
     <div className="space-y-6">
@@ -92,7 +152,6 @@ export default async function PagosPage() {
               </CardHeader>
 
               <CardContent className="space-y-4 pt-4">
-                {/* Plan info */}
                 <div className="rounded-lg bg-slate-50 p-3 text-sm">
                   <p>
                     <span className="text-slate-500">Plan:</span>{' '}
@@ -115,7 +174,6 @@ export default async function PagosPage() {
                   </p>
                 </div>
 
-                {/* Comprobante preview */}
                 {m.comprobanteUrl && (
                   <div className="space-y-2">
                     <p className="text-sm font-medium text-slate-700">
@@ -152,7 +210,6 @@ export default async function PagosPage() {
                   </div>
                 )}
 
-                {/* Client note */}
                 {m.comprobanteNota && (
                   <div className="rounded-lg bg-amber-50 p-3 text-sm text-amber-700">
                     <p className="font-medium">Nota del cliente:</p>
@@ -160,7 +217,6 @@ export default async function PagosPage() {
                   </div>
                 )}
 
-                {/* Admin internal note display */}
                 {m.adminNota && (
                   <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600">
                     <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">Nota interna</p>
@@ -168,14 +224,12 @@ export default async function PagosPage() {
                   </div>
                 )}
 
-                {/* Actions */}
                 <div className="flex flex-wrap gap-2 pt-1">
                   <ConfirmarPagoButton membershipId={m.id} />
                   <RechazarPagoButton membershipId={m.id} />
                   <SolicitarEvidenciaButton membershipId={m.id} />
                 </div>
 
-                {/* Internal note form */}
                 <div className="border-t pt-3">
                   <NotaInternaForm membershipId={m.id} notaActual={m.adminNota ?? null} />
                 </div>

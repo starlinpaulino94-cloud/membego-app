@@ -29,7 +29,13 @@ export default async function HistorialPage({
   const { page: pageParam } = await searchParams
   const page = Math.max(1, Number(pageParam ?? 1))
 
-  const { total, visitas, pages } = await getClienteVisitas(clienteId, page, PAGE_SIZE)
+  let result = { total: 0, visitas: [] as Awaited<ReturnType<typeof getClienteVisitas>>['visitas'], pages: 0 }
+  try {
+    result = await getClienteVisitas(clienteId, page, PAGE_SIZE)
+  } catch (e) {
+    console.error('[cliente-historial]', e)
+  }
+  const { total, visitas, pages } = result
 
   return (
     <div className="space-y-6">
@@ -79,9 +85,9 @@ export default async function HistorialPage({
                           Plan: {v.membership.plan.nombre}
                         </p>
                       )}
-                      {v.notas && (
-                        <p className="mt-1 text-xs italic text-slate-400">{v.notas}</p>
-                      )}
+                      {(v as Record<string, unknown>).notas ? (
+                        <p className="mt-1 text-xs italic text-slate-400">{String((v as Record<string, unknown>).notas)}</p>
+                      ) : null}
                     </div>
                     <div className="shrink-0">
                       {v.descontado ? (
