@@ -14,14 +14,23 @@ export default async function SucursalesPage() {
   const user = await requireRole(['ADMIN_EMPRESA', 'SUPERADMIN'])
   const companyId = companyFilter(user)
 
-  const sucursales = await prisma.sucursal.findMany({
-    where: companyId ? { companyId } : {},
-    include: {
-      company: true,
-      _count: { select: { visits: true } },
-    },
-    orderBy: { createdAt: 'asc' },
-  })
+  let sucursales: {
+    id: string; nombre: string; direccion: string | null; telefono: string | null;
+    activa: boolean; companyId: string; createdAt: Date;
+    company: { name: string }; _count: { visits: number }
+  }[] = []
+  try {
+    sucursales = await prisma.sucursal.findMany({
+      where: companyId ? { companyId } : {},
+      include: {
+        company: true,
+        _count: { select: { visits: true } },
+      },
+      orderBy: { createdAt: 'asc' },
+    })
+  } catch (e) {
+    console.error('[admin-sucursales]', e)
+  }
 
   return (
     <div className="space-y-6 animate-fade-up">

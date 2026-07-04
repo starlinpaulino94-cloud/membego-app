@@ -24,7 +24,7 @@ export default async function AdminDashboard() {
   try {
     metrics = await adminMetrics(user)
     company = user.metadata.companyId
-      ? await prisma.company.findUnique({ where: { id: user.metadata.companyId } })
+      ? await prisma.company.findUnique({ where: { id: user.metadata.companyId }, select: { id: true, name: true, slug: true, type: true } })
       : null
   } catch (e) {
     console.error('[admin-dashboard]', e)

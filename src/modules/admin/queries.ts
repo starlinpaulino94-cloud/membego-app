@@ -15,22 +15,24 @@ export async function adminMetrics(user: SessionUser) {
     : {}
   const visitWhere = companyId ? { cliente: { companyId } } : {}
 
+  const safeCount = (p: Promise<number>) => p.catch(() => 0)
+
   const [totalClientes, activas, pendientes, visitasHoy] = await Promise.all([
-    prisma.cliente.count({ where: clienteWhere }),
-    prisma.membership.count({
+    safeCount(prisma.cliente.count({ where: clienteWhere })),
+    safeCount(prisma.membership.count({
       where: { ...membershipWhere, estado: 'ACTIVA' },
-    }),
-    prisma.membership.count({
+    })),
+    safeCount(prisma.membership.count({
       where: { ...membershipWhere, estado: 'PENDIENTE' },
-    }),
-    prisma.visit.count({
+    })),
+    safeCount(prisma.visit.count({
       where: {
         ...visitWhere,
         fechaVisita: {
           gte: new Date(new Date().setHours(0, 0, 0, 0)),
         },
       },
-    }),
+    })),
   ])
 
   return { totalClientes, activas, pendientes, visitasHoy }
@@ -75,81 +77,96 @@ export async function getReportesAdmin(
   const in7Days = new Date(now)
   in7Days.setDate(in7Days.getDate() + 7)
 
-  const [ingresosAgg, activas, lavadosMes, visitasPorCliente, porVencer] =
-    await Promise.all([
-      prisma.membership.aggregate({
-        _sum: { montoPagado: true },
-        where: {
-          ...membershipWhere,
-          pagoConfirmado: true,
-          updatedAt: { gte: monthStart, lt: monthEnd },
-        },
-      }),
-      prisma.membership.findMany({
-        where: { ...membershipWhere, estado: 'ACTIVA' },
-        include: { plan: { select: { nombre: true } } },
-      }),
-      prisma.visit.count({
-        where: {
-          ...visitWhere,
-          fechaVisita: { gte: monthStart, lt: monthEnd },
-        },
-      }),
-      prisma.visit.groupBy({
-        by: ['clienteId'],
-        where: visitWhere,
-        _count: { _all: true },
-        orderBy: { _count: { clienteId: 'desc' } },
-        take: 5,
-      }),
-      prisma.membership.findMany({
-        where: {
-          ...membershipWhere,
-          estado: 'ACTIVA',
-          fechaVencimiento: { gte: now, lte: in7Days },
-        },
-        include: {
-          plan: { select: { nombre: true } },
-          cliente: { select: { nombre: true } },
-        },
-        orderBy: { fechaVencimiento: 'asc' },
-      }),
-    ])
+  let ingresosMes = 0
+  try {
+    const ingresosAgg = await prisma.membership.aggregate({
+      _sum: { montoPagado: true },
+      where: {
+        ...membershipWhere,
+        pagoConfirmado: true,
+        updatedAt: { gte: monthStart, lt: monthEnd },
+      },
+    })
+    ingresosMes = Number(ingresosAgg._sum.montoPagado ?? 0)
+  } catch {}
 
-  const planCounts = new Map<string, number>()
-  for (const m of activas) {
-    const nombre = m.plan.nombre
-    planCounts.set(nombre, (planCounts.get(nombre) ?? 0) + 1)
-  }
-  const activasPorPlan: ReportePorPlan[] = Array.from(planCounts.entries())
-    .map(([plan, count]) => ({ plan, count }))
-    .sort((a, b) => b.count - a.count)
+  let activasPorPlan: ReportePorPlan[] = []
+  try {
+    const activas = await prisma.membership.findMany({
+      where: { ...membershipWhere, estado: 'ACTIVA' },
+      include: { plan: { select: { nombre: true } } },
+    })
+    const planCounts = new Map<string, number>()
+    for (const m of activas) {
+      const nombre = m.plan.nombre
+      planCounts.set(nombre, (planCounts.get(nombre) ?? 0) + 1)
+    }
+    activasPorPlan = Array.from(planCounts.entries())
+      .map(([plan, count]) => ({ plan, count }))
+      .sort((a, b) => b.count - a.count)
+  } catch {}
+
+  let lavadosMes = 0
+  try {
+    lavadosMes = await prisma.visit.count({
+      where: {
+        ...visitWhere,
+        fechaVisita: { gte: monthStart, lt: monthEnd },
+      },
+    })
+  } catch {}
 
   let clientesFrecuentes: ClienteFrecuente[] = []
-  if (visitasPorCliente.length > 0) {
-    const clientes = await prisma.cliente.findMany({
-      where: { id: { in: visitasPorCliente.map((v) => v.clienteId) } },
-      select: { id: true, nombre: true },
+  try {
+    const visitasPorCliente = await prisma.visit.groupBy({
+      by: ['clienteId'],
+      where: visitWhere,
+      _count: { _all: true },
+      orderBy: { _count: { clienteId: 'desc' } },
+      take: 5,
     })
-    const nombreMap = new Map(clientes.map((c) => [c.id, c.nombre]))
-    clientesFrecuentes = visitasPorCliente.map((v) => ({
-      clienteId: v.clienteId,
-      nombre: nombreMap.get(v.clienteId) ?? 'Cliente',
-      visitas: v._count._all,
-    }))
-  }
+    if (visitasPorCliente.length > 0) {
+      const clientes = await prisma.cliente.findMany({
+        where: { id: { in: visitasPorCliente.map((v) => v.clienteId) } },
+        select: { id: true, nombre: true },
+      })
+      const nombreMap = new Map(clientes.map((c) => [c.id, c.nombre]))
+      clientesFrecuentes = visitasPorCliente.map((v) => ({
+        clienteId: v.clienteId,
+        nombre: nombreMap.get(v.clienteId) ?? 'Cliente',
+        visitas: v._count._all,
+      }))
+    }
+  } catch {}
 
-  return {
-    ingresosMes: Number(ingresosAgg._sum.montoPagado ?? 0),
-    activasPorPlan,
-    lavadosMes,
-    clientesFrecuentes,
-    membresiasPorVencer: porVencer.map((m) => ({
+  let membresiasPorVencer: MembresiaPorVencer[] = []
+  try {
+    const porVencer = await prisma.membership.findMany({
+      where: {
+        ...membershipWhere,
+        estado: 'ACTIVA',
+        fechaVencimiento: { gte: now, lte: in7Days },
+      },
+      include: {
+        plan: { select: { nombre: true } },
+        cliente: { select: { nombre: true } },
+      },
+      orderBy: { fechaVencimiento: 'asc' },
+    })
+    membresiasPorVencer = porVencer.map((m) => ({
       id: m.id,
       cliente: m.cliente.nombre,
       plan: m.plan.nombre,
       fechaVencimiento: m.fechaVencimiento,
-    })),
+    }))
+  } catch {}
+
+  return {
+    ingresosMes,
+    activasPorPlan,
+    lavadosMes,
+    clientesFrecuentes,
+    membresiasPorVencer,
   }
 }
 
@@ -162,7 +179,10 @@ export interface ReportesGlobales {
 export async function getReportesGlobales(): Promise<ReportesGlobales> {
   const [total, companies] = await Promise.all([
     getReportesAdmin(undefined),
-    prisma.company.findMany({ orderBy: { name: 'asc' } }),
+    prisma.company.findMany({
+      orderBy: { name: 'asc' },
+      select: { id: true, name: true },
+    }),
   ])
 
   const empresas = await Promise.all(

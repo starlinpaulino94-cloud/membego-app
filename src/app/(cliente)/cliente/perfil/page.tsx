@@ -12,9 +12,15 @@ export const dynamic = 'force-dynamic'
 
 export default async function PerfilPage() {
   const user = await requireRole('CLIENTE')
-  const cliente = user.metadata.clienteId
-    ? await getClienteFull(user.metadata.clienteId)
-    : null
+  let cliente = null
+  try {
+    cliente = user.metadata.clienteId
+      ? await getClienteFull(user.metadata.clienteId)
+      : null
+  } catch (e) {
+    console.error('[cliente-perfil]', e)
+    return <p className="text-muted-foreground">No pudimos cargar tu información. Intenta de nuevo más tarde.</p>
+  }
 
   if (!cliente) return <p className="text-muted-foreground">No se encontró tu información.</p>
 
@@ -53,7 +59,7 @@ export default async function PerfilPage() {
             nombre={cliente.nombre}
             email={cliente.email}
             telefono={cliente.telefono ?? null}
-            avatarUrl={cliente.avatarUrl ?? null}
+            avatarUrl={(cliente as Record<string, unknown>).avatarUrl as string ?? null}
           />
         </CardContent>
       </Card>

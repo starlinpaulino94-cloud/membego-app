@@ -15,12 +15,20 @@ export default async function DashboardEmpresa() {
   const user = await requireRole(['ADMIN_EMPRESA', 'SUPERADMIN', 'EMPLEADO'])
   const companyId = user.metadata.companyId ?? undefined
 
-  const [metrics, company, visitasPorDia, membresiasPorEstado] = await Promise.all([
-    adminMetrics(user),
-    companyId ? prisma.company.findUnique({ where: { id: companyId } }) : null,
-    getVisitasPorDia(companyId, 7),
-    getMembresiasPorEstado(companyId),
-  ])
+  let metrics = { totalClientes: 0, activas: 0, pendientes: 0, visitasHoy: 0 }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let company: any = null
+  let visitasPorDia: Awaited<ReturnType<typeof getVisitasPorDia>> = []
+  let membresiasPorEstado: Awaited<ReturnType<typeof getMembresiasPorEstado>> = []
+
+  try {
+    metrics = await adminMetrics(user)
+    company = companyId ? await prisma.company.findUnique({ where: { id: companyId }, select: { name: true } }) : null
+    visitasPorDia = await getVisitasPorDia(companyId, 7).catch(() => [])
+    membresiasPorEstado = await getMembresiasPorEstado(companyId).catch(() => [])
+  } catch (e) {
+    console.error('[empresa-dashboard]', e)
+  }
 
   const canManage = user.metadata.role === 'ADMIN_EMPRESA' || user.metadata.role === 'SUPERADMIN'
 

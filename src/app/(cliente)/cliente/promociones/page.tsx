@@ -13,15 +13,19 @@ function fmtDate(d: Date) {
 export default async function PromocionesDisponiblesPage() {
   const user = await requireRole('CLIENTE')
 
-  const clientes = await prisma.cliente.findMany({
-    where: { supabaseId: user.supabaseId },
-    select: { companyId: true },
-  })
-  const companyIds = clientes.map((c) => c.companyId)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let promociones: any[] = []
 
-  const now = new Date()
-  const promociones = companyIds.length
-    ? await prisma.promocion.findMany({
+  try {
+    const clientes = await prisma.cliente.findMany({
+      where: { supabaseId: user.supabaseId },
+      select: { companyId: true },
+    })
+    const companyIds = clientes.map((c) => c.companyId)
+
+    const now = new Date()
+    if (companyIds.length) {
+      promociones = await prisma.promocion.findMany({
         where: {
           companyId: { in: companyIds },
           activo: true,
@@ -31,7 +35,10 @@ export default async function PromocionesDisponiblesPage() {
         include: { company: true },
         orderBy: { publicadaEn: 'desc' },
       })
-    : []
+    }
+  } catch (e) {
+    console.error('[cliente-promociones]', e)
+  }
 
   return (
     <div className="space-y-6">
