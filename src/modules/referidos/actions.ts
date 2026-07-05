@@ -58,13 +58,6 @@ async function evaluarRecompensas(referenteClienteId: string, companyId: string)
 
   const referente = await prisma.cliente.findUnique({
     where: { id: referenteClienteId },
-    include: {
-      memberships: {
-        where: { estado: 'ACTIVA' },
-        orderBy: { createdAt: 'desc' },
-        take: 1,
-      },
-    },
   })
   if (!referente) return
 
@@ -86,15 +79,23 @@ async function evaluarRecompensas(referenteClienteId: string, companyId: string)
     }
 
     if (regla.tipoRecompensa === 'LAVADOS_GRATIS') {
-      const activa = referente.memberships[0]
-      if (activa) {
+      // Find active membership in THIS COMPANY for the referrer
+      const activa = await prisma.membership.findUnique({
+        where: {
+          clienteId_companyId: {
+            clienteId: referenteClienteId,
+            companyId,
+          },
+        },
+      })
+      if (activa && activa.estado === 'ACTIVA') {
         await prisma.membership.update({
           where: { id: activa.id },
           data: { lavadosRestantes: { increment: valor } },
         })
         mensaje = `¡Ganaste ${valor} usos gratis por tus referidos! Ya se aplicaron a tu membresía.`
       } else {
-        mensaje = `¡Ganaste ${valor} usos gratis por tus referidos! Se aplicarán cuando actives tu próxima membresía.`
+        mensaje = `¡Ganaste ${valor} usos gratis por tus referidos! Se aplicarán cuando actives tu próxima membresía en esta empresa.`
       }
     } else if (regla.tipoRecompensa === 'DESCUENTO_PORCENTAJE') {
       mensaje = `¡Ganaste un ${valor}% de descuento por tus referidos! Contacta al negocio para aplicarlo.`
