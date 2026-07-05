@@ -54,48 +54,48 @@ export async function confirmarPago(
   formData: FormData
 ): Promise<AdminActionState> {
   try {
-  const user = await requireAdmin()
-  if (!user) return { error: 'No autorizado.' }
+    const user = await requireAdmin()
+    if (!user) return { error: 'No autorizado.' }
 
-  // Rate limit payment confirmations to prevent spam
-  const adminId = user.metadata.dbUserId || 'anonymous'
-  if (!paymentLimiter(adminId)) {
-    return { error: 'Demasiados intentos. Intenta de nuevo en unos minutos.' }
-  }
+    const adminId = user.metadata.dbUserId || 'anonymous'
+    const isAllowed = paymentLimiter(adminId)
+    if (!isAllowed) {
+      return { error: 'Demasiados intentos. Intenta de nuevo en unos minutos.' }
+    }
 
-  const membershipId = String(formData.get('membershipId') ?? '')
-  const meta = await getRequestMeta()
+    const membershipId = String(formData.get('membershipId') ?? '')
+    const meta = await getRequestMeta()
 
-  const membership = await assertOwnership(membershipId, user)
-  if (!membership) return { error: 'Membresía no encontrada.' }
+    const membership = await assertOwnership(membershipId, user)
+    if (!membership) return { error: 'Membresía no encontrada.' }
 
-  const result = await activarMembresia(membershipId, user.metadata.dbUserId ?? null, meta)
-  if (!result.ok) return { error: result.error }
+    const result = await activarMembresia(membershipId, user.metadata.dbUserId ?? null, meta)
+    if (!result.ok) return { error: result.error }
 
-  const clienteUser = await prisma.user.findUnique({
-    where: { supabaseId: result.supabaseId },
-    select: { id: true },
-  })
-  if (clienteUser) {
-    await crearNotificacion({
-      userId: clienteUser.id,
-      tipo: 'PAGO_APROBADO',
-      titulo: '¡Tu membresía está activa!',
-      mensaje: `Tu pago para el plan "${result.planNombre}" fue confirmado. Ya puedes usar tu membresía.`,
-      href: '/cliente/membresia',
+    const clienteUser = await prisma.user.findUnique({
+      where: { supabaseId: result.supabaseId },
+      select: { id: true },
     })
-  }
+    if (clienteUser) {
+      await crearNotificacion({
+        userId: clienteUser.id,
+        tipo: 'PAGO_APROBADO',
+        titulo: '¡Tu membresía está activa!',
+        mensaje: `Tu pago para el plan "${result.planNombre}" fue confirmado. Ya puedes usar tu membresía.`,
+        href: '/cliente/membresia',
+      })
+    }
 
-  if (result.esPrimera) {
-    await procesarReferidoCompletado(result.clienteId, result.companyId)
-  }
+    if (result.esPrimera) {
+      await procesarReferidoCompletado(result.clienteId, result.companyId)
+    }
 
-  revalidatePath(`/admin/clientes/${result.clienteId}`)
-  revalidatePath('/admin/clientes')
-  revalidatePath('/admin/dashboard')
-  revalidatePath('/admin/pagos')
-  revalidatePath('/superadmin/membresias')
-  return { success: true }
+    revalidatePath(`/admin/clientes/${result.clienteId}`)
+    revalidatePath('/admin/clientes')
+    revalidatePath('/admin/dashboard')
+    revalidatePath('/admin/pagos')
+    revalidatePath('/superadmin/membresias')
+    return { success: true }
   } catch (e) {
     console.error('[admin] confirmarPago error:', e)
     return { error: 'Ocurrió un error inesperado. Intenta de nuevo.' }

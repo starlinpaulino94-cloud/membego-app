@@ -241,6 +241,18 @@ export async function confirmarVisita(
         throw new TxError('Este cliente pertenece a otra empresa.')
       }
 
+      if (sucursalId) {
+        const sucursal = await tx.sucursal.findUnique({
+          where: { id: sucursalId },
+        })
+        if (!sucursal) {
+          throw new TxError('La sucursal no fue encontrada.')
+        }
+        if (sucursal.companyId !== membership.cliente.companyId) {
+          throw new TxError('La sucursal no pertenece a la empresa del cliente.')
+        }
+      }
+
       const now = new Date()
       if (membership.estado !== 'ACTIVA') {
         throw new TxError(`La membresía no está activa (estado: ${membership.estado}).`)
