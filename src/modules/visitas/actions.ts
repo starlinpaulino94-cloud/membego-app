@@ -241,6 +241,18 @@ export async function confirmarVisita(
         throw new TxError('Este cliente pertenece a otra empresa.')
       }
 
+      if (sucursalId) {
+        const sucursal = await tx.sucursal.findUnique({
+          where: { id: sucursalId },
+        })
+        if (!sucursal) {
+          throw new TxError('La sucursal no fue encontrada.')
+        }
+        if (sucursal.companyId !== membership.cliente.companyId) {
+          throw new TxError('La sucursal no pertenece a la empresa del cliente.')
+        }
+      }
+
       const now = new Date()
       if (membership.estado !== 'ACTIVA') {
         throw new TxError(`La membresía no está activa (estado: ${membership.estado}).`)
@@ -256,6 +268,14 @@ export async function confirmarVisita(
 
       let qrToken: { id: string } | null = null
       if (qrTokenId) {
+        // Verify qrToken belongs to the correct cliente and is still active
+        const qrTokenData = await tx.qrToken.findUnique({
+          where: { id: qrTokenId },
+        })
+        if (!qrTokenData || qrTokenData.clienteId !== membership.clienteId) {
+          throw new TxError('Este código QR no es válido para este cliente.')
+        }
+
         const invalidado = await tx.qrToken.updateMany({
           where: { id: qrTokenId, activo: true, clienteId: membership.clienteId },
           data: { activo: false },

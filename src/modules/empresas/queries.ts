@@ -62,7 +62,9 @@ export async function listEmpresas(): Promise<EmpresaListItem[]> {
         activas = await prisma.membership.count({
           where: { estado: 'ACTIVA', cliente: { companyId: c.id } },
         })
-      } catch {}
+      } catch (e) {
+        console.error('[empresas] Error counting active memberships:', e)
+      }
 
       try {
         const agg = await prisma.membership.aggregate({
@@ -73,7 +75,9 @@ export async function listEmpresas(): Promise<EmpresaListItem[]> {
           _sum: { montoPagado: true },
         })
         ingresos = Number(agg._sum.montoPagado ?? 0)
-      } catch {}
+      } catch (e) {
+        console.error('[empresas] Error aggregating ingresos:', e)
+      }
 
       try {
         const log = await prisma.auditLog.findFirst({
@@ -82,7 +86,9 @@ export async function listEmpresas(): Promise<EmpresaListItem[]> {
           select: { createdAt: true },
         })
         ultimaActividad = log?.createdAt ?? null
-      } catch {}
+      } catch (e) {
+        console.error('[empresas] Error getting ultima actividad:', e)
+      }
 
       try {
         sucursalesCount = await prisma.sucursal.count({ where: { companyId: c.id } })
@@ -214,26 +220,26 @@ export async function getEmpresaDashboard(companyId: string): Promise<EmpresaDas
   let ingresosTotales = 0
   let ingresosEsteMes = 0
 
-  try { totalSucursales = await prisma.sucursal.count({ where: { companyId } }) } catch {}
-  try { totalPromociones = await prisma.promocion.count({ where: { companyId } }) } catch {}
-  try { promocionesActivas = await prisma.promocion.count({ where: { companyId, activo: true } }) } catch {}
-  try { totalReferidos = await prisma.referido.count({ where: { companyId } }) } catch {}
-  try { membresiasPendientes = await prisma.membership.count({ where: { estado: 'PENDIENTE_PAGO', cliente: { companyId } } }) } catch {}
-  try { pagosConfirmados = await prisma.membership.count({ where: { pagoConfirmado: true, cliente: { companyId } } }) } catch {}
+  try { totalSucursales = await prisma.sucursal.count({ where: { companyId } }) } catch (e) { console.error('[empresas-dash] Error counting sucursales:', e) }
+  try { totalPromociones = await prisma.promocion.count({ where: { companyId } }) } catch (e) { console.error('[empresas-dash] Error counting promociones:', e) }
+  try { promocionesActivas = await prisma.promocion.count({ where: { companyId, activo: true } }) } catch (e) { console.error('[empresas-dash] Error counting active promociones:', e) }
+  try { totalReferidos = await prisma.referido.count({ where: { companyId } }) } catch (e) { console.error('[empresas-dash] Error counting referidos:', e) }
+  try { membresiasPendientes = await prisma.membership.count({ where: { estado: 'PENDIENTE_PAGO', cliente: { companyId } } }) } catch (e) { console.error('[empresas-dash] Error counting pending memberships:', e) }
+  try { pagosConfirmados = await prisma.membership.count({ where: { pagoConfirmado: true, cliente: { companyId } } }) } catch (e) { console.error('[empresas-dash] Error counting confirmed payments:', e) }
   try {
     const agg = await prisma.membership.aggregate({
       where: { cliente: { companyId }, montoPagado: { not: null } },
       _sum: { montoPagado: true },
     })
     ingresosTotales = Number(agg._sum.montoPagado ?? 0)
-  } catch {}
+  } catch (e) { console.error('[empresas-dash] Error aggregating total ingresos:', e) }
   try {
     const agg = await prisma.membership.aggregate({
       where: { cliente: { companyId }, montoPagado: { not: null }, updatedAt: { gte: inicioMes } },
       _sum: { montoPagado: true },
     })
     ingresosEsteMes = Number(agg._sum.montoPagado ?? 0)
-  } catch {}
+  } catch (e) { console.error('[empresas-dash] Error aggregating monthly ingresos:', e) }
 
   let actividadReciente: EmpresaDashboard['actividadReciente'] = []
   try {
@@ -250,7 +256,7 @@ export async function getEmpresaDashboard(companyId: string): Promise<EmpresaDas
       createdAt: a.createdAt,
       userName: a.user?.name ?? null,
     }))
-  } catch {}
+  } catch (e) { console.error('[empresas-dash] Error fetching audit logs:', e) }
 
   let topPlanes: EmpresaDashboard['topPlanes'] = []
   try {
@@ -265,7 +271,7 @@ export async function getEmpresaDashboard(companyId: string): Promise<EmpresaDas
       precio: Number(p.precio),
       membresiaCount: p._count.memberships,
     }))
-  } catch {}
+  } catch (e) { console.error('[empresas-dash] Error fetching top planes:', e) }
 
   let membresiasPorEstado: EmpresaDashboard['membresiasPorEstado'] = []
   try {
@@ -275,7 +281,7 @@ export async function getEmpresaDashboard(companyId: string): Promise<EmpresaDas
       _count: { _all: true },
     })
     membresiasPorEstado = grouped.map((m) => ({ estado: m.estado, count: m._count._all }))
-  } catch {}
+  } catch (e) { console.error('[empresas-dash] Error grouping memberships by estado:', e) }
 
   return {
     company: {

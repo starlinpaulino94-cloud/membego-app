@@ -109,11 +109,18 @@ export async function marcarTodasLeidas() {
 }
 
 export async function marcarLeida(id: string) {
-  const user = await getUser()
-  if (!user?.metadata.dbUserId) return
+  try {
+    const user = await getUser()
+    if (!user?.metadata.dbUserId) return
 
-  await prisma.notificacion.updateMany({
-    where: { id, userId: user.metadata.dbUserId },
-    data: { leida: true },
-  })
+    const result = await prisma.notificacion.updateMany({
+      where: { id, userId: user.metadata.dbUserId },
+      data: { leida: true },
+    })
+    if (result.count === 0) {
+      console.warn('[notificacion] marcarLeida: notification not found or not owned by user', id)
+    }
+  } catch (e) {
+    console.error('[notificacion] marcarLeida error', e)
+  }
 }

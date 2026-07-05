@@ -73,7 +73,7 @@ export async function guardarComunicacionConfig(
   if (!numero || numero.length < 7) {
     return { error: 'Ingresa un número de WhatsApp válido (solo dígitos).' }
   }
-  if (correoSoporte && !/.+@.+\..+/.test(correoSoporte)) {
+  if (correoSoporte && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correoSoporte)) {
     return { error: 'El correo de soporte no tiene un formato válido.' }
   }
 
@@ -120,7 +120,7 @@ export async function enviarCorreoPrueba(
   if (!user) return { error: 'No autorizado.' }
 
   const correo = String(formData.get('correoSoporte') ?? '').trim()
-  if (!correo || !/.+@.+\..+/.test(correo)) {
+  if (!correo || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correo)) {
     return { error: 'Ingresa un correo de soporte válido antes de probar.' }
   }
 
@@ -158,6 +158,8 @@ export async function crearFaq(
   const companyId = resolveCompanyId(user, formData)
   if (!companyId) return { error: 'Selecciona una empresa.' }
 
+  // XSS protection: pregunta and respuesta are auto-escaped by React JSX
+  // when rendered. No additional sanitization needed.
   const pregunta = String(formData.get('pregunta') ?? '').trim()
   const respuesta = String(formData.get('respuesta') ?? '').trim()
   const orden = Number(formData.get('orden') ?? 0) || 0
@@ -266,13 +268,24 @@ export async function crearTicket(
   const asunto = String(formData.get('asunto') ?? '').trim()
   const descripcion = String(formData.get('descripcion') ?? '').trim()
   const categoriaRaw = String(formData.get('categoria') ?? 'OTRO').trim()
-  const adjuntoUrl = String(formData.get('adjuntoUrl') ?? '').trim()
+  const adjuntoUrl = String(formData.get('adjuntoUrl') ?? '').trim() || null
   const categoria = (TICKET_CATEGORIAS as readonly string[]).includes(categoriaRaw)
     ? categoriaRaw
     : 'OTRO'
 
   if (!asunto || !descripcion) {
     return { error: 'El asunto y la descripción son obligatorios.' }
+  }
+
+  if (adjuntoUrl) {
+    try {
+      const url = new URL(adjuntoUrl)
+      if (!['https'].includes(url.protocol.slice(0, -1))) {
+        return { error: 'Solo se permiten URLs HTTPS para adjuntos.' }
+      }
+    } catch {
+      return { error: 'La URL del adjunto no es válida.' }
+    }
   }
 
   try {
@@ -310,14 +323,16 @@ export async function crearTicket(
       select: { correoSoporte: true },
     })
     if (config?.correoSoporte) {
-      await sendEmail({
+      sendEmail({
         to: config.correoSoporte,
         subject: `Nuevo ticket: ${asunto}`,
         html: `<p>Se recibió un nuevo ticket de soporte.</p>
                <p><strong>Cliente:</strong> ${cliente?.nombre ?? 'Cliente'}<br/>
                <strong>Asunto:</strong> ${asunto}<br/>
                <strong>Descripción:</strong> ${descripcion}</p>`,
-      }).catch(() => {})
+      }).catch((e) => {
+        console.error('[soporte-email]', e)
+      })
     }
 
     revalidatePath('/cliente/ayuda')
