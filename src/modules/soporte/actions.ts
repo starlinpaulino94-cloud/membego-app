@@ -268,13 +268,24 @@ export async function crearTicket(
   const asunto = String(formData.get('asunto') ?? '').trim()
   const descripcion = String(formData.get('descripcion') ?? '').trim()
   const categoriaRaw = String(formData.get('categoria') ?? 'OTRO').trim()
-  const adjuntoUrl = String(formData.get('adjuntoUrl') ?? '').trim()
+  const adjuntoUrl = String(formData.get('adjuntoUrl') ?? '').trim() || null
   const categoria = (TICKET_CATEGORIAS as readonly string[]).includes(categoriaRaw)
     ? categoriaRaw
     : 'OTRO'
 
   if (!asunto || !descripcion) {
     return { error: 'El asunto y la descripción son obligatorios.' }
+  }
+
+  if (adjuntoUrl) {
+    try {
+      const url = new URL(adjuntoUrl)
+      if (!['https'].includes(url.protocol.slice(0, -1))) {
+        return { error: 'Solo se permiten URLs HTTPS para adjuntos.' }
+      }
+    } catch {
+      return { error: 'La URL del adjunto no es válida.' }
+    }
   }
 
   try {
