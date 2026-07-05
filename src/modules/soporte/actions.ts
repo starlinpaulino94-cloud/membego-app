@@ -310,14 +310,16 @@ export async function crearTicket(
       select: { correoSoporte: true },
     })
     if (config?.correoSoporte) {
-      await sendEmail({
+      sendEmail({
         to: config.correoSoporte,
         subject: `Nuevo ticket: ${asunto}`,
         html: `<p>Se recibió un nuevo ticket de soporte.</p>
                <p><strong>Cliente:</strong> ${cliente?.nombre ?? 'Cliente'}<br/>
                <strong>Asunto:</strong> ${asunto}<br/>
                <strong>Descripción:</strong> ${descripcion}</p>`,
-      }).catch(() => {})
+      }).catch((e) => {
+        console.error('[soporte-email]', e)
+      })
     }
 
     revalidatePath('/cliente/ayuda')

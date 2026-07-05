@@ -73,6 +73,8 @@ async function evaluarRecompensas(referenteClienteId: string, companyId: string)
     select: { id: true },
   })
 
+  const notificacionesACrear = []
+
   for (const regla of reglas) {
     let mensaje = ''
 
@@ -104,14 +106,22 @@ async function evaluarRecompensas(referenteClienteId: string, companyId: string)
     })
 
     if (referenteUser) {
-      await crearNotificacion({
+      notificacionesACrear.push({
         userId: referenteUser.id,
-        tipo: 'RECOMPENSA_REFERIDO',
+        tipo: 'RECOMPENSA_REFERIDO' as const,
         titulo: '¡Recompensa por referidos!',
         mensaje,
         href: '/cliente/referidos',
       })
     }
+  }
+
+  if (notificacionesACrear.length > 0) {
+    await prisma.notificacion.createMany({
+      data: notificacionesACrear,
+    }).catch((e) => {
+      console.error('[referidos-notifications]', e)
+    })
   }
 
   await prisma.referido.updateMany({
