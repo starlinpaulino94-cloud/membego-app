@@ -1,6 +1,6 @@
 'use client'
 
-import { useActionState, useEffect } from 'react'
+import { useActionState, useEffect, useRef } from 'react'
 import { useFormStatus } from 'react-dom'
 import { Loader2, Save } from 'lucide-react'
 import { toast } from 'sonner'
@@ -16,6 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { LogoUpload } from './LogoUpload'
 
 interface CompanyData {
   id: string
@@ -45,11 +46,18 @@ function SubmitBtn() {
 
 export function EmpresaEditForm({ company }: { company: CompanyData }) {
   const [state, action] = useActionState(actualizarEmpresa, init)
+  const logoUrlRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (state.success) toast.success(state.message ?? 'Guardado.')
     if (state.error) toast.error(state.error)
   }, [state.success, state.error, state.message])
+
+  function handleLogoUploaded(url: string) {
+    if (logoUrlRef.current) {
+      logoUrlRef.current.value = url
+    }
+  }
 
   return (
     <form action={action} className="space-y-6">
@@ -107,9 +115,15 @@ export function EmpresaEditForm({ company }: { company: CompanyData }) {
           <Input id="website" name="website" type="url" defaultValue={company.website ?? ''} placeholder="https://…" />
         </div>
 
-        <div className="space-y-1.5">
-          <Label htmlFor="logoUrl">URL del logo</Label>
-          <Input id="logoUrl" name="logoUrl" type="url" defaultValue={company.logoUrl ?? ''} placeholder="https://…" />
+        <div className="space-y-1.5 sm:col-span-2">
+          <Label>Logo de la empresa</Label>
+          <LogoUpload
+            companyId={company.id}
+            currentUrl={company.logoUrl}
+            companyName={company.name}
+            onUploaded={handleLogoUploaded}
+          />
+          <input ref={logoUrlRef} type="hidden" name="logoUrl" defaultValue={company.logoUrl ?? ''} />
         </div>
 
         <div className="space-y-1.5 sm:col-span-2">
