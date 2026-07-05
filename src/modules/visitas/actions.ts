@@ -164,11 +164,11 @@ export async function buscarPorToken(token: string): Promise<LookupResult> {
         planNombre: m.plan.nombre,
         planBeneficios: m.plan.beneficios,
         estado: m.estado,
-        esIlimitado: active?.plan.esIlimitado ?? false,
-        lavadosIncluidos: active?.plan.lavadosIncluidos ?? 0,
-        lavadosRestantes: active?.lavadosRestantes ?? 0,
-        fechaInicio: active?.fechaInicio?.toISOString() ?? null,
-        fechaVencimiento: active?.fechaVencimiento?.toISOString() ?? null,
+        esIlimitado: m.plan.esIlimitado ?? false,
+        lavadosIncluidos: m.plan.lavadosIncluidos ?? 0,
+        lavadosRestantes: m.lavadosRestantes ?? 0,
+        fechaInicio: m.fechaInicio?.toISOString() ?? null,
+        fechaVencimiento: m.fechaVencimiento?.toISOString() ?? null,
         vehiculos: cliente.vehiculos.map((v) => ({
           id: v.id,
           label: `${v.marca} ${v.modelo} (${v.anio})${v.placa ? ` · ${v.placa}` : ''}`,
@@ -233,7 +233,7 @@ export async function confirmarVisita(
       if (
         user.metadata.role !== 'SUPERADMIN' &&
         user.metadata.companyId &&
-        membership.cliente.companyId !== user.metadata.companyId
+        membership.companyId !== user.metadata.companyId
       ) {
         throw new TxError('Este cliente pertenece a otra empresa.')
       }
@@ -245,7 +245,7 @@ export async function confirmarVisita(
         if (!sucursal) {
           throw new TxError('La sucursal no fue encontrada.')
         }
-        if (sucursal.companyId !== membership.cliente.companyId) {
+        if (sucursal.companyId !== membership.companyId) {
           throw new TxError('La sucursal no pertenece a la empresa del cliente.')
         }
       }
