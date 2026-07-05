@@ -37,6 +37,7 @@ export async function seleccionarPlan(
   if (!cliente) return { error: 'Cliente no encontrado.' }
 
   const plan = await prisma.plan.findUnique({ where: { id: planId } })
+  // Validate: plan must exist, belong to client's company, and be active
   if (!plan || plan.companyId !== cliente.companyId || !plan.activo) {
     return { error: 'Plan no válido para tu empresa.' }
   }

@@ -24,35 +24,40 @@ export async function getClienteCompanies(supabaseId: string) {
  * Cambia el contexto de empresa activo del cliente (app_metadata.clienteId/companyId).
  * Requiere que ya exista un registro Cliente del usuario en esa empresa.
  */
-export async function switchCompany(companyId: string) {
-  const user = await getUser()
-  if (!user || user.metadata.role !== 'CLIENTE') {
-    throw new Error('No autorizado.')
+export async function switchCompany(companyId: string): Promise<ClienteActionState> {
+  try {
+    const user = await getUser()
+    if (!user || user.metadata.role !== 'CLIENTE') {
+      return { error: 'No autorizado.' }
+    }
+
+    const cliente = await prisma.cliente.findUnique({
+      where: { supabaseId_companyId: { supabaseId: user.supabaseId, companyId } },
+    })
+    if (!cliente) {
+      return { error: 'No tienes una cuenta en esa empresa.' }
+    }
+
+    const dbUser = await prisma.user.findUnique({
+      where: { supabaseId: user.supabaseId },
+    })
+
+    const admin = createAdminClient()
+    await admin.auth.admin.updateUserById(user.supabaseId, {
+      app_metadata: {
+        role: 'CLIENTE',
+        dbUserId: dbUser?.id ?? user.metadata.dbUserId,
+        clienteId: cliente.id,
+        companyId: cliente.companyId,
+      },
+    })
+
+    revalidatePath('/', 'layout')
+    redirect('/cliente/dashboard')
+  } catch (e) {
+    console.error('[cliente] switchCompany error:', e)
+    return { error: 'Ocurrió un error inesperado. Intenta de nuevo.' }
   }
-
-  const cliente = await prisma.cliente.findUnique({
-    where: { supabaseId_companyId: { supabaseId: user.supabaseId, companyId } },
-  })
-  if (!cliente) {
-    throw new Error('No tienes una cuenta en esa empresa.')
-  }
-
-  const dbUser = await prisma.user.findUnique({
-    where: { supabaseId: user.supabaseId },
-  })
-
-  const admin = createAdminClient()
-  await admin.auth.admin.updateUserById(user.supabaseId, {
-    app_metadata: {
-      role: 'CLIENTE',
-      dbUserId: dbUser?.id ?? user.metadata.dbUserId,
-      clienteId: cliente.id,
-      companyId: cliente.companyId,
-    },
-  })
-
-  revalidatePath('/', 'layout')
-  redirect('/cliente/dashboard')
 }
 
 /** Update the logged-in cliente's nombre and telefono. */

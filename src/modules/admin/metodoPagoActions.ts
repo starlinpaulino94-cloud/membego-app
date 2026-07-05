@@ -31,6 +31,10 @@ export async function crearMetodoPago(
 
   if (!companyId) return { error: 'Empresa requerida.' }
 
+  // Verify company exists to prevent creating metodoPago for non-existent companies
+  const company = await prisma.company.findUnique({ where: { id: companyId } })
+  if (!company) return { error: 'Empresa no encontrada.' }
+
   const tipo = String(formData.get('tipo') ?? '').trim()
   const nombre = String(formData.get('nombre') ?? '').trim()
   const titular = String(formData.get('titular') ?? '').trim() || null

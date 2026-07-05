@@ -216,7 +216,7 @@ export async function registrarCliente(
     return { success: true }
   } catch (e) {
     // Roll back the Supabase user if DB write failed
-    await admin.auth.admin.deleteUser(supabaseId).catch(() => {})
+    await admin.auth.admin.deleteUser(supabaseId).catch(e => console.error('[registro-cleanup]', e))
     console.error(e)
     return { error: 'No se pudo completar el registro. Intenta de nuevo.' }
   }

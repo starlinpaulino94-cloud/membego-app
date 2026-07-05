@@ -73,7 +73,7 @@ export async function guardarComunicacionConfig(
   if (!numero || numero.length < 7) {
     return { error: 'Ingresa un número de WhatsApp válido (solo dígitos).' }
   }
-  if (correoSoporte && !/.+@.+\..+/.test(correoSoporte)) {
+  if (correoSoporte && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correoSoporte)) {
     return { error: 'El correo de soporte no tiene un formato válido.' }
   }
 
@@ -120,7 +120,7 @@ export async function enviarCorreoPrueba(
   if (!user) return { error: 'No autorizado.' }
 
   const correo = String(formData.get('correoSoporte') ?? '').trim()
-  if (!correo || !/.+@.+\..+/.test(correo)) {
+  if (!correo || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correo)) {
     return { error: 'Ingresa un correo de soporte válido antes de probar.' }
   }
 
@@ -158,6 +158,8 @@ export async function crearFaq(
   const companyId = resolveCompanyId(user, formData)
   if (!companyId) return { error: 'Selecciona una empresa.' }
 
+  // XSS protection: pregunta and respuesta are auto-escaped by React JSX
+  // when rendered. No additional sanitization needed.
   const pregunta = String(formData.get('pregunta') ?? '').trim()
   const respuesta = String(formData.get('respuesta') ?? '').trim()
   const orden = Number(formData.get('orden') ?? 0) || 0

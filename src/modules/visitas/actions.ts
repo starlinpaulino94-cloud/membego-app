@@ -268,6 +268,14 @@ export async function confirmarVisita(
 
       let qrToken: { id: string } | null = null
       if (qrTokenId) {
+        // Verify qrToken belongs to the correct cliente and is still active
+        const qrTokenData = await tx.qrToken.findUnique({
+          where: { id: qrTokenId },
+        })
+        if (!qrTokenData || qrTokenData.clienteId !== membership.clienteId) {
+          throw new TxError('Este código QR no es válido para este cliente.')
+        }
+
         const invalidado = await tx.qrToken.updateMany({
           where: { id: qrTokenId, activo: true, clienteId: membership.clienteId },
           data: { activo: false },

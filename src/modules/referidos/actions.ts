@@ -78,21 +78,28 @@ async function evaluarRecompensas(referenteClienteId: string, companyId: string)
   for (const regla of reglas) {
     let mensaje = ''
 
+    // Validate Number conversion to ensure it's finite
+    const valor = Number(regla.valorRecompensa)
+    if (!Number.isFinite(valor)) {
+      console.error('[referidos] Invalid valorRecompensa:', regla.valorRecompensa)
+      continue
+    }
+
     if (regla.tipoRecompensa === 'LAVADOS_GRATIS') {
       const activa = referente.memberships[0]
       if (activa) {
         await prisma.membership.update({
           where: { id: activa.id },
-          data: { lavadosRestantes: { increment: Number(regla.valorRecompensa) } },
+          data: { lavadosRestantes: { increment: valor } },
         })
-        mensaje = `¡Ganaste ${Number(regla.valorRecompensa)} usos gratis por tus referidos! Ya se aplicaron a tu membresía.`
+        mensaje = `¡Ganaste ${valor} usos gratis por tus referidos! Ya se aplicaron a tu membresía.`
       } else {
-        mensaje = `¡Ganaste ${Number(regla.valorRecompensa)} usos gratis por tus referidos! Se aplicarán cuando actives tu próxima membresía.`
+        mensaje = `¡Ganaste ${valor} usos gratis por tus referidos! Se aplicarán cuando actives tu próxima membresía.`
       }
     } else if (regla.tipoRecompensa === 'DESCUENTO_PORCENTAJE') {
-      mensaje = `¡Ganaste un ${Number(regla.valorRecompensa)}% de descuento por tus referidos! Contacta al negocio para aplicarlo.`
+      mensaje = `¡Ganaste un ${valor}% de descuento por tus referidos! Contacta al negocio para aplicarlo.`
     } else {
-      mensaje = `¡Ganaste RD$${Number(regla.valorRecompensa)} de descuento por tus referidos! Contacta al negocio para aplicarlo.`
+      mensaje = `¡Ganaste RD$${valor} de descuento por tus referidos! Contacta al negocio para aplicarlo.`
     }
 
     await prisma.auditLog.create({

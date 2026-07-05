@@ -511,6 +511,8 @@ export async function solicitarNuevaEvidencia(
 
 /**
  * Guardar nota interna sobre una membresía (solo visible para admins).
+ * XSS protection: adminNota is auto-escaped by React JSX when rendered.
+ * No additional sanitization needed if not rendered as .innerHTML.
  */
 export async function guardarNotaInterna(
   _prev: AdminActionState,
