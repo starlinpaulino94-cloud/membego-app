@@ -132,6 +132,7 @@ export async function crearMembresia(
     await prisma.membership.create({
       data: {
         clienteId,
+        companyId: cliente.companyId,
         planId,
         estado: 'PENDIENTE',
         lavadosRestantes: plan.esIlimitado ? 0 : plan.lavadosIncluidos,

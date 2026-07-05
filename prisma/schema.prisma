@@ -128,6 +128,7 @@ model Company {
   users         User[]
   plans         Plan[]
   clientes      Cliente[]
+  memberships   Membership[]
   sucursales    Sucursal[]
   metodosPago   MetodoPago[]
   auditLogs     AuditLog[]
@@ -389,6 +390,8 @@ model Membership {
   id               String           @id @default(cuid())
   clienteId        String
   cliente          Cliente          @relation(fields: [clienteId], references: [id])
+  companyId        String
+  company          Company          @relation(fields: [companyId], references: [id])
   planId           String
   plan             Plan             @relation(fields: [planId], references: [id])
   userId           String?          // empleado/admin que la creó
@@ -412,22 +415,28 @@ model Membership {
 
   visits           Visit[]
   comprobantes     Comprobante[]
+  qrTokens         QrToken[]
 
+  @@unique([clienteId, companyId])
   @@index([estado])
   @@index([clienteId])
+  @@index([companyId])
   @@map("memberships")
 }
 
-// QR generado SOLO al activar membresía. Permanente y único por cliente+empresa.
+// QR generado SOLO al activar membresía. Uno por cada membresía del cliente.
 model QrToken {
-  id        String   @id @default(cuid())
-  clienteId String
-  cliente   Cliente  @relation(fields: [clienteId], references: [id])
-  token     String   @unique @default(cuid())
-  activo    Boolean  @default(true)
-  createdAt DateTime @default(now())
+  id          String      @id @default(cuid())
+  clienteId   String
+  cliente     Cliente     @relation(fields: [clienteId], references: [id])
+  membresiaId String
+  membership  Membership  @relation(fields: [membresiaId], references: [id], onDelete: Cascade)
+  token       String      @unique @default(cuid())
+  activo      Boolean     @default(true)
+  createdAt   DateTime    @default(now())
 
   @@index([clienteId, activo])
+  @@index([membresiaId])
   @@map("qr_tokens")
 }
 

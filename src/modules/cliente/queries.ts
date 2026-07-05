@@ -1,5 +1,64 @@
 import { prisma } from '@/lib/prisma'
 
+/**
+ * Load all memberships for a user across all companies.
+ * Used for the new "Mis Membresías" dashboard.
+ */
+export async function getClienteAllMemberships(supabaseId: string) {
+  const clientes = await prisma.cliente.findMany({
+    where: { supabaseId },
+    include: {
+      memberships: {
+        include: {
+          plan: true,
+          company: { select: { id: true, name: true, logoUrl: true, type: true } },
+          qrTokens: {
+            where: { activo: true },
+            take: 1,
+            select: { id: true, token: true },
+          },
+        },
+        orderBy: [{ estado: 'asc' }, { fechaVencimiento: 'desc' }],
+      },
+    },
+  })
+
+  return clientes
+    .flatMap((c) =>
+      c.memberships.map((m) => ({
+        id: m.id,
+        clienteId: c.id,
+        companyId: m.companyId,
+        company: m.company,
+        plan: m.plan,
+        estado: m.estado,
+        fechaVencimiento: m.fechaVencimiento,
+        fechaInicio: m.fechaInicio,
+        lavadosRestantes: m.lavadosRestantes,
+        qrToken: m.qrTokens[0] || null,
+      }))
+    )
+    .sort((a, b) => {
+      // ACTIVA first, then PENDIENTE_PAGO, then others
+      const orden = {
+        ACTIVA: 0,
+        PENDIENTE_PAGO: 1,
+        PENDIENTE: 2,
+        VENCIDA: 3,
+        CANCELADA: 4,
+        RECHAZADA: 5,
+      }
+      const aOrd = orden[a.estado as keyof typeof orden] ?? 99
+      const bOrd = orden[b.estado as keyof typeof orden] ?? 99
+      if (aOrd !== bOrd) return aOrd - bOrd
+      // Then by expiration (closest first)
+      if (a.fechaVencimiento && b.fechaVencimiento) {
+        return a.fechaVencimiento.getTime() - b.fechaVencimiento.getTime()
+      }
+      return 0
+    })
+}
+
 export async function getClienteFull(clienteId: string) {
   const cliente = await prisma.cliente.findUnique({
     where: { id: clienteId },
@@ -14,16 +73,11 @@ export async function getClienteFull(clienteId: string) {
       company: {
         select: { id: true, name: true, slug: true, type: true, description: true, logoUrl: true, isActive: true },
       },
-      qrTokens: {
-        where: { activo: true },
-        orderBy: { createdAt: 'desc' },
-        take: 1,
-        select: { id: true, token: true, activo: true, createdAt: true },
-      },
       vehiculos: true,
       memberships: {
         select: {
           id: true,
+          companyId: true,
           estado: true,
           lavadosRestantes: true,
           fechaInicio: true,
@@ -33,6 +87,11 @@ export async function getClienteFull(clienteId: string) {
           planId: true,
           plan: {
             select: { id: true, nombre: true, precio: true, lavadosIncluidos: true, esIlimitado: true, beneficios: true, descripcion: true },
+          },
+          qrTokens: {
+            where: { activo: true },
+            take: 1,
+            select: { id: true, token: true, activo: true, createdAt: true },
           },
         },
         orderBy: { createdAt: 'desc' },
@@ -44,6 +103,7 @@ export async function getClienteFull(clienteId: string) {
           fechaVisita: true,
           descontado: true,
           clienteId: true,
+          membresiaId: true,
           vehiculoId: true,
           vehiculo: true,
         },
@@ -58,6 +118,7 @@ export async function getClienteFull(clienteId: string) {
   // Add optional fields that may not exist in DB yet
   const enriched = {
     ...cliente,
+    qrTokens: cliente.memberships[0]?.qrTokens ?? [],
     memberships: cliente.memberships.map((m) => ({
       ...m,
       pagoConfirmado: (m as Record<string, unknown>).pagoConfirmado as boolean ?? false,
@@ -77,7 +138,7 @@ export async function getClienteFull(clienteId: string) {
   try {
     const fullMemberships = await prisma.membership.findMany({
       where: { clienteId },
-      include: { plan: true, metodoPago: true },
+      include: { plan: true, metodoPago: true, qrTokens: { where: { activo: true }, take: 1 } },
       orderBy: { createdAt: 'desc' },
     })
     enriched.memberships = fullMemberships.map((m) => ({
@@ -89,6 +150,8 @@ export async function getClienteFull(clienteId: string) {
       rechazadoReason: (m as Record<string, unknown>).rechazadoReason as string | null ?? null,
       metodoPago: (m as Record<string, unknown>).metodoPago ?? null,
     })) as typeof enriched.memberships
+    // Update qrTokens to use first membership's active QR
+    enriched.qrTokens = fullMemberships[0]?.qrTokens ?? []
   } catch {}
 
   // Try to load sucursal info on visits
