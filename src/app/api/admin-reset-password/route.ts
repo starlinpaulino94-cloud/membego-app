@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { ensureEmailIdentity } from '@/lib/supabase/identity'
+import { checkBootstrapAccess } from '@/lib/bootstrap-guard'
 
 export const dynamic = 'force-dynamic'
 
@@ -12,21 +13,13 @@ export const dynamic = 'force-dynamic'
  * (updateUserById), que genera un hash que GoTrue sí valida. Sirve para reparar
  * cuentas cuya contraseña quedó inutilizable tras haberse fijado por SQL.
  *
- * Seguridad: requiere el header `x-bootstrap-secret` igual a la variable de
- * entorno BOOTSTRAP_SECRET. Pensado para uso puntual de operación; elimina la
- * variable (o el endpoint) cuando termines.
+ * Seguridad (ver checkBootstrapAccess): apagado por defecto (BOOTSTRAP_ENABLED),
+ * secreto largo comparado en tiempo constante y rate limit por IP. Pon
+ * BOOTSTRAP_ENABLED=false cuando termines.
  */
 export async function POST(req: NextRequest) {
-  const secret = process.env.BOOTSTRAP_SECRET
-  if (!secret) {
-    return NextResponse.json(
-      { error: 'BOOTSTRAP_SECRET no está configurado en el servidor.' },
-      { status: 500 }
-    )
-  }
-  if (req.headers.get('x-bootstrap-secret') !== secret) {
-    return NextResponse.json({ error: 'No autorizado.' }, { status: 401 })
-  }
+  const denied = checkBootstrapAccess(req)
+  if (denied) return denied
 
   let body: { email?: string; password?: string }
   try {

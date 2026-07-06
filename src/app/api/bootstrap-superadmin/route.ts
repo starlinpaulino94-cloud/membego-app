@@ -1,36 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { checkBootstrapAccess } from '@/lib/bootstrap-guard'
 
 export const dynamic = 'force-dynamic'
 
 /**
  * POST /api/bootstrap-superadmin
  *
- * Endpoint de arranque protegido para crear (o promover) una cuenta SUPERADMIN
- * en producción, cuando todavía no existe ninguna forma de iniciar sesión.
+ * Endpoint de arranque para crear (o promover) una cuenta SUPERADMIN en
+ * producción, cuando todavía no existe ninguna forma de iniciar sesión.
  *
- * Seguridad:
- *  - Requiere el header `x-bootstrap-secret` que debe coincidir con la variable
- *    de entorno BOOTSTRAP_SECRET (configúrala en Vercel).
+ * Seguridad (ver checkBootstrapAccess):
+ *  - Apagado por defecto: requiere BOOTSTRAP_ENABLED=true.
+ *  - Requiere el header `x-bootstrap-secret` == BOOTSTRAP_SECRET (>=24 chars),
+ *    comparado en tiempo constante, con rate limit por IP.
  *  - Idempotente: si el usuario ya existe en Supabase, solo actualiza contraseña,
  *    rol y app_metadata.
- *  - Pensado para ejecutarse una sola vez. Elimina la variable BOOTSTRAP_SECRET
- *    (o este endpoint) después de usarlo.
+ *  - Pensado para ejecutarse una sola vez. Pon BOOTSTRAP_ENABLED=false (o elimina
+ *    la variable) en Vercel cuando termines.
  */
 export async function POST(req: NextRequest) {
-  const secret = process.env.BOOTSTRAP_SECRET
-  if (!secret) {
-    return NextResponse.json(
-      { error: 'BOOTSTRAP_SECRET no está configurado en el servidor.' },
-      { status: 500 }
-    )
-  }
-
-  const provided = req.headers.get('x-bootstrap-secret')
-  if (!provided || provided !== secret) {
-    return NextResponse.json({ error: 'No autorizado.' }, { status: 401 })
-  }
+  const denied = checkBootstrapAccess(req)
+  if (denied) return denied
 
   let body: { email?: string; password?: string; nombre?: string }
   try {

@@ -1,4 +1,9 @@
-'use server'
+/**
+ * Módulo interno de servidor (sin 'use server'). `procesarReferidoCompletado`
+ * otorga recompensas de referido y solo debe llamarse server-to-server desde un
+ * flujo ya autorizado (activación de membresía). `getClienteReferidos` se invoca
+ * desde un Server Component. Ninguna de las dos debe ser un endpoint público.
+ */
 
 import { prisma } from '@/lib/prisma'
 import { crearNotificacion } from '@/modules/notificaciones/actions'

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useCallback } from 'react'
+import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Loader2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
@@ -15,6 +16,7 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { safeInternalPath } from '@/lib/utils'
 import { ROLE_HOME, type AppRole } from '@/types'
 
 // Simple client-side rate limiting cache
@@ -81,7 +83,7 @@ export function LoginForm({
     }
 
     const role = (data.user?.app_metadata?.role ?? 'CLIENTE') as AppRole
-    const redirect = searchParams.get('redirect') ?? ROLE_HOME[role]
+    const redirect = safeInternalPath(searchParams.get('redirect'), ROLE_HOME[role])
     router.replace(redirect)
     router.refresh()
   }, [email, password, searchParams, router])
@@ -139,24 +141,24 @@ export function LoginForm({
           </Button>
         </form>
         <p className="mt-4 text-center text-sm text-slate-400">
-          <a href="/recuperar" className="text-sky-400 hover:underline">
+          <Link href="/recuperar" className="text-sky-400 hover:underline">
             ¿Olvidaste tu contraseña?
-          </a>
+          </Link>
         </p>
         {!isStaff && (
           <p className="mt-2 text-center text-sm text-slate-400">
             ¿No tienes cuenta?{' '}
-            <a href="/empresas" className="text-sky-400 hover:underline">
+            <Link href="/empresas" className="text-sky-400 hover:underline">
               Regístrate
-            </a>
+            </Link>
           </p>
         )}
         {isStaff && (
           <p className="mt-2 text-center text-xs text-slate-500">
             ¿Eres cliente?{' '}
-            <a href="/login" className="text-sky-400 hover:underline">
+            <Link href="/login" className="text-sky-400 hover:underline">
               Entra por aquí
-            </a>
+            </Link>
           </p>
         )}
       </CardContent>

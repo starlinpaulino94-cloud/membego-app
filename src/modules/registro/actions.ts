@@ -3,6 +3,8 @@
 import { prisma } from '@/lib/prisma'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { ensureEmailIdentity } from '@/lib/supabase/identity'
+import { registerLimiter } from '@/lib/rate-limit'
+import { getRequestMeta } from '@/lib/server-utils'
 
 export interface RegistroState {
   error?: string
@@ -38,6 +40,13 @@ export async function registrarCliente(
   formData: FormData
 ): Promise<RegistroState> {
   try {
+  // Rate limit server-side por IP: evita creación masiva de cuentas / spam.
+  // El límite del navegador no cuenta como protección (se salta recargando).
+  const { ipAddress } = await getRequestMeta()
+  if (!registerLimiter(ipAddress ?? 'unknown')) {
+    return { error: 'Demasiados registros desde esta conexión. Intenta de nuevo en unos minutos.' }
+  }
+
   const companySlug = String(formData.get('companySlug') ?? '')
   const nombre = String(formData.get('nombre') ?? '').trim()
   const email = String(formData.get('email') ?? '')

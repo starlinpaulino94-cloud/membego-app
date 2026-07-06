@@ -48,6 +48,11 @@ export const loginLimiter = createRateLimiter({
   maxRequests: 5, // 5 attempts per 15 minutes
 })
 
+export const registerLimiter = createRateLimiter({
+  interval: 60 * 60 * 1000, // 1 hora
+  maxRequests: 10, // 10 registros por IP por hora
+})
+
 export const qrScanLimiter = createRateLimiter({
   interval: 1 * 60 * 1000, // 1 minute
   maxRequests: 30, // 30 scans per minute (reasonable for busy location)
