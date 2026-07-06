@@ -14,9 +14,14 @@ datasource db {
 
 enum AppRole {
   SUPERADMIN
-  ADMIN_EMPRESA
+  ADMIN_EMPRESA // legacy: admin de empresa (se mantiene por usuarios existentes)
   EMPLEADO
   CLIENTE
+  // Roles de equipo de empresa (deben coincidir con AppRole en src/types).
+  ADMINISTRADOR
+  GERENTE
+  CAJERO
+  RECEPCION
 }
 
 enum NotifTipo {
