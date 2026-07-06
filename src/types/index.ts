@@ -71,3 +71,19 @@ export const SCANNER_ROLES: AppRole[] = [
   'EMPLEADO',
   'ADMIN_EMPRESA', // legacy
 ]
+
+/**
+ * Fuente única de verdad para la protección de rutas por prefijo.
+ * La consume el edge (`src/proxy.ts`) y debe mantenerse alineada con los
+ * guards de cada layout de route-group. Agregar un rol nuevo se hace aquí,
+ * en un solo lugar, para evitar drift entre el edge y los layouts.
+ */
+export const ROUTE_PROTECTION: { prefix: string; roles: AppRole[] }[] = [
+  { prefix: '/superadmin', roles: ['SUPERADMIN'] },
+  { prefix: '/admin', roles: ADMIN_ROLES },
+  { prefix: '/empleado', roles: SCANNER_ROLES },
+  { prefix: '/cliente', roles: ['CLIENTE'] },
+  // Vistas de cliente fuera del prefijo /cliente (grupo (cliente)).
+  { prefix: '/mis-membresias', roles: ['CLIENTE'] },
+  { prefix: '/membresia', roles: ['CLIENTE'] },
+]

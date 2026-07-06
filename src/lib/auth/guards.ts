@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
-import { getSession } from '@/lib/auth'
-import type { AppMetadata, AppRole, SessionUser } from '@/types'
+import { getUser } from '@/lib/auth'
+import { ADMIN_ROLES, type AppRole, type SessionUser } from '@/types'
 
 function setSentryContext(user: SessionUser) {
   import('@sentry/nextjs')
@@ -13,20 +13,13 @@ function setSentryContext(user: SessionUser) {
 }
 
 export async function requireUser(): Promise<SessionUser> {
-  const session = await getSession()
-  if (!session?.user) redirect('/login')
+  // getUser() revalida el token contra el servidor de Supabase en cada
+  // request (a diferencia de getSession(), que solo decodifica la cookie sin
+  // verificar la firma). Es el método recomendado para decisiones de
+  // autorización en código de servidor.
+  const user = await getUser()
+  if (!user) redirect('/login')
 
-  const meta = (session.user.app_metadata ?? {}) as Partial<AppMetadata>
-  const user: SessionUser = {
-    supabaseId: session.user.id,
-    email: session.user.email ?? '',
-    metadata: {
-      role: meta.role ?? 'CLIENTE',
-      dbUserId: meta.dbUserId ?? '',
-      clienteId: meta.clienteId ?? null,
-      companyId: meta.companyId ?? null,
-    },
-  }
   setSentryContext(user)
   return user
 }
@@ -39,5 +32,16 @@ export async function requireRole(
   if (!allowed.includes(user.metadata.role)) {
     redirect('/login')
   }
+  return user
+}
+
+/**
+ * Guard NO-redirect para server actions: devuelve el usuario admin
+ * (rol en ADMIN_ROLES) o null. Fuente única para la autorización de
+ * mutaciones administrativas (antes duplicada en 6 archivos).
+ */
+export async function requireAdminUser(): Promise<SessionUser | null> {
+  const user = await getUser()
+  if (!user || !ADMIN_ROLES.includes(user.metadata.role)) return null
   return user
 }

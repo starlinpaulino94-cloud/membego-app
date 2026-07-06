@@ -2,15 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { prisma } from '@/lib/prisma'
-import { getUser } from '@/lib/auth'
-
-async function requireAdmin() {
-  const user = await getUser()
-  if (!user || !['ADMIN_EMPRESA', 'SUPERADMIN'].includes(user.metadata.role)) {
-    return null
-  }
-  return user
-}
+import { requireAdminUser } from '@/lib/auth/guards'
 
 export interface MetodoPagoState {
   error?: string
@@ -21,7 +13,7 @@ export async function crearMetodoPago(
   _prev: MetodoPagoState,
   formData: FormData
 ): Promise<MetodoPagoState> {
-  const user = await requireAdmin()
+  const user = await requireAdminUser()
   if (!user) return { error: 'No autorizado.' }
 
   const companyId =
@@ -73,7 +65,7 @@ export async function actualizarMetodoPago(
   _prev: MetodoPagoState,
   formData: FormData
 ): Promise<MetodoPagoState> {
-  const user = await requireAdmin()
+  const user = await requireAdminUser()
   if (!user) return { error: 'No autorizado.' }
 
   const id = String(formData.get('id') ?? '').trim()
@@ -114,7 +106,7 @@ export async function eliminarMetodoPago(
   _prev: MetodoPagoState,
   formData: FormData
 ): Promise<MetodoPagoState> {
-  const user = await requireAdmin()
+  const user = await requireAdminUser()
   if (!user) return { error: 'No autorizado.' }
 
   const id = String(formData.get('id') ?? '').trim()

@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { prisma } from '@/lib/prisma'
 import { getUser } from '@/lib/auth'
+import { requireAdminUser } from '@/lib/auth/guards'
 import { sendEmail } from '@/lib/email'
 import { crearNotificacion, notificarAdmins } from '@/modules/notificaciones/actions'
 import {
@@ -21,14 +22,6 @@ export interface ActionState {
 }
 
 const OK: ActionState = { success: true }
-
-async function requireAdmin(): Promise<SessionUser | null> {
-  const user = await getUser()
-  if (!user || !['ADMIN_EMPRESA', 'SUPERADMIN'].includes(user.metadata.role)) {
-    return null
-  }
-  return user
-}
 
 /** companyId efectivo para un admin/superadmin a partir del form. */
 function resolveCompanyId(user: SessionUser, formData: FormData): string {
@@ -52,7 +45,7 @@ export async function guardarComunicacionConfig(
   _prev: ActionState,
   formData: FormData
 ): Promise<ActionState> {
-  const user = await requireAdmin()
+  const user = await requireAdminUser()
   if (!user) return { error: 'No autorizado.' }
 
   const companyId = resolveCompanyId(user, formData)
@@ -116,7 +109,7 @@ export async function enviarCorreoPrueba(
   _prev: ActionState,
   formData: FormData
 ): Promise<ActionState> {
-  const user = await requireAdmin()
+  const user = await requireAdminUser()
   if (!user) return { error: 'No autorizado.' }
 
   const correo = String(formData.get('correoSoporte') ?? '').trim()
@@ -153,7 +146,7 @@ export async function crearFaq(
   _prev: ActionState,
   formData: FormData
 ): Promise<ActionState> {
-  const user = await requireAdmin()
+  const user = await requireAdminUser()
   if (!user) return { error: 'No autorizado.' }
   const companyId = resolveCompanyId(user, formData)
   if (!companyId) return { error: 'Selecciona una empresa.' }
@@ -184,7 +177,7 @@ export async function actualizarFaq(
   _prev: ActionState,
   formData: FormData
 ): Promise<ActionState> {
-  const user = await requireAdmin()
+  const user = await requireAdminUser()
   if (!user) return { error: 'No autorizado.' }
   const id = String(formData.get('id') ?? '')
   const pregunta = String(formData.get('pregunta') ?? '').trim()
@@ -213,7 +206,7 @@ export async function actualizarFaq(
 }
 
 export async function eliminarFaq(id: string): Promise<ActionState> {
-  const user = await requireAdmin()
+  const user = await requireAdminUser()
   if (!user) return { error: 'No autorizado.' }
   try {
     const faq = await prisma.faqItem.findUnique({ where: { id } })
@@ -232,7 +225,7 @@ export async function eliminarFaq(id: string): Promise<ActionState> {
 }
 
 export async function toggleFaq(id: string, activo: boolean): Promise<ActionState> {
-  const user = await requireAdmin()
+  const user = await requireAdminUser()
   if (!user) return { error: 'No autorizado.' }
   try {
     const faq = await prisma.faqItem.findUnique({ where: { id } })
@@ -362,7 +355,7 @@ export async function responderTicket(
   _prev: ActionState,
   formData: FormData
 ): Promise<ActionState> {
-  const user = await requireAdmin()
+  const user = await requireAdminUser()
   if (!user) return { error: 'No autorizado.' }
 
   const ticketId = String(formData.get('ticketId') ?? '')
@@ -419,7 +412,7 @@ export async function agregarNotaInterna(
   _prev: ActionState,
   formData: FormData
 ): Promise<ActionState> {
-  const user = await requireAdmin()
+  const user = await requireAdminUser()
   if (!user) return { error: 'No autorizado.' }
 
   const ticketId = String(formData.get('ticketId') ?? '')
@@ -451,7 +444,7 @@ export async function cambiarEstadoTicket(
   ticketId: string,
   estado: string
 ): Promise<ActionState> {
-  const user = await requireAdmin()
+  const user = await requireAdminUser()
   if (!user) return { error: 'No autorizado.' }
   if (!(TICKET_ESTADOS as readonly string[]).includes(estado)) {
     return { error: 'Estado inválido.' }

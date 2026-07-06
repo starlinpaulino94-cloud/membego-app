@@ -23,30 +23,48 @@ export default async function OperacionesPage() {
   const referidosMap = new Map<string, { completados: number; reglas: number }>()
   const whatsappMap = new Map<string, { numero: string; activo: boolean }>()
 
-  for (const c of companies) {
-    try {
-      const [total, activas] = await Promise.all([
-        prisma.promocion.count({ where: { companyId: c.id } }),
-        prisma.promocion.count({ where: { companyId: c.id, activo: true } }),
-      ])
+  // Agregaciones en bloque (evita N+1: antes eran ~5 queries por empresa).
+  try {
+    const [
+      promosTotal,
+      promosActivas,
+      referidosCompletados,
+      reglas,
+      whatsapps,
+    ] = await Promise.all([
+      prisma.promocion.groupBy({ by: ['companyId'], _count: { _all: true } }),
+      prisma.promocion.groupBy({
+        by: ['companyId'],
+        where: { activo: true },
+        _count: { _all: true },
+      }),
+      prisma.referido.groupBy({
+        by: ['companyId'],
+        where: { estado: 'COMPLETADO' },
+        _count: { _all: true },
+      }),
+      prisma.reglaRecompensa.groupBy({ by: ['companyId'], _count: { _all: true } }),
+      prisma.whatsAppConfig.findMany({
+        select: { companyId: true, numero: true, activo: true },
+      }),
+    ])
+
+    for (const c of companies) {
+      const total = promosTotal.find((p) => p.companyId === c.id)?._count._all ?? 0
+      const activas = promosActivas.find((p) => p.companyId === c.id)?._count._all ?? 0
       promoMap.set(c.id, { total, activas })
-    } catch {}
 
-    try {
-      const [completados, reglas] = await Promise.all([
-        prisma.referido.count({ where: { companyId: c.id, estado: 'COMPLETADO' } }),
-        prisma.reglaRecompensa.count({ where: { companyId: c.id } }),
-      ])
-      referidosMap.set(c.id, { completados, reglas })
-    } catch {}
+      const completados =
+        referidosCompletados.find((r) => r.companyId === c.id)?._count._all ?? 0
+      const numReglas = reglas.find((r) => r.companyId === c.id)?._count._all ?? 0
+      referidosMap.set(c.id, { completados, reglas: numReglas })
+    }
 
-    try {
-      const config = await prisma.whatsAppConfig.findUnique({
-        where: { companyId: c.id },
-        select: { numero: true, activo: true },
-      })
-      if (config) whatsappMap.set(c.id, config)
-    } catch {}
+    for (const wa of whatsapps) {
+      whatsappMap.set(wa.companyId, { numero: wa.numero, activo: wa.activo })
+    }
+  } catch (e) {
+    console.error('[operaciones] aggregations', e)
   }
 
   return (

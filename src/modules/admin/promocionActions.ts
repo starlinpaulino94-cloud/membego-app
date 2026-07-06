@@ -2,16 +2,8 @@
 
 import { revalidatePath } from 'next/cache'
 import { prisma } from '@/lib/prisma'
-import { getUser } from '@/lib/auth'
+import { requireAdminUser } from '@/lib/auth/guards'
 import { notificarClientesEmpresa } from '@/modules/notificaciones/actions'
-
-async function requireAdmin() {
-  const user = await getUser()
-  if (!user || !['ADMIN_EMPRESA', 'SUPERADMIN'].includes(user.metadata.role)) {
-    return null
-  }
-  return user
-}
 
 export interface PromocionState {
   error?: string
@@ -22,7 +14,7 @@ export async function crearPromocion(
   _prev: PromocionState,
   formData: FormData
 ): Promise<PromocionState> {
-  const user = await requireAdmin()
+  const user = await requireAdminUser()
   if (!user) return { error: 'No autorizado.' }
 
   const companyId =
@@ -68,7 +60,7 @@ export async function actualizarPromocion(
   _prev: PromocionState,
   formData: FormData
 ): Promise<PromocionState> {
-  const user = await requireAdmin()
+  const user = await requireAdminUser()
   if (!user) return { error: 'No autorizado.' }
 
   const id = String(formData.get('id') ?? '').trim()
@@ -112,7 +104,7 @@ export async function eliminarPromocion(
   _prev: PromocionState,
   formData: FormData
 ): Promise<PromocionState> {
-  const user = await requireAdmin()
+  const user = await requireAdminUser()
   if (!user) return { error: 'No autorizado.' }
 
   const id = String(formData.get('id') ?? '').trim()

@@ -1,5 +1,5 @@
 import { requireRole } from '@/lib/auth/guards'
-import { getClienteFull } from '@/modules/cliente/queries'
+import { getClientePerfil } from '@/modules/cliente/queries'
 import { prisma } from '@/lib/prisma'
 import { ProfileForm } from '@/components/cliente/ProfileForm'
 import { VehiculoForm } from '@/components/cliente/VehiculoForm'
@@ -12,11 +12,6 @@ export const dynamic = 'force-dynamic'
 
 export default async function PerfilPage() {
   const user = await requireRole('CLIENTE')
-  console.log('[cliente-perfil] User metadata:', {
-    supabaseId: user.supabaseId,
-    clienteId: user.metadata.clienteId,
-    companyId: user.metadata.companyId,
-  })
 
   let cliente = null
   try {
@@ -24,7 +19,7 @@ export default async function PerfilPage() {
       console.error('[cliente-perfil] Missing clienteId in metadata')
       return <p className="text-muted-foreground">Cuenta no está completamente configurada. Por favor, contacta al soporte.</p>
     }
-    cliente = await getClienteFull(user.metadata.clienteId)
+    cliente = await getClientePerfil(user.metadata.clienteId)
   } catch (e) {
     console.error('[cliente-perfil] Error loading cliente:', {
       clienteId: user.metadata.clienteId,
@@ -75,7 +70,7 @@ export default async function PerfilPage() {
             nombre={cliente.nombre}
             email={cliente.email}
             telefono={cliente.telefono ?? null}
-            avatarUrl={(cliente as Record<string, unknown>).avatarUrl as string ?? null}
+            avatarUrl={cliente.avatarUrl ?? null}
           />
         </CardContent>
       </Card>
@@ -92,7 +87,7 @@ export default async function PerfilPage() {
           <CardContent className="space-y-5">
             {cliente.vehiculos.length > 0 && (
               <ul className="divide-y divide-border/60">
-                {cliente.vehiculos.map((v: any) => {
+                {cliente.vehiculos.map((v) => {
                   const label = `${v.marca} ${v.modelo} (${v.anio})${v.placa ? ` · ${v.placa}` : ''}`
                   return (
                     <li key={v.id} className="flex items-center justify-between py-3">

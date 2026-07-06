@@ -1,14 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import type { AppMetadata, SessionUser } from '@/types'
 
-export async function getSession() {
-  const supabase = await createClient()
-  const {
-    data: { session },
-  } = await supabase.auth.getSession()
-  return session
-}
-
 export async function getUser(): Promise<SessionUser | null> {
   const supabase = await createClient()
   const {

@@ -13,14 +13,12 @@ export const metadata = {
 export default async function MisMembresias() {
   const user = await getUser()
   if (!user || !user.supabaseId) {
-    redirect('/auth/login')
+    redirect('/login')
   }
 
-  console.log('[mis-membresias] Loading memberships for supabaseId:', user.supabaseId)
   let memberships: Awaited<ReturnType<typeof getClienteAllMemberships>> = []
   try {
     memberships = await getClienteAllMemberships(user.supabaseId)
-    console.log('[mis-membresias] Found memberships:', memberships.length)
   } catch (error) {
     console.error('[mis-membresias] Error loading memberships:', error instanceof Error ? error.message : String(error))
   }
