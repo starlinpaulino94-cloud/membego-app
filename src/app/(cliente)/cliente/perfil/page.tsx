@@ -12,11 +12,6 @@ export const dynamic = 'force-dynamic'
 
 export default async function PerfilPage() {
   const user = await requireRole('CLIENTE')
-  console.log('[cliente-perfil] User metadata:', {
-    supabaseId: user.supabaseId,
-    clienteId: user.metadata.clienteId,
-    companyId: user.metadata.companyId,
-  })
 
   let cliente = null
   try {

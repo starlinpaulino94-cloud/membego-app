@@ -1,15 +1,8 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { ADMIN_ROLES } from '@/types'
 import { prisma } from '@/lib/prisma'
-import { getUser } from '@/lib/auth'
-
-async function requireAdmin() {
-  const user = await getUser()
-  if (!user || !ADMIN_ROLES.includes(user.metadata.role)) return null
-  return user
-}
+import { requireAdminUser } from '@/lib/auth/guards'
 
 export interface SucursalState {
   error?: string
@@ -20,7 +13,7 @@ export async function crearSucursal(
   _prev: SucursalState,
   formData: FormData
 ): Promise<SucursalState> {
-  const user = await requireAdmin()
+  const user = await requireAdminUser()
   if (!user) return { error: 'No autorizado.' }
 
   const companyId =
@@ -50,7 +43,7 @@ export async function actualizarSucursal(
   _prev: SucursalState,
   formData: FormData
 ): Promise<SucursalState> {
-  const user = await requireAdmin()
+  const user = await requireAdminUser()
   if (!user) return { error: 'No autorizado.' }
 
   const id = String(formData.get('id') ?? '').trim()
@@ -82,7 +75,7 @@ export async function eliminarSucursal(
   _prev: SucursalState,
   formData: FormData
 ): Promise<SucursalState> {
-  const user = await requireAdmin()
+  const user = await requireAdminUser()
   if (!user) return { error: 'No autorizado.' }
 
   const id = String(formData.get('id') ?? '').trim()

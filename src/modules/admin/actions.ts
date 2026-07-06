@@ -1,9 +1,8 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { ADMIN_ROLES } from '@/types'
 import { prisma } from '@/lib/prisma'
-import { getUser } from '@/lib/auth'
+import { requireAdminUser } from '@/lib/auth/guards'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getRequestMeta, periodEnd } from '@/lib/server-utils'
 import { crearNotificacion, notificarAdmins } from '@/modules/notificaciones/actions'
@@ -12,27 +11,19 @@ import { activarMembresia } from '@/modules/pagos/activacion'
 import { paymentLimiter } from '@/lib/rate-limit'
 import { ensureEmailIdentity } from '@/lib/supabase/identity'
 
-async function requireAdmin() {
-  const user = await getUser()
-  if (!user || !ADMIN_ROLES.includes(user.metadata.role)) {
-    return null
-  }
-  return user
-}
-
 /** Ensure the membership belongs to the admin's company (superadmin = any). */
 async function assertOwnership(
   membershipId: string,
-  user: NonNullable<Awaited<ReturnType<typeof requireAdmin>>>
+  user: NonNullable<Awaited<ReturnType<typeof requireAdminUser>>>
 ) {
   const membership = await prisma.membership.findUnique({
     where: { id: membershipId },
     include: { plan: true, cliente: true },
   })
   if (!membership) return null
+  // Fail-closed: un admin no-superadmin sin companyId no posee ninguna empresa.
   if (
     user.metadata.role !== 'SUPERADMIN' &&
-    user.metadata.companyId &&
     membership.cliente.companyId !== user.metadata.companyId
   ) {
     return null
@@ -55,7 +46,7 @@ export async function confirmarPago(
   formData: FormData
 ): Promise<AdminActionState> {
   try {
-    const user = await requireAdmin()
+    const user = await requireAdminUser()
     if (!user) return { error: 'No autorizado.' }
 
     const adminId = user.metadata.dbUserId || 'anonymous'
@@ -110,7 +101,7 @@ export async function crearMembresia(
   _companyId: string
 ): Promise<AdminActionState> {
   try {
-    const user = await requireAdmin()
+    const user = await requireAdminUser()
     if (!user) return { error: 'No autorizado.' }
 
     const cliente = await prisma.cliente.findUnique({
@@ -156,7 +147,7 @@ export async function cancelarMembresia(
   formData: FormData
 ): Promise<AdminActionState> {
   try {
-    const user = await requireAdmin()
+    const user = await requireAdminUser()
     if (!user) return { error: 'No autorizado.' }
 
     const membershipId = String(formData.get('membershipId') ?? '')
@@ -203,7 +194,7 @@ export async function rechazarPago(
   formData: FormData
 ): Promise<AdminActionState> {
   try {
-    const user = await requireAdmin()
+    const user = await requireAdminUser()
     if (!user) return { error: 'No autorizado.' }
 
     const membershipId = String(formData.get('membershipId') ?? '')
@@ -265,7 +256,7 @@ export async function renovarMembresia(
   formData: FormData
 ): Promise<AdminActionState> {
   try {
-  const user = await requireAdmin()
+  const user = await requireAdminUser()
   if (!user) return { error: 'No autorizado.' }
 
   const membershipId = String(formData.get('membershipId') ?? '')
@@ -328,7 +319,7 @@ export async function crearEmpleado(
   formData: FormData
 ): Promise<AdminActionState> {
   try {
-    const user = await requireAdmin()
+    const user = await requireAdminUser()
     if (!user) return { error: 'No autorizado.' }
 
     const companyId = user.metadata.companyId
@@ -409,7 +400,7 @@ export async function eliminarEmpleado(
   formData: FormData
 ): Promise<AdminActionState> {
   try {
-    const user = await requireAdmin()
+    const user = await requireAdminUser()
     if (!user) return { error: 'No autorizado.' }
 
     const empleadoId = String(formData.get('empleadoId') ?? '')
@@ -421,7 +412,6 @@ export async function eliminarEmpleado(
     }
     if (
       user.metadata.role !== 'SUPERADMIN' &&
-      user.metadata.companyId &&
       empleado.companyId !== user.metadata.companyId
     ) {
       return { error: 'No autorizado.' }
@@ -453,7 +443,7 @@ export async function solicitarNuevaEvidencia(
   _prev: AdminActionState,
   formData: FormData
 ): Promise<AdminActionState> {
-  const user = await requireAdmin()
+  const user = await requireAdminUser()
   if (!user) return { error: 'No autorizado.' }
 
   const membershipId = String(formData.get('membershipId') ?? '')
@@ -520,7 +510,7 @@ export async function guardarNotaInterna(
   _prev: AdminActionState,
   formData: FormData
 ): Promise<AdminActionState> {
-  const user = await requireAdmin()
+  const user = await requireAdminUser()
   if (!user) return { error: 'No autorizado.' }
 
   const membershipId = String(formData.get('membershipId') ?? '')

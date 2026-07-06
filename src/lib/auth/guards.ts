@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 import { getUser } from '@/lib/auth'
-import type { AppRole, SessionUser } from '@/types'
+import { ADMIN_ROLES, type AppRole, type SessionUser } from '@/types'
 
 function setSentryContext(user: SessionUser) {
   import('@sentry/nextjs')
@@ -32,5 +32,16 @@ export async function requireRole(
   if (!allowed.includes(user.metadata.role)) {
     redirect('/login')
   }
+  return user
+}
+
+/**
+ * Guard NO-redirect para server actions: devuelve el usuario admin
+ * (rol en ADMIN_ROLES) o null. Fuente única para la autorización de
+ * mutaciones administrativas (antes duplicada en 6 archivos).
+ */
+export async function requireAdminUser(): Promise<SessionUser | null> {
+  const user = await getUser()
+  if (!user || !ADMIN_ROLES.includes(user.metadata.role)) return null
   return user
 }
