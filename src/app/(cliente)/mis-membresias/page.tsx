@@ -13,7 +13,7 @@ export const metadata = {
 export default async function MisMembresias() {
   const user = await getUser()
   if (!user || !user.supabaseId) {
-    redirect('/auth/login')
+    redirect('/login')
   }
 
   console.log('[mis-membresias] Loading memberships for supabaseId:', user.supabaseId)

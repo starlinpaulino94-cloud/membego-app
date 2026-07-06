@@ -80,12 +80,13 @@ const ADMIN_NAV: NavGroup[] = [
 const CLIENTE_NAV: NavGroup[] = [
   {
     label: 'Inicio',
-    items: [{ href: '/cliente/dashboard', label: 'Mi panel', icon: LayoutDashboard }],
+    // Enlace directo a la vista real (evita el salto de redirect por
+    // /cliente/dashboard -> /mis-membresias).
+    items: [{ href: '/mis-membresias', label: 'Mis membresías', icon: LayoutDashboard }],
   },
   {
     label: 'Membresía',
     items: [
-      { href: '/cliente/membresia', label: 'Mi membresía', icon: CreditCard },
       { href: '/cliente/planes', label: 'Oportunidades', icon: Package },
       { href: '/cliente/pagos', label: 'Mis pagos', icon: Wallet },
     ],

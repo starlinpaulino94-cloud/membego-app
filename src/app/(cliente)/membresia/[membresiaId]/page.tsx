@@ -16,7 +16,7 @@ export default async function MembershipDetail({ params }: { params: Promise<{ m
   const { membresiaId } = await params
   const user = await getUser()
   if (!user || user.metadata.role !== 'CLIENTE') {
-    redirect('/auth/login')
+    redirect('/login')
   }
 
   let membership = null

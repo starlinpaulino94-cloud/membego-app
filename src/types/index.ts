@@ -83,4 +83,7 @@ export const ROUTE_PROTECTION: { prefix: string; roles: AppRole[] }[] = [
   { prefix: '/admin', roles: ADMIN_ROLES },
   { prefix: '/empleado', roles: SCANNER_ROLES },
   { prefix: '/cliente', roles: ['CLIENTE'] },
+  // Vistas de cliente fuera del prefijo /cliente (grupo (cliente)).
+  { prefix: '/mis-membresias', roles: ['CLIENTE'] },
+  { prefix: '/membresia', roles: ['CLIENTE'] },
 ]
