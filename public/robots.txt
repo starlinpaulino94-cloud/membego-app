@@ -12,3 +12,11 @@ Allow: /
 
 User-agent: *
 Allow: /
+Disallow: /admin
+Disallow: /superadmin
+Disallow: /empleado
+Disallow: /cliente
+Disallow: /api
+
+Sitemap: https://membego.com/sitemap.xml
+Host: https://membego.com

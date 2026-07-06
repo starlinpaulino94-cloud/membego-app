@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
 import { Toaster } from '@/components/ui/sonner'
+import { SITE_NAME, SITE_DESCRIPTION, getAppUrl } from '@/lib/site'
 import './globals.css'
 
 const geistSans = Geist({
@@ -14,9 +15,29 @@ const geistMono = Geist_Mono({
 })
 
 export const metadata: Metadata = {
-  title: 'MembeGo',
-  description:
-    'Plataforma inteligente para membresías digitales — gestiona planes, suscripciones y beneficios con validación QR.',
+  metadataBase: new URL(getAppUrl()),
+  title: {
+    default: SITE_NAME,
+    template: `%s · ${SITE_NAME}`,
+  },
+  description: SITE_DESCRIPTION,
+  applicationName: SITE_NAME,
+  alternates: {
+    canonical: '/',
+  },
+  openGraph: {
+    type: 'website',
+    siteName: SITE_NAME,
+    title: SITE_NAME,
+    description: SITE_DESCRIPTION,
+    url: getAppUrl(),
+    locale: 'es_ES',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: SITE_NAME,
+    description: SITE_DESCRIPTION,
+  },
   icons: {
     icon: [
       { url: '/favicon.ico', sizes: '32x32' },
