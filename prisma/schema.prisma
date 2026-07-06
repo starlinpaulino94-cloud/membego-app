@@ -56,9 +56,9 @@ enum TicketAutor {
 }
 
 enum MembershipEstado {
-  PENDIENTE          // solicitada, sin pago
-  PENDIENTE_PAGO     // comprobante enviado, esperando validación
-  RECHAZADA          // pago rechazado por admin
+  PENDIENTE // solicitada, sin pago
+  PENDIENTE_PAGO // comprobante enviado, esperando validación
+  RECHAZADA // pago rechazado por admin
   ACTIVA
   VENCIDA
   CANCELADA
@@ -88,57 +88,80 @@ enum AuditAccion {
 // ─────────────────────────────────────────────
 
 model User {
-  id          String   @id @default(cuid())
-  supabaseId  String   @unique
-  email       String   @unique
-  name        String
-  role        AppRole  @default(CLIENTE)
-  companyId   String?
-  company     Company? @relation(fields: [companyId], references: [id])
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id         String   @id @default(cuid())
+  supabaseId String   @unique
+  email      String   @unique
+  name       String
+  role       AppRole  @default(CLIENTE)
+  companyId  String?
+  company    Company? @relation(fields: [companyId], references: [id])
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
-  memberships     Membership[]
-  visits          Visit[]        @relation("EmpleadoVisits")
-  auditLogs       AuditLog[]
-  comprobantes    Comprobante[]
-  notificaciones  Notificacion[]
+  memberships    Membership[]
+  visits         Visit[]        @relation("EmpleadoVisits")
+  auditLogs      AuditLog[]
+  comprobantes   Comprobante[]
+  notificaciones Notificacion[]
 
   @@map("users")
 }
 
 model Company {
-  id          String    @id @default(cuid())
+  id          String   @id @default(cuid())
   name        String
-  slug        String    @unique
-  type        String    // "carwash" | "restaurante"
+  slug        String   @unique
+  type        String // "carwash" | "restaurante"
   description String?
   logoUrl     String?
-  isActive    Boolean   @default(true)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt @default(now())
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now()) @updatedAt
 
-  email       String?
-  telefono    String?
-  direccion   String?
-  ciudad      String?
-  categoria   String?
-  website     String?
+  email     String?
+  telefono  String?
+  direccion String?
+  ciudad    String?
+  categoria String?
+  website   String?
 
-  users         User[]
-  plans         Plan[]
-  clientes      Cliente[]
-  memberships   Membership[]
-  sucursales    Sucursal[]
-  metodosPago   MetodoPago[]
-  auditLogs     AuditLog[]
-  promociones   Promocion[]
-  referidos     Referido[]
+  // FASE 2: Marketplace fields
+  isPublished           Boolean  @default(true)
+  isFeatured            Boolean  @default(false)
+  featuredOrder         Int?
+  bannerUrl             String?
+  galleryImages         String[] @default([])
+  provincia             String?
+  pais                  String?
+  whatsapp              String?
+  instagram             String?
+  facebook              String?
+  tiktok                String?
+  googleMapsUrl         String?
+  totalMembersCount     Int      @default(0)
+  activePromotionsCount Int      @default(0)
+  averageRating         Decimal? @db.Decimal(3, 2)
+
+  users            User[]
+  plans            Plan[]
+  clientes         Cliente[]
+  memberships      Membership[]
+  sucursales       Sucursal[]
+  metodosPago      MetodoPago[]
+  auditLogs        AuditLog[]
+  promociones      Promocion[]
+  referidos        Referido[]
   reglasRecompensa ReglaRecompensa[]
-  whatsappConfig WhatsAppConfig?
-  faqs          FaqItem[]
-  tickets       SupportTicket[]
+  whatsappConfig   WhatsAppConfig?
+  faqs             FaqItem[]
+  tickets          SupportTicket[]
+  categories       CompanyToCategory[]
+  ratings          CompanyRating[]
 
+  @@index([isPublished, isFeatured])
+  @@index([ciudad, provincia])
+  @@index([type])
+  @@index([createdAt])
   @@map("companies")
 }
 
@@ -153,7 +176,7 @@ model Sucursal {
   activa    Boolean  @default(true)
   createdAt DateTime @default(now())
 
-  visits    Visit[]
+  visits Visit[]
 
   @@map("sucursales")
 }
@@ -164,16 +187,16 @@ model MetodoPago {
   companyId     String
   company       Company        @relation(fields: [companyId], references: [id])
   tipo          MetodoPagoTipo
-  nombre        String         // "Banco Popular", "Pago en sucursal"
+  nombre        String // "Banco Popular", "Pago en sucursal"
   titular       String?
   numeroCuenta  String?
-  tipoCuenta    String?        // "Ahorro", "Corriente"
-  instrucciones String?        // texto libre para mostrar al cliente
+  tipoCuenta    String? // "Ahorro", "Corriente"
+  instrucciones String? // texto libre para mostrar al cliente
   activo        Boolean        @default(true)
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
 
-  memberships   Membership[]
+  memberships Membership[]
 
   @@map("metodos_pago")
 }
@@ -181,65 +204,80 @@ model MetodoPago {
 // Promociones publicadas por una empresa, visibles para sus clientes
 // (incluyendo clientes afiliados a varias empresas, vía Cliente.companyId).
 model Promocion {
-  id             String    @id @default(cuid())
-  companyId      String
-  company        Company   @relation(fields: [companyId], references: [id])
-  titulo         String
-  descripcion    String
-  imagenUrl      String?
-  vigenciaDesde  DateTime  @default(now())
-  vigenciaHasta  DateTime?
-  activo         Boolean   @default(true)
-  publicadaEn    DateTime  @default(now())
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  id            String    @id @default(cuid())
+  companyId     String
+  company       Company   @relation(fields: [companyId], references: [id])
+  titulo        String
+  descripcion   String
+  imagenUrl     String?
+  vigenciaDesde DateTime  @default(now())
+  vigenciaHasta DateTime?
+  activo        Boolean   @default(true)
+  publicadaEn   DateTime  @default(now())
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // FASE 2: Marketplace fields
+  slug          String?
+  tipo          String   @default("general") // "descuento" | "2x1" | "evento" | "general"
+  descuento     Int? // % si aplica
+  codigo        String? // Código cupón
+  isFeatured    Boolean  @default(false)
+  featuredOrder Int?
+  viewCount     Int      @default(0)
+  shareCount    Int      @default(0)
+  tags          String[] @default([])
 
   @@index([companyId, activo])
+  @@index([isFeatured, vigenciaHasta])
+  @@index([tipo])
+  @@index([createdAt])
   @@map("promociones")
 }
 
 model Plan {
-  id               String       @id @default(cuid())
+  id               String   @id @default(cuid())
   companyId        String
-  company          Company      @relation(fields: [companyId], references: [id])
+  company          Company  @relation(fields: [companyId], references: [id])
   nombre           String
-  precio           Decimal      @db.Decimal(10, 2)
-  lavadosIncluidos Int          @default(0)
-  esIlimitado      Boolean      @default(false)
+  precio           Decimal  @db.Decimal(10, 2)
+  lavadosIncluidos Int      @default(0)
+  esIlimitado      Boolean  @default(false)
   descripcion      String?
   beneficios       String[]
-  vigenciaDias     Int          @default(30) // duración del período
-  condiciones      String?      // texto de condiciones/restricciones
-  activo           Boolean      @default(true)
-  createdAt        DateTime     @default(now())
-  updatedAt        DateTime     @updatedAt
+  vigenciaDias     Int      @default(30) // duración del período
+  condiciones      String? // texto de condiciones/restricciones
+  activo           Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
-  memberships      Membership[]
+  memberships Membership[]
 
   @@map("plans")
 }
 
 model Cliente {
-  id              String       @id @default(cuid())
+  id              String    @id @default(cuid())
   companyId       String
-  company         Company      @relation(fields: [companyId], references: [id])
+  company         Company   @relation(fields: [companyId], references: [id])
   supabaseId      String
   nombre          String
   telefono        String?
   email           String
   fechaNacimiento DateTime?
   avatarUrl       String?
-  codigoReferido  String       @unique @default(cuid())
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
+  codigoReferido  String    @unique @default(cuid())
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
   vehiculos       Vehiculo[]
   memberships     Membership[]
-  qrTokens        QrToken[]    // vacío hasta que tenga membresía activa
+  qrTokens        QrToken[] // vacío hasta que tenga membresía activa
   visits          Visit[]
-  referidosHechos Referido[]   @relation("Referente")
-  referidoComo    Referido[]   @relation("Referido")
+  referidosHechos Referido[]      @relation("Referente")
+  referidoComo    Referido[]      @relation("Referido")
   tickets         SupportTicket[]
+  ratings         CompanyRating[]
 
   @@unique([supabaseId, companyId])
   @@map("clientes")
@@ -262,17 +300,17 @@ enum TipoRecompensa {
 
 // Referido: vínculo entre quien invita y quien se registró con su código.
 model Referido {
-  id                  String         @id @default(cuid())
-  companyId           String
-  company             Company        @relation(fields: [companyId], references: [id])
-  referenteClienteId  String
-  referenteCliente    Cliente        @relation("Referente", fields: [referenteClienteId], references: [id])
-  referidoClienteId   String         @unique
-  referidoCliente     Cliente        @relation("Referido", fields: [referidoClienteId], references: [id])
-  estado              ReferidoEstado @default(PENDIENTE)
-  recompensaAplicada  Boolean        @default(false)
-  createdAt           DateTime       @default(now())
-  completadoEn        DateTime?
+  id                 String         @id @default(cuid())
+  companyId          String
+  company            Company        @relation(fields: [companyId], references: [id])
+  referenteClienteId String
+  referenteCliente   Cliente        @relation("Referente", fields: [referenteClienteId], references: [id])
+  referidoClienteId  String         @unique
+  referidoCliente    Cliente        @relation("Referido", fields: [referidoClienteId], references: [id])
+  estado             ReferidoEstado @default(PENDIENTE)
+  recompensaAplicada Boolean        @default(false)
+  createdAt          DateTime       @default(now())
+  completadoEn       DateTime?
 
   @@index([companyId, referenteClienteId])
   @@map("referidos")
@@ -281,17 +319,17 @@ model Referido {
 // Regla de recompensa 100% configurable desde el panel admin: sin valores
 // fijos en código. El admin define cuándo y qué recompensa otorgar.
 model ReglaRecompensa {
-  id               String              @id @default(cuid())
-  companyId        String
-  company          Company             @relation(fields: [companyId], references: [id])
-  nombre           String
-  condicion        CondicionRecompensa
-  valorCondicion   Int                 // ej: 3 referidos completados
-  tipoRecompensa   TipoRecompensa
-  valorRecompensa  Decimal             @db.Decimal(10, 2) // lavados, % o monto según tipo
-  activo           Boolean             @default(true)
-  createdAt        DateTime            @default(now())
-  updatedAt        DateTime            @updatedAt
+  id              String              @id @default(cuid())
+  companyId       String
+  company         Company             @relation(fields: [companyId], references: [id])
+  nombre          String
+  condicion       CondicionRecompensa
+  valorCondicion  Int // ej: 3 referidos completados
+  tipoRecompensa  TipoRecompensa
+  valorRecompensa Decimal             @db.Decimal(10, 2) // lavados, % o monto según tipo
+  activo          Boolean             @default(true)
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
 
   @@index([companyId, activo])
   @@map("reglas_recompensa")
@@ -304,13 +342,13 @@ model WhatsAppConfig {
   companyId        String   @unique
   company          Company  @relation(fields: [companyId], references: [id])
   codigoPais       String   @default("+1") // ej: +52
-  numero           String   // solo dígitos nacionales, ej: 5512345678
+  numero           String // solo dígitos nacionales, ej: 5512345678
   mensajePlantilla String   @default("Hola, quisiera más información.")
   activo           Boolean  @default(true) // mostrar botón de WhatsApp al cliente
-  correoSoporte    String?  // correo de soporte, ej: soporte@empresa.com
-  horaInicio       String?  // "09:00"
-  horaCierre       String?  // "18:00"
-  diasLaborales    String?  // CSV de índices de día 0..6 (0=Dom), ej: "1,2,3,4,5"
+  correoSoporte    String? // correo de soporte, ej: soporte@empresa.com
+  horaInicio       String? // "09:00"
+  horaCierre       String? // "18:00"
+  diasLaborales    String? // CSV de índices de día 0..6 (0=Dom), ej: "1,2,3,4,5"
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
@@ -335,19 +373,19 @@ model FaqItem {
 
 // Tickets de soporte creados por clientes y gestionados por administradores.
 model SupportTicket {
-  id          String          @id @default(cuid())
-  companyId   String
-  company     Company         @relation(fields: [companyId], references: [id])
-  clienteId   String
-  cliente     Cliente         @relation(fields: [clienteId], references: [id])
-  asunto      String
-  categoria   TicketCategoria @default(OTRO)
-  estado      TicketEstado    @default(NUEVO)
-  adjuntoUrl  String?
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
+  id         String          @id @default(cuid())
+  companyId  String
+  company    Company         @relation(fields: [companyId], references: [id])
+  clienteId  String
+  cliente    Cliente         @relation(fields: [clienteId], references: [id])
+  asunto     String
+  categoria  TicketCategoria @default(OTRO)
+  estado     TicketEstado    @default(NUEVO)
+  adjuntoUrl String?
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
 
-  mensajes    TicketMensaje[]
+  mensajes TicketMensaje[]
 
   @@index([companyId, estado])
   @@index([clienteId])
@@ -381,7 +419,7 @@ model Vehiculo {
   placa     String?
   createdAt DateTime @default(now())
 
-  visits    Visit[]
+  visits Visit[]
 
   @@map("vehiculos")
 }
@@ -394,16 +432,16 @@ model Membership {
   company          Company          @relation(fields: [companyId], references: [id])
   planId           String
   plan             Plan             @relation(fields: [planId], references: [id])
-  userId           String?          // empleado/admin que la creó
+  userId           String? // empleado/admin que la creó
   user             User?            @relation(fields: [userId], references: [id])
-  metodoPagoId     String?          // método de pago seleccionado
+  metodoPagoId     String? // método de pago seleccionado
   metodoPago       MetodoPago?      @relation(fields: [metodoPagoId], references: [id])
   estado           MembershipEstado @default(PENDIENTE)
   // Pago
-  comprobanteUrl   String?          // URL del comprobante subido (Supabase Storage)
-  comprobanteNota  String?          // nota del cliente al enviar comprobante
-  rechazadoReason  String?          // motivo de rechazo por admin
-  adminNota        String?          // nota interna del admin, no visible al cliente
+  comprobanteUrl   String? // URL del comprobante subido (Supabase Storage)
+  comprobanteNota  String? // nota del cliente al enviar comprobante
+  rechazadoReason  String? // motivo de rechazo por admin
+  adminNota        String? // nota interna del admin, no visible al cliente
   pagoConfirmado   Boolean          @default(false)
   montoPagado      Decimal?         @db.Decimal(10, 2)
   // Período activo
@@ -413,9 +451,9 @@ model Membership {
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
 
-  visits           Visit[]
-  comprobantes     Comprobante[]
-  qrTokens         QrToken[]
+  visits       Visit[]
+  comprobantes Comprobante[]
+  qrTokens     QrToken[]
 
   @@unique([clienteId, companyId])
   @@index([estado])
@@ -426,14 +464,14 @@ model Membership {
 
 // QR generado SOLO al activar membresía. Uno por cada membresía del cliente.
 model QrToken {
-  id          String      @id @default(cuid())
+  id          String     @id @default(cuid())
   clienteId   String
-  cliente     Cliente     @relation(fields: [clienteId], references: [id])
+  cliente     Cliente    @relation(fields: [clienteId], references: [id])
   membresiaId String
-  membership  Membership  @relation(fields: [membresiaId], references: [id], onDelete: Cascade)
-  token       String      @unique @default(cuid())
-  activo      Boolean     @default(true)
-  createdAt   DateTime    @default(now())
+  membership  Membership @relation(fields: [membresiaId], references: [id], onDelete: Cascade)
+  token       String     @unique @default(cuid())
+  activo      Boolean    @default(true)
+  createdAt   DateTime   @default(now())
 
   @@index([clienteId, activo])
   @@index([membresiaId])
@@ -441,43 +479,43 @@ model QrToken {
 }
 
 model Visit {
-  id           String    @id @default(cuid())
+  id           String     @id @default(cuid())
   clienteId    String
-  cliente      Cliente   @relation(fields: [clienteId], references: [id])
+  cliente      Cliente    @relation(fields: [clienteId], references: [id])
   vehiculoId   String?
-  vehiculo     Vehiculo? @relation(fields: [vehiculoId], references: [id])
+  vehiculo     Vehiculo?  @relation(fields: [vehiculoId], references: [id])
   membershipId String
   membership   Membership @relation(fields: [membershipId], references: [id])
   sucursalId   String?
-  sucursal     Sucursal? @relation(fields: [sucursalId], references: [id])
+  sucursal     Sucursal?  @relation(fields: [sucursalId], references: [id])
   empleadoId   String?
-  empleado     User?     @relation("EmpleadoVisits", fields: [empleadoId], references: [id])
+  empleado     User?      @relation("EmpleadoVisits", fields: [empleadoId], references: [id])
   servicio     String
-  descontado   Boolean   @default(false)
-  fechaVisita  DateTime  @default(now())
+  descontado   Boolean    @default(false)
+  fechaVisita  DateTime   @default(now())
   notas        String?
   ipAddress    String?
   userAgent    String?
-  createdAt    DateTime  @default(now())
+  createdAt    DateTime   @default(now())
 
-  comprobante  Comprobante?
+  comprobante Comprobante?
 
   @@map("visits")
 }
 
 // Comprobante generado al confirmar visita. Registra impresiones.
 model Comprobante {
-  id           String     @id @default(cuid())
-  visitId      String     @unique
-  visit        Visit      @relation(fields: [visitId], references: [id])
-  membershipId String
-  membership   Membership @relation(fields: [membershipId], references: [id])
-  numero       String     @unique // número secuencial legible (ej. "COMP-000123")
-  impresiones  Int        @default(0)
+  id              String     @id @default(cuid())
+  visitId         String     @unique
+  visit           Visit      @relation(fields: [visitId], references: [id])
+  membershipId    String
+  membership      Membership @relation(fields: [membershipId], references: [id])
+  numero          String     @unique // número secuencial legible (ej. "COMP-000123")
+  impresiones     Int        @default(0)
   ultimaImpresion DateTime?
-  creadoPorId  String?
-  creadoPor    User?      @relation(fields: [creadoPorId], references: [id])
-  createdAt    DateTime   @default(now())
+  creadoPorId     String?
+  creadoPor       User?      @relation(fields: [creadoPorId], references: [id])
+  createdAt       DateTime   @default(now())
 
   @@map("comprobantes")
 }
@@ -487,10 +525,10 @@ model AuditLog {
   id          String      @id @default(cuid())
   companyId   String?
   company     Company?    @relation(fields: [companyId], references: [id])
-  userId      String?     // quien realizó la acción
+  userId      String? // quien realizó la acción
   user        User?       @relation(fields: [userId], references: [id])
   accion      AuditAccion
-  entidadTipo String      // "Visit", "Membership", "QrToken", etc.
+  entidadTipo String // "Visit", "Membership", "QrToken", etc.
   entidadId   String
   payload     Json        @default("{}")
   ipAddress   String?
@@ -512,11 +550,64 @@ model Notificacion {
   tipo      NotifTipo
   titulo    String
   mensaje   String
-  href      String?   // ruta a la que lleva al hacer clic
+  href      String? // ruta a la que lleva al hacer clic
   leida     Boolean   @default(false)
   createdAt DateTime  @default(now())
 
   @@index([userId, leida])
   @@index([userId, createdAt])
   @@map("notificaciones")
+}
+
+// ─────────────────────────────────────────────
+// FASE 2: MARKETPLACE
+// ─────────────────────────────────────────────
+
+model BusinessCategory {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  slug        String   @unique
+  icon        String?
+  description String?
+  order       Int      @default(0)
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  companies CompanyToCategory[]
+
+  @@index([active, order])
+  @@map("business_categories")
+}
+
+model CompanyToCategory {
+  id         String           @id @default(cuid())
+  companyId  String
+  company    Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  categoryId String
+  category   BusinessCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  createdAt  DateTime         @default(now())
+
+  @@unique([companyId, categoryId])
+  @@index([companyId])
+  @@index([categoryId])
+  @@map("company_to_categories")
+}
+
+model CompanyRating {
+  id        String   @id @default(cuid())
+  companyId String
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  clienteId String
+  cliente   Cliente  @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  rating    Int // 1-5
+  comment   String?
+  visible   Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([companyId, clienteId])
+  @@index([companyId])
+  @@index([rating])
+  @@map("company_ratings")
 }
