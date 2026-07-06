@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { Check, Copy } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
+import { absoluteUrl } from '@/lib/site'
 
 export function CopyReferralLink({
   code,
@@ -13,10 +14,10 @@ export function CopyReferralLink({
   companySlug: string
 }) {
   const [copied, setCopied] = useState(false)
-  const link =
-    typeof window !== 'undefined'
-      ? `${window.location.origin}/registro/${companySlug}?ref=${code}`
-      : `/registro/${companySlug}?ref=${code}`
+  // Siempre sobre el dominio oficial (NEXT_PUBLIC_APP_URL o membego.com),
+  // nunca el dominio de preview de Vercel. Conserva el companySlug para que el
+  // referido aterrice en la empresa correcta.
+  const link = absoluteUrl(`/registro/${companySlug}?ref=${code}`)
 
   async function copy() {
     await navigator.clipboard.writeText(link)
