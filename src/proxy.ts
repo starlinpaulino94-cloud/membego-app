@@ -1,38 +1,27 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
-import { ROLE_HOME, type AppMetadata, type AppRole } from '@/types'
+import { getSupabaseAnonKey, getSupabaseUrl } from '@/lib/env'
+import { ROLE_HOME, ROUTE_PROTECTION, type AppMetadata } from '@/types'
 
 type CookieToSet = { name: string; value: string; options?: CookieOptions }
 
-// Route prefix -> roles allowed to access it
-const PROTECTED: { prefix: string; roles: AppRole[] }[] = [
-  { prefix: '/superadmin', roles: ['SUPERADMIN'] },
-  {
-    prefix: '/admin',
-    roles: ['SUPERADMIN', 'ADMINISTRADOR', 'GERENTE', 'CAJERO', 'ADMIN_EMPRESA'],
-  },
-  {
-    prefix: '/empleado',
-    roles: [
-      'SUPERADMIN',
-      'ADMINISTRADOR',
-      'GERENTE',
-      'CAJERO',
-      'RECEPCION',
-      'EMPLEADO',
-      'ADMIN_EMPRESA',
-    ],
-  },
-  { prefix: '/cliente', roles: ['CLIENTE'] },
-]
+/**
+ * Devuelve la regla de protección que aplica a un path, o undefined si es
+ * público. Fuente única de verdad: `ROUTE_PROTECTION` en `src/types`.
+ */
+function matchProtected(path: string) {
+  return ROUTE_PROTECTION.find((r) => path.startsWith(r.prefix))
+}
 
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request })
+  const path = request.nextUrl.pathname
+  const matched = matchProtected(path)
 
   try {
     const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      getSupabaseUrl(),
+      getSupabaseAnonKey(),
       {
         cookies: {
           getAll() {
@@ -54,9 +43,6 @@ export async function proxy(request: NextRequest) {
     const {
       data: { user },
     } = await supabase.auth.getUser()
-
-    const path = request.nextUrl.pathname
-    const matched = PROTECTED.find((r) => path.startsWith(r.prefix))
 
     if (matched) {
       if (!user) {
@@ -82,8 +68,17 @@ export async function proxy(request: NextRequest) {
       url.pathname = ROLE_HOME[role]
       return NextResponse.redirect(url)
     }
-  } catch {
-    // If auth check fails, allow the request to continue
+  } catch (err) {
+    // Fail-closed: si la verificación de auth falla (Supabase caído, env
+    // faltante) NO dejamos pasar rutas protegidas — redirigimos a /login.
+    // Las rutas públicas continúan normalmente.
+    console.error('[proxy] auth check failed:', err)
+    if (matched) {
+      const url = request.nextUrl.clone()
+      url.pathname = '/login'
+      url.searchParams.set('redirect', path)
+      return NextResponse.redirect(url)
+    }
   }
 
   return response

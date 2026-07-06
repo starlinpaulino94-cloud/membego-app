@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
-import { getSession } from '@/lib/auth'
-import type { AppMetadata, AppRole, SessionUser } from '@/types'
+import { getUser } from '@/lib/auth'
+import type { AppRole, SessionUser } from '@/types'
 
 function setSentryContext(user: SessionUser) {
   import('@sentry/nextjs')
@@ -13,20 +13,13 @@ function setSentryContext(user: SessionUser) {
 }
 
 export async function requireUser(): Promise<SessionUser> {
-  const session = await getSession()
-  if (!session?.user) redirect('/login')
+  // getUser() revalida el token contra el servidor de Supabase en cada
+  // request (a diferencia de getSession(), que solo decodifica la cookie sin
+  // verificar la firma). Es el método recomendado para decisiones de
+  // autorización en código de servidor.
+  const user = await getUser()
+  if (!user) redirect('/login')
 
-  const meta = (session.user.app_metadata ?? {}) as Partial<AppMetadata>
-  const user: SessionUser = {
-    supabaseId: session.user.id,
-    email: session.user.email ?? '',
-    metadata: {
-      role: meta.role ?? 'CLIENTE',
-      dbUserId: meta.dbUserId ?? '',
-      clienteId: meta.clienteId ?? null,
-      companyId: meta.companyId ?? null,
-    },
-  }
   setSentryContext(user)
   return user
 }
