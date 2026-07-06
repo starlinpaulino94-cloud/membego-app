@@ -67,127 +67,39 @@ export async function getClienteAllMemberships(supabaseId: string) {
   }
 }
 
-export async function getClienteFull(clienteId: string): Promise<any> {
+/**
+ * Datos del cliente para la página de perfil: básicos + empresa + vehículos.
+ * Una sola query (antes hacía 3 consultas redundantes cargando membresías y
+ * visitas que el perfil ni siquiera usa).
+ */
+export async function getClientePerfil(clienteId: string) {
   if (!clienteId) {
-    console.warn('[getClienteFull] Missing clienteId')
+    console.warn('[getClientePerfil] Missing clienteId')
     return null
   }
 
-  let cliente
   try {
-    cliente = await prisma.cliente.findUnique({
+    return await prisma.cliente.findUnique({
       where: { id: clienteId },
       select: {
         id: true,
         nombre: true,
         email: true,
         telefono: true,
+        avatarUrl: true,
         companyId: true,
-        createdAt: true,
-        supabaseId: true,
         company: {
-          select: { id: true, name: true, slug: true, type: true, description: true, logoUrl: true, isActive: true },
+          select: { id: true, name: true, slug: true, type: true, logoUrl: true },
         },
-        vehiculos: true,
-        memberships: {
-          select: {
-            id: true,
-            companyId: true,
-            estado: true,
-            lavadosRestantes: true,
-            fechaInicio: true,
-            fechaVencimiento: true,
-            createdAt: true,
-            clienteId: true,
-            planId: true,
-            plan: {
-              select: { id: true, nombre: true, precio: true, lavadosIncluidos: true, esIlimitado: true, beneficios: true, descripcion: true },
-            },
-            qrTokens: {
-              where: { activo: true },
-              take: 1,
-              select: { id: true, token: true, activo: true, createdAt: true },
-            },
-          },
+        vehiculos: {
           orderBy: { createdAt: 'desc' },
-        },
-        visits: {
-          select: {
-            id: true,
-            servicio: true,
-            fechaVisita: true,
-            descontado: true,
-            clienteId: true,
-            membershipId: true,
-            vehiculoId: true,
-            vehiculo: true,
-          },
-          orderBy: { fechaVisita: 'desc' },
-          take: 10,
         },
       },
     })
   } catch (error) {
-    console.error('[getClienteFull] Error loading cliente:', error)
+    console.error('[getClientePerfil] Error loading cliente:', error)
     throw error
   }
-
-  if (!cliente) return null
-
-  // Add optional fields that may not exist in DB yet
-  const enriched = {
-    ...cliente,
-    qrTokens: cliente.memberships[0]?.qrTokens ?? [],
-    memberships: cliente.memberships.map((m) => ({
-      ...m,
-      pagoConfirmado: (m as Record<string, unknown>).pagoConfirmado as boolean ?? false,
-      montoPagado: (m as Record<string, unknown>).montoPagado as number | null ?? null,
-      comprobanteUrl: (m as Record<string, unknown>).comprobanteUrl as string | null ?? null,
-      comprobanteNota: (m as Record<string, unknown>).comprobanteNota as string | null ?? null,
-      rechazadoReason: (m as Record<string, unknown>).rechazadoReason as string | null ?? null,
-      metodoPago: null as { id: string; nombre: string } | null,
-    })),
-    visits: cliente.visits.map((v) => ({
-      ...v,
-      sucursal: null as { id: string; nombre: string } | null,
-    })),
-  }
-
-  // Try to load extra membership fields
-  try {
-    const fullMemberships = await prisma.membership.findMany({
-      where: { clienteId },
-      include: { plan: true, metodoPago: true, qrTokens: { where: { activo: true }, take: 1 } },
-      orderBy: { createdAt: 'desc' },
-    })
-    enriched.memberships = fullMemberships.map((m) => ({
-      ...m,
-      pagoConfirmado: (m as Record<string, unknown>).pagoConfirmado as boolean ?? false,
-      montoPagado: (m as Record<string, unknown>).montoPagado ?? null,
-      comprobanteUrl: (m as Record<string, unknown>).comprobanteUrl as string | null ?? null,
-      comprobanteNota: (m as Record<string, unknown>).comprobanteNota as string | null ?? null,
-      rechazadoReason: (m as Record<string, unknown>).rechazadoReason as string | null ?? null,
-      metodoPago: (m as Record<string, unknown>).metodoPago ?? null,
-    })) as typeof enriched.memberships
-    // Update qrTokens to use first membership's active QR
-    enriched.qrTokens = fullMemberships[0]?.qrTokens ?? []
-  } catch {}
-
-  // Try to load sucursal info on visits
-  try {
-    const fullVisits = await prisma.visit.findMany({
-      where: { clienteId },
-      include: { vehiculo: true, sucursal: true },
-      orderBy: { fechaVisita: 'desc' },
-      take: 10,
-    })
-    enriched.visits = fullVisits.map((v) => ({
-      ...v,
-      sucursal: (v as Record<string, unknown>).sucursal as { id: string; nombre: string } | null ?? null,
-    })) as typeof enriched.visits
-  } catch {}
-
-  return enriched
 }
 
 export async function getClienteVisitas(
