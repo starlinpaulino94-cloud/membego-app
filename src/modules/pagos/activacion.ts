@@ -1,9 +1,13 @@
-'use server'
-
 /**
  * Punto de activación único para membresías.
  * Tanto la aprobación manual del admin como futuras pasarelas de pago
  * deben invocar esta función para garantizar un flujo consistente.
+ *
+ * IMPORTANTE: este módulo NO lleva la directiva 'use server'. `activarMembresia`
+ * es una función interna de servidor que confía en el llamador para haber
+ * autorizado la operación (p. ej. `confirmarPago` en admin/actions.ts, que valida
+ * rol y pertenencia a la empresa). Exponerla como Server Action pública
+ * permitiría activar membresías sin pagar. Solo debe invocarse server-to-server.
  */
 
 import { prisma } from '@/lib/prisma'

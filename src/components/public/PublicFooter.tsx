@@ -42,18 +42,13 @@ export function PublicFooter() {
             <h4 className="font-semibold text-white mb-4">Para Empresas</h4>
             <ul className="space-y-2 text-sm">
               <li>
-                <Link href="/registro" className="text-neutral-400 hover:text-white">
-                  Registrarse como Empresa
+                <Link href="/contact" className="text-neutral-400 hover:text-white">
+                  Registrar mi empresa
                 </Link>
               </li>
               <li>
-                <Link href="/features" className="text-neutral-400 hover:text-white">
-                  Características
-                </Link>
-              </li>
-              <li>
-                <Link href="/pricing" className="text-neutral-400 hover:text-white">
-                  Planes
+                <Link href="/empresas" className="text-neutral-400 hover:text-white">
+                  Ver empresas
                 </Link>
               </li>
             </ul>

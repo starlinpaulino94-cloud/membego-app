@@ -1,6 +1,9 @@
+import Link from 'next/link'
+import { Plus } from 'lucide-react'
 import { requireRole } from '@/lib/auth/guards'
 import { listEmpresas } from '@/modules/empresas/queries'
 import { EmpresasCRM } from '@/components/superadmin/EmpresasCRM'
+import { buttonVariants } from '@/components/ui/button'
 
 export const dynamic = 'force-dynamic'
 
@@ -42,11 +45,16 @@ export default async function SuperadminEmpresas() {
 
   return (
     <div className="space-y-6 animate-fade-up">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight text-foreground">Empresas</h1>
-        <p className="text-sm text-muted-foreground">
-          CRM de empresas registradas en la plataforma
-        </p>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">Empresas</h1>
+          <p className="text-sm text-muted-foreground">
+            CRM de empresas registradas en la plataforma
+          </p>
+        </div>
+        <Link href="/superadmin/empresas/nueva" className={buttonVariants()}>
+          <Plus className="mr-2 h-4 w-4" /> Nueva empresa
+        </Link>
       </div>
       <EmpresasCRM empresas={empresas} />
     </div>
