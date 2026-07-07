@@ -1,89 +1,59 @@
-import { Gift } from 'lucide-react'
+import Link from 'next/link'
+import { Gift, AlertCircle } from 'lucide-react'
 import { requireRole } from '@/lib/auth/guards'
-import { prisma } from '@/lib/prisma'
+import { getClientePromociones } from '@/modules/marketplace/queries'
+import { PromotionCard } from '@/components/public/PromotionCard'
 import { Card, CardContent } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 
 export const dynamic = 'force-dynamic'
-
-function fmtDate(d: Date) {
-  return new Intl.DateTimeFormat('es-DO', { dateStyle: 'medium' }).format(d)
-}
 
 export default async function PromocionesDisponiblesPage() {
   const user = await requireRole('CLIENTE')
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let promociones: any[] = []
-
+  let promociones: Awaited<ReturnType<typeof getClientePromociones>> = []
+  let loadError = false
   try {
-    const clientes = await prisma.cliente.findMany({
-      where: { supabaseId: user.supabaseId },
-      select: { companyId: true },
-    })
-    const companyIds = clientes.map((c) => c.companyId)
-
-    const now = new Date()
-    if (companyIds.length) {
-      promociones = await prisma.promocion.findMany({
-        where: {
-          companyId: { in: companyIds },
-          activo: true,
-          vigenciaDesde: { lte: now },
-          OR: [{ vigenciaHasta: null }, { vigenciaHasta: { gte: now } }],
-        },
-        include: { company: true },
-        orderBy: { publicadaEn: 'desc' },
-      })
-    }
+    promociones = await getClientePromociones(user.supabaseId)
   } catch (e) {
+    loadError = true
     console.error('[cliente-promociones]', e)
   }
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">
-          Promociones disponibles
-        </h1>
+        <h1 className="text-2xl font-bold text-slate-900">Promociones disponibles</h1>
         <p className="text-slate-500">
           Ofertas vigentes en las empresas donde tienes cuenta.
         </p>
       </div>
 
-      {promociones.length === 0 ? (
+      {loadError ? (
+        <Card className="border-destructive/30 bg-destructive/5">
+          <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
+            <AlertCircle className="h-8 w-8 text-destructive" />
+            <p className="font-medium text-foreground">No pudimos cargar las promociones.</p>
+            <Button asChild variant="outline">
+              <Link href="/cliente/promociones">Reintentar</Link>
+            </Button>
+          </CardContent>
+        </Card>
+      ) : promociones.length === 0 ? (
         <Card>
           <CardContent className="py-16 text-center text-slate-500">
             <Gift className="mx-auto mb-3 h-10 w-10 text-slate-300" />
             <p className="font-medium">No hay promociones activas por ahora</p>
             <p className="text-sm">Te notificaremos cuando se publique una nueva.</p>
+            <Button asChild variant="outline" className="mt-4">
+              <Link href="/empresas">Explorar empresas</Link>
+            </Button>
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {promociones.map((p) => (
-            <Card key={p.id} className="overflow-hidden">
-              {p.imagenUrl && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={p.imagenUrl}
-                  alt={p.titulo}
-                  className="h-40 w-full object-cover"
-                />
-              )}
-              <CardContent className="p-5">
-                <div className="flex items-start justify-between gap-3">
-                  <p className="font-semibold text-slate-900">{p.titulo}</p>
-                  <Badge variant="secondary">{p.company.name}</Badge>
-                </div>
-                <p className="mt-2 text-sm text-slate-600">{p.descripcion}</p>
-                {p.vigenciaHasta && (
-                  <p className="mt-3 text-xs text-slate-400">
-                    Vigente hasta {fmtDate(p.vigenciaHasta)}
-                  </p>
-                )}
-              </CardContent>
-            </Card>
+            <PromotionCard key={p.id} promotion={p} />
           ))}
         </div>
       )}

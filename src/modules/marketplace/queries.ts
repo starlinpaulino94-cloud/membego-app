@@ -233,6 +233,62 @@ export async function getPromotionsPublic(filters: PromotionFilters = {}): Promi
   }
 }
 
+/**
+ * Promociones vigentes de las empresas donde el cliente tiene cuenta.
+ * Devuelve la misma forma pública (PromotionPublic) para reutilizar PromotionCard
+ * y que el enlace al detalle /promocion/[id] funcione (mismas condiciones de
+ * publicación).
+ */
+export async function getClientePromociones(
+  supabaseId: string
+): Promise<PromotionPublic[]> {
+  try {
+    const clientes = await prisma.cliente.findMany({
+      where: { supabaseId },
+      select: { companyId: true },
+    })
+    const companyIds = clientes.map((c) => c.companyId)
+    if (companyIds.length === 0) return []
+
+    const now = new Date()
+    const promotions = await prisma.promocion.findMany({
+      where: {
+        companyId: { in: companyIds },
+        activo: true,
+        vigenciaDesde: { lte: now },
+        OR: [{ vigenciaHasta: null }, { vigenciaHasta: { gte: now } }],
+        company: { isPublished: true, isActive: true },
+      },
+      select: {
+        id: true,
+        titulo: true,
+        slug: true,
+        descripcion: true,
+        imagenUrl: true,
+        tipo: true,
+        descuento: true,
+        codigo: true,
+        vigenciaDesde: true,
+        vigenciaHasta: true,
+        viewCount: true,
+        shareCount: true,
+        tags: true,
+        isFeatured: true,
+        createdAt: true,
+        company: {
+          select: { id: true, name: true, slug: true, logoUrl: true },
+        },
+      },
+      orderBy: [{ isFeatured: 'desc' }, { publicadaEn: 'desc' }],
+    })
+
+    return promotions as PromotionPublic[]
+  } catch (error) {
+    console.error('[getClientePromociones] Error:', error)
+    throw error
+  }
+}
+
 export async function getFeaturedPromotions(limit: number = 6): Promise<PromotionPublic[]> {
   const now = new Date()
 
