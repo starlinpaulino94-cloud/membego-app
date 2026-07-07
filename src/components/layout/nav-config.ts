@@ -20,6 +20,7 @@ import {
   Newspaper,
   TrendingUp,
   Store,
+  Bell,
   type LucideIcon,
 } from 'lucide-react'
 import type { AppRole } from '@/types'
@@ -69,6 +70,7 @@ const ADMIN_NAV: NavGroup[] = [
   {
     label: 'Soporte',
     items: [
+      { href: '/admin/notificaciones', label: 'Notificaciones', icon: Bell },
       { href: '/admin/comunicacion', label: 'Comunicación y Soporte', icon: MessageCircle },
       { href: '/admin/tickets', label: 'Tickets', icon: LifeBuoy },
     ],
@@ -159,6 +161,7 @@ const SUPERADMIN_NAV: NavGroup[] = [
   {
     label: 'Soporte',
     items: [
+      { href: '/admin/notificaciones', label: 'Notificaciones', icon: Bell },
       { href: '/admin/comunicacion', label: 'Comunicación y Soporte', icon: MessageCircle },
       { href: '/admin/tickets', label: 'Tickets', icon: LifeBuoy },
     ],
