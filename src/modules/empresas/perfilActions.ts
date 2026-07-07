@@ -86,3 +86,42 @@ export async function actualizarPerfilPublico(
     return { error: 'No se pudo guardar. Intenta de nuevo.' }
   }
 }
+
+/**
+ * F5.1: publica la empresa en el marketplace. Requiere el checklist de
+ * onboarding completo — evita perfiles vacíos que resten confianza.
+ */
+export async function publicarMiEmpresa(
+  _prev: PerfilState,
+  _formData: FormData
+): Promise<PerfilState> {
+  const user = await requireAdminUser()
+  if (!user) return { error: 'No autorizado.' }
+
+  const companyId = user.metadata.companyId
+  if (!companyId) return { error: 'Esta función es del panel de empresa.' }
+
+  try {
+    const { getOnboardingEmpresa } = await import('./onboarding')
+    const onboarding = await getOnboardingEmpresa(companyId)
+    if (!onboarding) return { error: 'Empresa no encontrada.' }
+    if (onboarding.publicado) return { error: 'Tu empresa ya está publicada.' }
+    if (!onboarding.listoParaPublicar) {
+      const faltan = onboarding.items.filter((i) => !i.done).map((i) => i.label)
+      return { error: `Completa antes: ${faltan.join(', ')}.` }
+    }
+
+    await prisma.company.update({
+      where: { id: companyId },
+      data: { isPublished: true },
+    })
+
+    revalidatePath('/admin/dashboard')
+    revalidatePath('/empresas', 'layout')
+    revalidatePath('/')
+    return { success: true }
+  } catch (e) {
+    console.error('[publicar-empresa]', e)
+    return { error: 'No se pudo publicar. Intenta de nuevo.' }
+  }
+}
