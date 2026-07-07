@@ -70,6 +70,30 @@ export async function notificarClientesEmpresa(
   }
 }
 
+/**
+ * FASE 3: Notifica únicamente a los seguidores de la empresa (CompanyFollow).
+ * Regla del marketplace social: nunca notificar a usuarios que no siguen la
+ * empresa. Los clientes existentes se convirtieron en seguidores vía backfill.
+ */
+export async function notificarSeguidoresEmpresa(
+  companyId: string,
+  payload: { tipo: NotifTipo; titulo: string; mensaje: string; href?: string }
+) {
+  try {
+    const seguidores = await prisma.companyFollow.findMany({
+      where: { companyId },
+      select: { userId: true },
+    })
+    if (seguidores.length === 0) return
+
+    await prisma.notificacion.createMany({
+      data: seguidores.map((s) => ({ userId: s.userId, ...payload })),
+    })
+  } catch (e) {
+    console.error('[notificacion] notificarSeguidoresEmpresa error', e)
+  }
+}
+
 // ── Server actions ────────────────────────────────────────────────────────────
 
 export async function getNotificaciones() {

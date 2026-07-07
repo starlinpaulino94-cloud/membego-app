@@ -201,6 +201,18 @@ export async function registrarCliente(
         }
       }
 
+      // FASE 3: al registrarse en una empresa, el cliente la sigue
+      // automáticamente (recibe sus promociones y novedades).
+      await prisma.companyFollow
+        .upsert({
+          where: {
+            userId_companyId: { userId: existingUser.id, companyId: company.id },
+          },
+          update: {},
+          create: { userId: existingUser.id, companyId: company.id },
+        })
+        .catch((e) => console.error('[registro] auto-follow error:', e))
+
       await admin.auth.admin.updateUserById(existingUser.supabaseId, {
         app_metadata: {
           role: 'CLIENTE',
@@ -260,6 +272,11 @@ export async function registrarCliente(
           email,
           telefono: telefono || null,
         },
+      })
+
+      // FASE 3: auto-seguir la empresa al registrarse.
+      await tx.companyFollow.create({
+        data: { userId: dbUser.id, companyId: company.id },
       })
 
       // QR se genera solo al activar la membresía, no en el registro

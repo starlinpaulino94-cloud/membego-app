@@ -94,6 +94,7 @@ const CLIENTE_NAV: NavGroup[] = [
   {
     label: 'Beneficios',
     items: [
+      { href: '/cliente/empresas', label: 'Mis empresas', icon: Building2 },
       { href: '/cliente/promociones', label: 'Promociones', icon: Megaphone },
       { href: '/cliente/referidos', label: 'Referidos', icon: Gift },
     ],

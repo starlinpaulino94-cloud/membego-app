@@ -21,6 +21,7 @@ import {
   QrCode,
 } from 'lucide-react'
 import { PromotionGrid } from '@/components/public/PromotionGrid'
+import { FollowButton } from '@/components/public/FollowButton'
 import {
   getCompanyPublic,
   getCompanyStats,
@@ -174,13 +175,17 @@ export default async function CompanyDetailPage({
             </div>
 
             {/* CTA */}
-            <div className="shrink-0">
+            <div className="flex w-full shrink-0 flex-col gap-2 sm:w-auto">
               <Link
                 href={`/registro/${company.slug}`}
                 className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-6 py-3 font-semibold text-white shadow-sm transition hover:bg-blue-700 sm:w-auto"
               >
-                Registrarme <ArrowRight className="h-4 w-4" />
+                Quiero una membresía <ArrowRight className="h-4 w-4" />
               </Link>
+              <FollowButton
+                companyId={company.id}
+                redirectTo={`/empresas/${company.slug}`}
+              />
             </div>
           </div>
 
