@@ -5,8 +5,9 @@ import { ProfileForm } from '@/components/cliente/ProfileForm'
 import { VehiculoForm } from '@/components/cliente/VehiculoForm'
 import { DeleteVehiculoButton } from '@/components/cliente/DeleteVehiculoButton'
 import { WhatsAppButton } from '@/components/cliente/WhatsAppButton'
+import { ChangePasswordForm } from '@/components/cliente/ChangePasswordForm'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Car, User } from 'lucide-react'
+import { Car, User, ShieldCheck } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
 
@@ -74,7 +75,25 @@ export default async function PerfilPage() {
             email={cliente.email}
             telefono={cliente.telefono ?? null}
             avatarUrl={cliente.avatarUrl ?? null}
+            fechaNacimiento={
+              cliente.fechaNacimiento
+                ? cliente.fechaNacimiento.toISOString().slice(0, 10)
+                : null
+            }
           />
+        </CardContent>
+      </Card>
+
+      {/* Seguridad */}
+      <Card className="border-border/60 shadow-card">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <ShieldCheck className="h-4 w-4 text-muted-foreground" />
+            Seguridad
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ChangePasswordForm />
         </CardContent>
       </Card>
 

@@ -1,11 +1,30 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { notFound } from 'next/navigation'
-import { StatsBar } from '@/components/public/StatsBar'
+import {
+  ArrowLeft,
+  ArrowRight,
+  MapPin,
+  Mail,
+  Phone,
+  MessageCircle,
+  Globe,
+  Instagram,
+  Facebook,
+  Music2,
+  Star,
+  Gift,
+  Users,
+  Check,
+  Crown,
+  Sparkles,
+  QrCode,
+} from 'lucide-react'
 import { PromotionGrid } from '@/components/public/PromotionGrid'
 import {
   getCompanyPublic,
   getCompanyStats,
+  getCompanyPlanesPublic,
   getPromotionsPublic,
 } from '@/modules/marketplace/queries'
 
@@ -15,175 +34,307 @@ interface CompanyDetailPageProps {
 
 export const revalidate = 3600
 
+const TIPO_LABEL: Record<string, string> = {
+  carwash: 'Car Wash',
+  restaurante: 'Restaurante',
+  gimnasio: 'Gimnasio',
+  salon: 'Salón',
+}
+
+function fmtPrice(n: number) {
+  return new Intl.NumberFormat('es-DO').format(n)
+}
+
 export default async function CompanyDetailPage({
   params,
 }: CompanyDetailPageProps) {
   const { companySlug } = await params
 
-  const [company, stats, promotions] = await Promise.all([
-    getCompanyPublic(companySlug),
+  const company = await getCompanyPublic(companySlug)
+  if (!company) notFound()
+
+  const [stats, planes, promotions] = await Promise.all([
     getCompanyStats(companySlug),
+    getCompanyPlanesPublic(company.id),
     getPromotionsPublic({ company: companySlug, limit: 12 }),
   ])
 
-  if (!company || !stats) {
-    notFound()
-  }
+  const initials = company.name.slice(0, 2).toUpperCase()
+  const location = [company.ciudad, company.provincia, company.pais]
+    .filter(Boolean)
+    .join(', ')
+
+  const contactLinks = [
+    company.email && { icon: Mail, label: company.email, href: `mailto:${company.email}` },
+    company.telefono && { icon: Phone, label: company.telefono, href: `tel:${company.telefono}` },
+    company.whatsapp && {
+      icon: MessageCircle,
+      label: 'WhatsApp',
+      href: `https://wa.me/${company.whatsapp.replace(/\D/g, '')}`,
+    },
+    company.website && { icon: Globe, label: 'Sitio web', href: company.website },
+  ].filter(Boolean) as { icon: typeof Mail; label: string; href: string }[]
+
+  const socialLinks = [
+    company.instagram && { icon: Instagram, label: 'Instagram', href: company.instagram },
+    company.facebook && { icon: Facebook, label: 'Facebook', href: company.facebook },
+    company.tiktok && { icon: Music2, label: 'TikTok', href: company.tiktok },
+  ].filter(Boolean) as { icon: typeof Mail; label: string; href: string }[]
 
   return (
     <div className="min-h-screen bg-white">
-      {/* Banner */}
-      {company.bannerUrl && (
-        <div className="relative h-64 w-full overflow-hidden bg-neutral-100">
-          <Image
-            src={company.bannerUrl}
-            alt={company.name}
-            fill
-            className="object-cover"
-          />
-        </div>
-      )}
-
-      {/* Company Info Section */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        {/* Header with Logo */}
-        <div className="flex flex-col sm:flex-row gap-6 items-start mb-8">
-          {company.logoUrl && (
-            <div className="relative h-32 w-32 overflow-hidden rounded-lg border-4 border-neutral-200 bg-white shadow-md flex-shrink-0">
-              <Image
-                src={company.logoUrl}
-                alt={company.name}
-                fill
-                className="object-cover"
-              />
-            </div>
-          )}
-
-          <div className="flex-1">
-            <h1 className="text-4xl sm:text-5xl font-bold text-neutral-900">
-              {company.name}
-            </h1>
-
-            {company.description && (
-              <p className="text-neutral-600 mt-3 text-lg">
-                {company.description}
-              </p>
-            )}
-
-            {/* Location */}
-            {company.ciudad && (
-              <p className="text-neutral-600 mt-2 flex items-center gap-2">
-                📍 {company.ciudad}
-                {company.provincia && `, ${company.provincia}`}
-                {company.pais && `, ${company.pais}`}
-              </p>
-            )}
-
-            {/* Contact Info */}
-            <div className="flex flex-wrap gap-4 mt-4">
-              {company.email && (
-                <a
-                  href={`mailto:${company.email}`}
-                  className="text-blue-600 hover:underline text-sm"
-                >
-                  📧 {company.email}
-                </a>
-              )}
-              {company.telefono && (
-                <a
-                  href={`tel:${company.telefono}`}
-                  className="text-blue-600 hover:underline text-sm"
-                >
-                  ☎️ {company.telefono}
-                </a>
-              )}
-              {company.whatsapp && (
-                <a
-                  href={`https://wa.me/${company.whatsapp}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-green-600 hover:underline text-sm"
-                >
-                  💬 WhatsApp
-                </a>
-              )}
-              {company.website && (
-                <a
-                  href={company.website}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-blue-600 hover:underline text-sm"
-                >
-                  🌐 Sitio Web
-                </a>
-              )}
-            </div>
-
-            {/* Social Media */}
-            {(company.instagram ||
-              company.facebook ||
-              company.tiktok) && (
-              <div className="flex gap-3 mt-4">
-                {company.instagram && (
-                  <a
-                    href={company.instagram}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-pink-600 hover:opacity-75"
-                  >
-                    📷 Instagram
-                  </a>
-                )}
-                {company.facebook && (
-                  <a
-                    href={company.facebook}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-blue-600 hover:opacity-75"
-                  >
-                    f Facebook
-                  </a>
-                )}
-                {company.tiktok && (
-                  <a
-                    href={company.tiktok}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-neutral-900 hover:opacity-75"
-                  >
-                    🎵 TikTok
-                  </a>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* CTA */}
+      {/* Hero / Banner */}
+      <section className="relative h-56 w-full overflow-hidden bg-gradient-to-br from-blue-700 via-sky-600 to-indigo-800 sm:h-72">
+        {company.bannerUrl ? (
+          <>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={company.bannerUrl}
+              alt=""
+              className="h-full w-full object-cover"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-slate-900/70 via-slate-900/20 to-transparent" />
+          </>
+        ) : (
+          <div className="absolute -top-10 right-16 h-56 w-56 rounded-full bg-sky-400/30 blur-3xl" />
+        )}
+        <div className="absolute left-0 top-0 p-4 sm:p-6">
           <Link
-            href={`/registro/${company.slug}`}
-            className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors whitespace-nowrap font-semibold"
+            href="/empresas"
+            className="inline-flex items-center gap-1.5 rounded-full bg-white/20 px-3 py-1.5 text-sm font-medium text-white backdrop-blur transition hover:bg-white/30"
           >
-            Registrarse
+            <ArrowLeft className="h-4 w-4" /> Empresas
           </Link>
         </div>
+      </section>
 
-        {/* Gallery */}
+      <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
+        {/* Header card */}
+        <div className="relative -mt-16 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+          <div className="flex flex-col gap-6 sm:flex-row sm:items-start">
+            {/* Logo */}
+            <div className="-mt-16 shrink-0 sm:-mt-20">
+              {company.logoUrl ? (
+                <div className="relative h-28 w-28 overflow-hidden rounded-2xl border-4 border-white bg-white shadow-md sm:h-32 sm:w-32">
+                  <Image src={company.logoUrl} alt={company.name} fill className="object-cover" />
+                </div>
+              ) : (
+                <div className="flex h-28 w-28 items-center justify-center rounded-2xl border-4 border-white bg-gradient-to-br from-blue-500 to-indigo-600 text-3xl font-bold text-white shadow-md sm:h-32 sm:w-32">
+                  {initials}
+                </div>
+              )}
+            </div>
+
+            <div className="flex-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-semibold text-blue-700">
+                  {TIPO_LABEL[company.type] ?? company.type}
+                </span>
+                {company.isFeatured && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-semibold text-amber-700">
+                    <Star className="h-3 w-3 fill-amber-500 text-amber-500" /> Destacada
+                  </span>
+                )}
+              </div>
+
+              <h1 className="mt-2 text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl">
+                {company.name}
+              </h1>
+
+              {location && (
+                <p className="mt-2 inline-flex items-center gap-1.5 text-sm text-slate-500">
+                  <MapPin className="h-4 w-4" /> {location}
+                </p>
+              )}
+
+              {company.description && (
+                <p className="mt-3 max-w-2xl text-slate-600">{company.description}</p>
+              )}
+
+              {/* Chips de datos reales (solo si aportan) */}
+              <div className="mt-4 flex flex-wrap gap-2">
+                {stats && stats.activePromotions > 0 && (
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-rose-50 px-3 py-1 text-sm font-medium text-rose-700">
+                    <Gift className="h-4 w-4" /> {stats.activePromotions} promociones
+                  </span>
+                )}
+                {stats && stats.totalMembers > 0 && (
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-3 py-1 text-sm font-medium text-blue-700">
+                    <Users className="h-4 w-4" /> {stats.totalMembers} miembros
+                  </span>
+                )}
+                {stats && stats.averageRating != null && (
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1 text-sm font-medium text-amber-700">
+                    <Star className="h-4 w-4 fill-amber-500 text-amber-500" />
+                    {stats.averageRating.toFixed(1)}
+                    <span className="text-amber-600/70">({stats.totalRatings})</span>
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* CTA */}
+            <div className="shrink-0">
+              <Link
+                href={`/registro/${company.slug}`}
+                className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-6 py-3 font-semibold text-white shadow-sm transition hover:bg-blue-700 sm:w-auto"
+              >
+                Registrarme <ArrowRight className="h-4 w-4" />
+              </Link>
+            </div>
+          </div>
+
+          {/* Contacto y redes */}
+          {(contactLinks.length > 0 || socialLinks.length > 0) && (
+            <div className="mt-6 flex flex-wrap gap-x-5 gap-y-2 border-t border-slate-100 pt-5">
+              {contactLinks.map((c) => (
+                <a
+                  key={c.label}
+                  href={c.href}
+                  target={c.href.startsWith('http') ? '_blank' : undefined}
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 text-sm text-slate-600 transition hover:text-blue-600"
+                >
+                  <c.icon className="h-4 w-4" /> {c.label}
+                </a>
+              ))}
+              {socialLinks.map((s) => (
+                <a
+                  key={s.label}
+                  href={s.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 text-sm text-slate-600 transition hover:text-blue-600"
+                >
+                  <s.icon className="h-4 w-4" /> {s.label}
+                </a>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Planes */}
+        {planes.length > 0 && (
+          <section className="mt-14">
+            <div className="mx-auto max-w-2xl text-center">
+              <h2 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
+                Planes de membresía
+              </h2>
+              <p className="mt-2 text-slate-600">
+                Elige el plan que mejor se adapte a ti y recibe tu membresía
+                digital con QR.
+              </p>
+            </div>
+
+            <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              {planes.map((plan, i) => {
+                const featured = planes.length > 1 && i === Math.floor(planes.length / 2)
+                return (
+                  <div
+                    key={plan.id}
+                    className={`relative flex flex-col rounded-2xl border bg-white p-6 shadow-sm transition hover:shadow-md ${
+                      featured ? 'border-blue-300 ring-1 ring-blue-200' : 'border-slate-200'
+                    }`}
+                  >
+                    {featured && (
+                      <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-blue-600 px-3 py-0.5 text-xs font-semibold text-white">
+                        Más popular
+                      </span>
+                    )}
+
+                    <div className="flex items-center gap-2">
+                      {plan.esIlimitado ? (
+                        <Crown className="h-5 w-5 text-amber-500" />
+                      ) : (
+                        <Sparkles className="h-5 w-5 text-sky-500" />
+                      )}
+                      <h3 className="font-semibold text-slate-900">{plan.nombre}</h3>
+                      {plan.esIlimitado && (
+                        <span className="ml-auto rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700">
+                          Ilimitado
+                        </span>
+                      )}
+                    </div>
+
+                    <p className="mt-4 text-3xl font-extrabold text-slate-900">
+                      RD${fmtPrice(plan.precio)}
+                      <span className="text-base font-normal text-slate-400">/mes</span>
+                    </p>
+                    {plan.descripcion && (
+                      <p className="mt-2 text-sm text-slate-500">{plan.descripcion}</p>
+                    )}
+
+                    <div className="mt-4 rounded-lg bg-slate-50 p-3 text-sm">
+                      <p className="font-medium text-slate-700">
+                        {plan.esIlimitado
+                          ? 'Usos ilimitados'
+                          : `${plan.lavadosIncluidos} usos incluidos`}
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        Vigencia: {plan.vigenciaDias} días
+                      </p>
+                    </div>
+
+                    {plan.beneficios.length > 0 && (
+                      <ul className="mt-4 space-y-2">
+                        {plan.beneficios.map((b) => (
+                          <li key={b} className="flex items-start gap-2 text-sm text-slate-600">
+                            <Check className="mt-0.5 h-4 w-4 shrink-0 text-green-500" />
+                            {b}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+
+                    <Link
+                      href={`/registro/${company.slug}`}
+                      className={`mt-6 inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 font-semibold transition ${
+                        featured
+                          ? 'bg-blue-600 text-white hover:bg-blue-700'
+                          : 'bg-slate-100 text-slate-800 hover:bg-slate-200'
+                      }`}
+                    >
+                      Elegir plan <ArrowRight className="h-4 w-4" />
+                    </Link>
+                  </div>
+                )
+              })}
+            </div>
+          </section>
+        )}
+
+        {/* Promociones */}
+        {promotions && promotions.length > 0 && (
+          <section className="mt-14">
+            <h2 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
+              Promociones vigentes
+            </h2>
+            <p className="mt-2 text-slate-600">
+              Beneficios exclusivos disponibles ahora mismo.
+            </p>
+            <div className="mt-6">
+              <PromotionGrid promotions={promotions} isLoading={false} variant="default" />
+            </div>
+          </section>
+        )}
+
+        {/* Galería */}
         {company.galleryImages && company.galleryImages.length > 0 && (
-          <section className="mb-12">
-            <h2 className="text-2xl font-bold text-neutral-900 mb-4">
+          <section className="mt-14">
+            <h2 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
               Galería
             </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
               {company.galleryImages.map((image, idx) => (
                 <div
                   key={idx}
-                  className="relative h-48 w-full overflow-hidden rounded-lg bg-neutral-100"
+                  className="relative aspect-square w-full overflow-hidden rounded-xl bg-slate-100"
                 >
                   <Image
                     src={image}
                     alt={`${company.name} - ${idx + 1}`}
                     fill
-                    className="object-cover"
+                    className="object-cover transition-transform duration-300 hover:scale-105"
                   />
                 </div>
               ))}
@@ -191,61 +342,49 @@ export default async function CompanyDetailPage({
           </section>
         )}
 
-        {/* Stats */}
-        <section className="mb-12">
-          <h2 className="text-2xl font-bold text-neutral-900 mb-4">
-            Estadísticas
-          </h2>
-          <StatsBar stats={stats} />
-        </section>
-
-        {/* Promotions */}
-        {promotions && promotions.length > 0 && (
-          <section>
-            <h2 className="text-2xl font-bold text-neutral-900 mb-4">
-              Promociones Vigentes
-            </h2>
-            <PromotionGrid
-              promotions={promotions}
-              isLoading={false}
-              variant="default"
-            />
-          </section>
-        )}
-
-        {/* Google Maps */}
+        {/* Ubicación */}
         {company.googleMapsUrl && (
-          <section className="mt-12">
-            <h2 className="text-2xl font-bold text-neutral-900 mb-4">
+          <section className="mt-14">
+            <h2 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
               Ubicación
             </h2>
             <a
               href={company.googleMapsUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-blue-600 hover:underline flex items-center gap-2"
+              className="mt-4 inline-flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-3 text-sm font-medium text-blue-600 transition hover:bg-slate-50"
             >
-              📍 Ver en Google Maps
+              <MapPin className="h-4 w-4" /> Ver en Google Maps
             </a>
           </section>
         )}
       </div>
 
-      {/* Related Companies CTA */}
-      <section className="bg-neutral-50 py-12 mt-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className="text-2xl font-bold text-neutral-900">
-            ¿Buscas más beneficios?
+      {/* CTA final */}
+      <section className="mt-16 bg-gradient-to-br from-blue-700 to-indigo-800 py-14 text-center text-white">
+        <div className="mx-auto max-w-2xl px-4">
+          <QrCode className="mx-auto h-10 w-10 text-sky-200" />
+          <h2 className="mt-4 text-2xl font-bold tracking-tight sm:text-3xl">
+            Activa tu membresía en {company.name}
           </h2>
-          <p className="text-neutral-600 mt-2">
-            Explora otras empresas y sus promociones exclusivas
+          <p className="mt-3 text-sky-100">
+            Regístrate, elige tu plan y recibe tu membresía digital con QR en
+            minutos.
           </p>
-          <Link
-            href="/empresas"
-            className="inline-block mt-6 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            Ver todas las empresas
-          </Link>
+          <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
+            <Link
+              href={`/registro/${company.slug}`}
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-white px-6 py-3 font-semibold text-blue-700 transition hover:bg-sky-50"
+            >
+              Registrarme <ArrowRight className="h-4 w-4" />
+            </Link>
+            <Link
+              href="/empresas"
+              className="inline-flex items-center justify-center rounded-xl border border-white/30 bg-white/10 px-6 py-3 font-semibold text-white backdrop-blur transition hover:bg-white/20"
+            >
+              Ver otras empresas
+            </Link>
+          </div>
         </div>
       </section>
     </div>

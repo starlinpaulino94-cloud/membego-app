@@ -270,15 +270,18 @@ export async function crearTicket(
     return { error: 'El asunto y la descripción son obligatorios.' }
   }
 
+  // El adjunto debe ser un archivo subido a nuestro Storage de Supabase, no una
+  // URL arbitraria (evita SSRF / inyección de enlaces externos).
   if (adjuntoUrl) {
-    try {
-      const url = new URL(adjuntoUrl)
-      if (!['https'].includes(url.protocol.slice(0, -1))) {
-        return { error: 'Solo se permiten URLs HTTPS para adjuntos.' }
-      }
-    } catch {
-      return { error: 'La URL del adjunto no es válida.' }
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const prefijo = `${supabaseUrl}/storage/v1/object/public/`
+    if (!supabaseUrl || !adjuntoUrl.startsWith(prefijo)) {
+      return { error: 'El adjunto no es válido.' }
     }
+    const ok = ['.jpg', '.jpeg', '.png', '.webp', '.pdf'].some((ext) =>
+      adjuntoUrl.toLowerCase().split('?')[0].endsWith(ext)
+    )
+    if (!ok) return { error: 'Formato de adjunto no permitido.' }
   }
 
   try {
