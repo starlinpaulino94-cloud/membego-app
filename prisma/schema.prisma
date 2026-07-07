@@ -147,6 +147,9 @@ model Company {
   facebook              String?
   tiktok                String?
   googleMapsUrl         String?
+  // F4.1: horario de atención mostrado en el perfil público (texto libre,
+  // ej. "Lun-Vie 8:00-18:00 · Sáb 9:00-14:00").
+  horario               String?
   totalMembersCount     Int      @default(0)
   activePromotionsCount Int      @default(0)
   averageRating         Decimal? @db.Decimal(3, 2)

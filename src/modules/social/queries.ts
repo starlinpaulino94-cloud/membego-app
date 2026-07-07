@@ -278,6 +278,7 @@ async function getEmpresasRecomendadas(
       facebook: true,
       tiktok: true,
       googleMapsUrl: true,
+      horario: true,
       totalMembersCount: true,
       activePromotionsCount: true,
       averageRating: true,

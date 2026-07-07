@@ -20,6 +20,7 @@ export interface CompanyPublic {
   facebook: string | null
   tiktok: string | null
   googleMapsUrl: string | null
+  horario: string | null
   totalMembersCount: number
   activePromotionsCount: number
   averageRating: number | null

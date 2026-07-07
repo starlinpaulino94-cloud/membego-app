@@ -19,6 +19,7 @@ import {
   LifeBuoy,
   Newspaper,
   TrendingUp,
+  Store,
   type LucideIcon,
 } from 'lucide-react'
 import type { AppRole } from '@/types'
@@ -59,6 +60,7 @@ const ADMIN_NAV: NavGroup[] = [
   {
     label: 'Empresa',
     items: [
+      { href: '/admin/perfil', label: 'Perfil público', icon: Store },
       { href: '/admin/sucursales', label: 'Sucursales', icon: Building2 },
       { href: '/admin/metodos-pago', label: 'Métodos de pago', icon: Landmark },
       { href: '/admin/planes', label: 'Planes', icon: Package },
@@ -148,6 +150,7 @@ const SUPERADMIN_NAV: NavGroup[] = [
   {
     label: 'Empresa',
     items: [
+      { href: '/admin/perfil', label: 'Perfil público', icon: Store },
       { href: '/admin/sucursales', label: 'Sucursales', icon: Building2 },
       { href: '/admin/metodos-pago', label: 'Métodos de pago', icon: Landmark },
       { href: '/admin/planes', label: 'Planes', icon: Package },
