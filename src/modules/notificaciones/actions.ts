@@ -3,96 +3,9 @@
 import { revalidatePath } from 'next/cache'
 import { prisma } from '@/lib/prisma'
 import { getUser } from '@/lib/auth'
-import type { NotifTipo } from '@prisma/client'
 
-// ── Internal helper (not exported as server action) ──────────────────────────
-
-export async function crearNotificacion(data: {
-  userId: string
-  tipo: NotifTipo
-  titulo: string
-  mensaje: string
-  href?: string
-}) {
-  try {
-    await prisma.notificacion.create({ data })
-  } catch (e) {
-    console.error('[notificacion] create error', e)
-  }
-}
-
-/** Notify all ADMIN_EMPRESA users of a company. */
-export async function notificarAdmins(
-  companyId: string,
-  payload: { tipo: NotifTipo; titulo: string; mensaje: string; href?: string }
-) {
-  try {
-    const admins = await prisma.user.findMany({
-      where: { companyId, role: 'ADMIN_EMPRESA' },
-      select: { id: true },
-    })
-    if (admins.length === 0) return
-    await prisma.notificacion.createMany({
-      data: admins.map((a) => ({ userId: a.id, ...payload })),
-    })
-  } catch (e) {
-    console.error('[notificacion] notificarAdmins error', e)
-  }
-}
-
-/**
- * Notify every CLIENTE with an account in this company (any cliente row
- * scoped to companyId, regardless of which company is their "home" User row —
- * support for clientes con cuentas en varias empresas).
- */
-export async function notificarClientesEmpresa(
-  companyId: string,
-  payload: { tipo: NotifTipo; titulo: string; mensaje: string; href?: string }
-) {
-  try {
-    const clientes = await prisma.cliente.findMany({
-      where: { companyId },
-      select: { supabaseId: true },
-    })
-    if (clientes.length === 0) return
-
-    const users = await prisma.user.findMany({
-      where: { supabaseId: { in: clientes.map((c) => c.supabaseId) } },
-      select: { id: true },
-    })
-    if (users.length === 0) return
-
-    await prisma.notificacion.createMany({
-      data: users.map((u) => ({ userId: u.id, ...payload })),
-    })
-  } catch (e) {
-    console.error('[notificacion] notificarClientesEmpresa error', e)
-  }
-}
-
-/**
- * FASE 3: Notifica únicamente a los seguidores de la empresa (CompanyFollow).
- * Regla del marketplace social: nunca notificar a usuarios que no siguen la
- * empresa. Los clientes existentes se convirtieron en seguidores vía backfill.
- */
-export async function notificarSeguidoresEmpresa(
-  companyId: string,
-  payload: { tipo: NotifTipo; titulo: string; mensaje: string; href?: string }
-) {
-  try {
-    const seguidores = await prisma.companyFollow.findMany({
-      where: { companyId },
-      select: { userId: true },
-    })
-    if (seguidores.length === 0) return
-
-    await prisma.notificacion.createMany({
-      data: seguidores.map((s) => ({ userId: s.userId, ...payload })),
-    })
-  } catch (e) {
-    console.error('[notificacion] notificarSeguidoresEmpresa error', e)
-  }
-}
+// Los helpers internos (crearNotificacion, notificarAdmins, etc.) viven en
+// ./service.ts, fuera de 'use server', para no exponerlos como endpoints.
 
 // ── Server actions ────────────────────────────────────────────────────────────
 

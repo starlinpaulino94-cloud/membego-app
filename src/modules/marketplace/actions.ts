@@ -85,19 +85,5 @@ export async function recordPromotionShare(promotionId: string): Promise<boolean
   }
 }
 
-// Future: These will be implemented when ClientFavorite table is created
-// For now, they're placeholders that return false
-
-export async function addCompanyToFavorites(companySlug: string): Promise<boolean> {
-  // TODO: Implement when ClientFavorite table is created
-  // Requires authentication via requireUser()
-  console.warn('[addCompanyToFavorites] Not yet implemented:', companySlug)
-  return false
-}
-
-export async function removeCompanyFromFavorites(companySlug: string): Promise<boolean> {
-  // TODO: Implement when ClientFavorite table is created
-  // Requires authentication via requireUser()
-  console.warn('[removeCompanyFromFavorites] Not yet implemented:', companySlug)
-  return false
-}
+// Los favoritos se implementaron en FASE 3 vía CompanyFollow.esFavorita
+// (src/modules/social/actions.ts).

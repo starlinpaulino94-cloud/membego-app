@@ -12,7 +12,7 @@ export default async function ClienteLayout({
   const user = await requireRole('CLIENTE')
   const [notifCount, clienteCompanies] = await Promise.all([
     getUnreadCount().catch(() => 0),
-    getClienteCompanies(user.supabaseId).catch(() => []),
+    getClienteCompanies().catch(() => []),
   ])
   const companies = clienteCompanies.map((c) => ({
     companyId: c.companyId,

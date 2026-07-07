@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { prisma } from '@/lib/prisma'
 import { requireAdminUser } from '@/lib/auth/guards'
-import { notificarSeguidoresEmpresa } from '@/modules/notificaciones/actions'
+import { notificarSeguidoresEmpresa } from '@/modules/notificaciones/service'
 
 export interface PromocionState {
   error?: string

@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache'
 import type { PostTipo } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { requireAdminUser } from '@/lib/auth/guards'
-import { notificarSeguidoresEmpresa } from '@/modules/notificaciones/actions'
+import { notificarSeguidoresEmpresa } from '@/modules/notificaciones/service'
 
 // F3.3: CRUD de publicaciones de empresa (eventos, noticias, beneficios).
 // Mismo modelo de aislamiento que promocionActions: cada empresa administra
