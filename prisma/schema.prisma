@@ -110,6 +110,7 @@ model User {
   notificaciones  Notificacion[]
   follows         CompanyFollow[]
   promosGuardadas PromocionGuardada[]
+  notasCliente    ClienteNota[]
 
   // Listados de empleados por empresa (/admin/empleados) y conteos por empresa.
   @@index([companyId])
@@ -310,6 +311,7 @@ model Cliente {
   referralEvents  ReferralEvent[] @relation("ReferralEvents")
   tickets         SupportTicket[]
   ratings         CompanyRating[]
+  notas           ClienteNota[]
 
   @@unique([supabaseId, companyId])
   // Filtros frecuentes solo por empresa (adminMetrics, reportes, /admin/clientes).
@@ -748,4 +750,19 @@ model CompanyPost {
   @@index([companyId, tipo, activo])
   @@index([tipo, fechaEvento])
   @@map("company_posts")
+}
+
+// F4.4: notas internas del CRM — múltiples por cliente, con autor y fecha.
+// Solo visibles para el equipo de la empresa (nunca para el cliente).
+model ClienteNota {
+  id        String   @id @default(cuid())
+  clienteId String
+  cliente   Cliente  @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  autorId   String?
+  autor     User?    @relation(fields: [autorId], references: [id], onDelete: SetNull)
+  texto     String
+  createdAt DateTime @default(now())
+
+  @@index([clienteId, createdAt])
+  @@map("cliente_notas")
 }
