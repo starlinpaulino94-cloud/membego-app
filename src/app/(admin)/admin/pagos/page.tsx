@@ -11,9 +11,13 @@ import {
   SolicitarEvidenciaButton,
   NotaInternaForm,
 } from '@/components/admin/ValidarPagoActions'
+import {
+  AprobarCambioButton,
+  RechazarCambioButton,
+} from '@/components/admin/CambioPlanActions'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { FileText, ExternalLink } from 'lucide-react'
+import { FileText, ExternalLink, ArrowRight } from 'lucide-react'
 import type { MembershipEstado } from '@/types'
 
 export const dynamic = 'force-dynamic'
@@ -107,6 +111,51 @@ export default async function PagosPage() {
     } catch {}
   }
 
+  // Cambios de plan solicitados: membresía ACTIVA con planIdSolicitado.
+  let cambios: {
+    id: string
+    clienteId: string
+    updatedAt: Date
+    comprobanteUrl: string | null
+    comprobanteNota: string | null
+    cliente: { nombre: string; email: string; company: { name: string } }
+    plan: { nombre: string }
+    planSolicitado: { nombre: string; precio: unknown } | null
+  }[] = []
+  try {
+    const data = await prisma.membership.findMany({
+      where: {
+        estado: 'ACTIVA',
+        planIdSolicitado: { not: null },
+        ...(companyId ? { cliente: { companyId } } : {}),
+      },
+      include: {
+        cliente: { include: { company: true } },
+        plan: true,
+        planSolicitado: true,
+      },
+      orderBy: { updatedAt: 'desc' },
+    })
+    cambios = data.map((m) => ({
+      id: m.id,
+      clienteId: m.clienteId,
+      updatedAt: m.updatedAt,
+      comprobanteUrl: m.comprobanteUrl,
+      comprobanteNota: m.comprobanteNota,
+      cliente: {
+        nombre: m.cliente.nombre,
+        email: m.cliente.email,
+        company: { name: m.cliente.company.name },
+      },
+      plan: { nombre: m.plan.nombre },
+      planSolicitado: m.planSolicitado
+        ? { nombre: m.planSolicitado.nombre, precio: m.planSolicitado.precio }
+        : null,
+    }))
+  } catch (e) {
+    console.error('[admin-pagos] cambios query', e)
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -117,6 +166,98 @@ export default async function PagosPage() {
           </p>
         </div>
       </div>
+
+      {/* Cambios de plan solicitados */}
+      {cambios.length > 0 && (
+        <div className="space-y-3">
+          <h2 className="text-lg font-semibold text-slate-900">
+            Cambios de plan solicitados ({cambios.length})
+          </h2>
+          <div className="grid gap-4 md:grid-cols-2">
+            {cambios.map((c) => (
+              <Card key={c.id} className="overflow-hidden border-sky-200">
+                <CardHeader className="border-b bg-sky-50 pb-4">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <CardTitle className="text-base">
+                        <Link
+                          href={`/admin/clientes/${c.clienteId}`}
+                          className="text-sky-600 hover:underline"
+                        >
+                          {c.cliente.nombre}
+                        </Link>
+                      </CardTitle>
+                      <p className="text-sm text-slate-500">{c.cliente.email}</p>
+                      {user.metadata.role === 'SUPERADMIN' && (
+                        <Badge variant="outline" className="mt-1 text-xs">
+                          {c.cliente.company.name}
+                        </Badge>
+                      )}
+                    </div>
+                    <Badge className="bg-sky-100 text-sky-700">Cambio de plan</Badge>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-4 pt-4">
+                  <div className="flex items-center justify-center gap-3 rounded-lg bg-slate-50 p-3 text-sm">
+                    <span className="font-medium text-slate-500">{c.plan.nombre}</span>
+                    <ArrowRight className="h-4 w-4 text-slate-400" />
+                    <span className="font-semibold text-slate-900">
+                      {c.planSolicitado?.nombre}
+                      {c.planSolicitado != null && (
+                        <span className="ml-1 text-slate-500">
+                          · RD${new Intl.NumberFormat('es-DO').format(Number(c.planSolicitado.precio))}
+                        </span>
+                      )}
+                    </span>
+                  </div>
+
+                  {c.comprobanteUrl ? (
+                    isImage(c.comprobanteUrl) ? (
+                      <a href={c.comprobanteUrl} target="_blank" rel="noopener noreferrer" className="block">
+                        <Image
+                          src={c.comprobanteUrl}
+                          alt="Comprobante del cambio"
+                          width={400}
+                          height={300}
+                          className="w-full rounded-lg border object-cover"
+                          style={{ maxHeight: '200px', objectFit: 'cover' }}
+                        />
+                      </a>
+                    ) : (
+                      <a
+                        href={c.comprobanteUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-2 rounded-lg border border-slate-200 p-3 text-sm text-sky-600 hover:bg-slate-50"
+                      >
+                        <FileText className="h-5 w-5" />
+                        Ver comprobante (PDF)
+                        <ExternalLink className="ml-auto h-4 w-4" />
+                      </a>
+                    )
+                  ) : (
+                    <p className="rounded-lg bg-amber-50 p-3 text-xs text-amber-700">
+                      El cliente aún no ha subido el comprobante del nuevo plan.
+                    </p>
+                  )}
+
+                  {c.comprobanteNota && (
+                    <div className="rounded-lg bg-amber-50 p-3 text-sm text-amber-700">
+                      <p className="font-medium">Nota del cliente:</p>
+                      <p>{c.comprobanteNota}</p>
+                    </div>
+                  )}
+
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    <AprobarCambioButton membershipId={c.id} />
+                    <RechazarCambioButton membershipId={c.id} />
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
 
       {pendientes.length === 0 ? (
         <Card>
