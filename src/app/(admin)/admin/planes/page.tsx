@@ -1,10 +1,13 @@
-import { Check, Infinity as InfinityIcon } from 'lucide-react'
+import Link from 'next/link'
+import { Check, Infinity as InfinityIcon, Plus, Pencil, Package } from 'lucide-react'
 import { ADMIN_ROLES } from '@/types'
 import { requireRole } from '@/lib/auth/guards'
 import { companyFilter } from '@/modules/admin/queries'
 import { prisma } from '@/lib/prisma'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { DeletePlanButton } from '@/components/admin/DeletePlanButton'
 
 export const dynamic = 'force-dynamic'
 
@@ -15,7 +18,8 @@ export default async function PlanesPage() {
   let planes: {
     id: string; nombre: string; precio: unknown; esIlimitado: boolean;
     lavadosIncluidos: number; activo: boolean; descripcion: string | null;
-    beneficios: string[]; companyId: string;
+    beneficios: string[]; companyId: string; vigenciaDias: number;
+    condiciones: string | null; color: string | null; orden: number;
     company: { name: string }; _count: { memberships: number }
   }[] = []
 
@@ -25,11 +29,12 @@ export default async function PlanesPage() {
       select: {
         id: true, nombre: true, precio: true, esIlimitado: true,
         lavadosIncluidos: true, activo: true, descripcion: true,
-        beneficios: true, companyId: true,
+        beneficios: true, companyId: true, vigenciaDias: true,
+        condiciones: true, color: true, orden: true,
         company: { select: { name: true } },
         _count: { select: { memberships: true } },
       },
-      orderBy: [{ companyId: 'asc' }, { precio: 'asc' }],
+      orderBy: [{ companyId: 'asc' }, { orden: 'asc' }, { precio: 'asc' }],
     })
   } catch (e) {
     console.error('[admin-planes]', e)
@@ -37,50 +42,112 @@ export default async function PlanesPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900">Planes</h1>
-        <p className="text-slate-500">Planes ofrecidos a tus clientes.</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">Planes</h1>
+          <p className="text-slate-500">
+            Crea y administra los planes de membresía de tu empresa.
+          </p>
+        </div>
+        <Link href="/admin/planes/nuevo">
+          <Button className="bg-sky-500 hover:bg-sky-400">
+            <Plus className="mr-2 h-4 w-4" />
+            Nuevo plan
+          </Button>
+        </Link>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-3">
-        {planes.map((plan) => (
-          <Card key={plan.id}>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle>{plan.nombre}</CardTitle>
-                {plan.esIlimitado && (
-                  <Badge className="bg-amber-100 text-amber-700">
-                    <InfinityIcon className="mr-1 h-3 w-3" /> Ilimitado
-                  </Badge>
+      {planes.length === 0 ? (
+        <Card>
+          <CardContent className="py-16 text-center text-slate-500">
+            <Package className="mx-auto mb-3 h-10 w-10 text-slate-300" />
+            <p className="font-medium">Aún no tienes planes</p>
+            <p className="text-sm">
+              Crea tu primer plan (ej. Silver, Gold, Premium) para que los
+              clientes puedan afiliarse.
+            </p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid gap-6 md:grid-cols-3">
+          {planes.map((plan) => (
+            <Card
+              key={plan.id}
+              className={`overflow-hidden pt-0 ${plan.activo ? '' : 'opacity-60'}`}
+            >
+              {/* Franja de color del plan */}
+              <div
+                className="h-1.5 w-full"
+                style={{ backgroundColor: plan.color ?? '#0ea5e9' }}
+              />
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center gap-2">
+                    <span
+                      className="inline-block h-3 w-3 rounded-full"
+                      style={{ backgroundColor: plan.color ?? '#0ea5e9' }}
+                    />
+                    {plan.nombre}
+                  </CardTitle>
+                  <div className="flex items-center gap-1.5">
+                    {plan.esIlimitado && (
+                      <Badge className="bg-amber-100 text-amber-700">
+                        <InfinityIcon className="mr-1 h-3 w-3" /> Ilimitado
+                      </Badge>
+                    )}
+                    {!plan.activo && <Badge variant="secondary">Inactivo</Badge>}
+                  </div>
+                </div>
+                {companyId === undefined && (
+                  <p className="text-sm text-slate-400">{plan.company.name}</p>
                 )}
-              </div>
-              {companyId === undefined && (
-                <p className="text-sm text-slate-400">{plan.company.name}</p>
-              )}
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <p className="text-2xl font-bold">
-                RD${new Intl.NumberFormat('es-DO').format(Number(plan.precio))}
-                <span className="text-sm font-normal text-slate-500">/mes</span>
-              </p>
-              <ul className="space-y-1.5">
-                {plan.beneficios.map((b) => (
-                  <li
-                    key={b}
-                    className="flex items-start gap-2 text-sm text-slate-600"
-                  >
-                    <Check className="mt-0.5 h-4 w-4 shrink-0 text-sky-500" />
-                    {b}
-                  </li>
-                ))}
-              </ul>
-              <p className="text-xs text-slate-400">
-                {plan._count.memberships} membresías
-              </p>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <p className="text-2xl font-bold">
+                  RD${new Intl.NumberFormat('es-DO').format(Number(plan.precio))}
+                  <span className="text-sm font-normal text-slate-500">/mes</span>
+                </p>
+                <p className="text-xs text-slate-500">
+                  {plan.esIlimitado
+                    ? 'Usos ilimitados'
+                    : `${plan.lavadosIncluidos} usos`}{' '}
+                  · Vigencia {plan.vigenciaDias} días
+                </p>
+                <ul className="space-y-1.5">
+                  {plan.beneficios.map((b) => (
+                    <li
+                      key={b}
+                      className="flex items-start gap-2 text-sm text-slate-600"
+                    >
+                      <Check className="mt-0.5 h-4 w-4 shrink-0 text-sky-500" />
+                      {b}
+                    </li>
+                  ))}
+                </ul>
+                {plan.condiciones && (
+                  <p className="text-xs text-slate-400">{plan.condiciones}</p>
+                )}
+                <div className="flex items-center justify-between border-t border-slate-100 pt-3">
+                  <p className="text-xs text-slate-400">
+                    {plan._count.memberships} membresías
+                  </p>
+                  <div className="flex items-center gap-1">
+                    <Link href={`/admin/planes/${plan.id}/editar`}>
+                      <Button size="icon" variant="ghost" title="Editar" aria-label="Editar">
+                        <Pencil className="h-4 w-4 text-slate-500" />
+                      </Button>
+                    </Link>
+                    <DeletePlanButton
+                      planId={plan.id}
+                      memberships={plan._count.memberships}
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

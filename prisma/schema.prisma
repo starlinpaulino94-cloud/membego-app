@@ -272,6 +272,9 @@ model Plan {
   vigenciaDias     Int      @default(30) // duración del período
   condiciones      String? // texto de condiciones/restricciones
   activo           Boolean  @default(true)
+  // F4.3: presentación del plan en tarjetas públicas y del panel.
+  color            String? // hex o token, ej. "#0ea5e9"
+  orden            Int      @default(0) // menor = primero
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 

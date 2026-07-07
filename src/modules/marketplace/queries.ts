@@ -562,7 +562,7 @@ export async function getCompanyPlanesPublic(companyId: string): Promise<PlanPub
   try {
     const planes = await prisma.plan.findMany({
       where: { companyId, activo: true },
-      orderBy: { precio: 'asc' },
+      orderBy: [{ orden: 'asc' }, { precio: 'asc' }],
       select: {
         id: true, nombre: true, precio: true, esIlimitado: true,
         lavadosIncluidos: true, descripcion: true, beneficios: true, vigenciaDias: true,

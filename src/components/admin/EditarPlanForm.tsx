@@ -17,15 +17,25 @@ interface Plan {
   descripcion: string | null
   beneficios: string[]
   activo: boolean
+  vigenciaDias: number
+  condiciones: string | null
+  color: string | null
+  orden: number
 }
 
-export function EditarPlanForm({ plan }: { plan: Plan }) {
+export function EditarPlanForm({
+  plan,
+  redirectTo = '/superadmin/planes',
+}: {
+  plan: Plan
+  redirectTo?: string
+}) {
   const [state, action, pending] = useActionState(actualizarPlan, {})
   const router = useRouter()
 
   useEffect(() => {
-    if (state.success) router.push('/superadmin/planes')
-  }, [state.success, router])
+    if (state.success) router.push(redirectTo)
+  }, [state.success, router, redirectTo])
 
   return (
     <form action={action} className="space-y-5 rounded-xl border bg-white p-6 shadow-sm">
@@ -46,14 +56,23 @@ export function EditarPlanForm({ plan }: { plan: Plan }) {
           <Input id="precio" name="precio" type="number" min="0" step="0.01" required defaultValue={String(plan.precio)} />
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="lavados">Lavados incluidos</Label>
+          <Label htmlFor="vigenciaDias">Vigencia (días)</Label>
+          <Input id="vigenciaDias" name="vigenciaDias" type="number" min="1" defaultValue={plan.vigenciaDias} />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="lavados">Usos incluidos</Label>
           <Input id="lavados" name="lavados" type="number" min="0" defaultValue={plan.lavadosIncluidos} />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="orden">Orden</Label>
+          <Input id="orden" name="orden" type="number" defaultValue={plan.orden} />
+          <p className="text-xs text-slate-400">Menor número = primero.</p>
         </div>
       </div>
 
       <div className="flex items-center gap-2">
         <input type="checkbox" id="esIlimitado" name="esIlimitado" defaultChecked={plan.esIlimitado} className="h-4 w-4 rounded border-slate-300" />
-        <Label htmlFor="esIlimitado">Lavados ilimitados</Label>
+        <Label htmlFor="esIlimitado">Usos ilimitados</Label>
       </div>
 
       <div className="flex items-center gap-2">
@@ -61,9 +80,15 @@ export function EditarPlanForm({ plan }: { plan: Plan }) {
         <Label htmlFor="activo">Plan activo (visible para clientes)</Label>
       </div>
 
-      <div className="space-y-1.5">
-        <Label htmlFor="descripcion">Descripción (opcional)</Label>
-        <Input id="descripcion" name="descripcion" defaultValue={plan.descripcion ?? ''} />
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-1.5">
+          <Label htmlFor="color">Color del plan</Label>
+          <Input id="color" name="color" type="color" defaultValue={plan.color ?? '#0ea5e9'} className="h-10 w-full p-1" />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="descripcion">Descripción (opcional)</Label>
+          <Input id="descripcion" name="descripcion" defaultValue={plan.descripcion ?? ''} />
+        </div>
       </div>
 
       <div className="space-y-1.5">
@@ -73,6 +98,17 @@ export function EditarPlanForm({ plan }: { plan: Plan }) {
           name="beneficios"
           rows={4}
           defaultValue={plan.beneficios.join('\n')}
+          className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500"
+        />
+      </div>
+
+      <div className="space-y-1.5">
+        <Label htmlFor="condiciones">Restricciones / condiciones (opcional)</Label>
+        <textarea
+          id="condiciones"
+          name="condiciones"
+          rows={2}
+          defaultValue={plan.condiciones ?? ''}
           className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500"
         />
       </div>
