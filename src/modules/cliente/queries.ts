@@ -127,6 +127,7 @@ export async function getClientePerfil(clienteId: string) {
         email: true,
         telefono: true,
         avatarUrl: true,
+        fechaNacimiento: true,
         companyId: true,
         company: {
           select: { id: true, name: true, slug: true, type: true, logoUrl: true },

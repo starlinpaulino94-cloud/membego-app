@@ -25,13 +25,30 @@ export async function actualizarPerfil(
   const nombre = String(formData.get('nombre') ?? '').trim()
   const telefono = String(formData.get('telefono') ?? '').trim() || null
   const avatarUrl = String(formData.get('avatarUrl') ?? '').trim() || null
+  const fechaRaw = String(formData.get('fechaNacimiento') ?? '').trim()
 
   if (!nombre) return { error: 'El nombre no puede estar vacío.' }
+
+  // Fecha de nacimiento opcional: vacío = limpiar; con valor debe ser válida y
+  // no futura.
+  let fechaNacimiento: Date | null = null
+  if (fechaRaw) {
+    const d = new Date(fechaRaw)
+    if (Number.isNaN(d.getTime()) || d > new Date()) {
+      return { error: 'Fecha de nacimiento inválida.' }
+    }
+    fechaNacimiento = d
+  }
 
   try {
     await prisma.cliente.update({
       where: { id: user.metadata.clienteId! },
-      data: { nombre, telefono, ...(avatarUrl !== null ? { avatarUrl } : {}) },
+      data: {
+        nombre,
+        telefono,
+        fechaNacimiento,
+        ...(avatarUrl !== null ? { avatarUrl } : {}),
+      },
     })
     revalidatePath('/cliente/perfil')
     revalidatePath('/cliente/dashboard')

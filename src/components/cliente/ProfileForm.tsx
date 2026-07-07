@@ -16,11 +16,12 @@ interface Props {
   email: string
   telefono: string | null
   avatarUrl: string | null
+  fechaNacimiento: string | null // YYYY-MM-DD
 }
 
 const init: ProfileState = {}
 
-export function ProfileForm({ clienteId, nombre, email, telefono, avatarUrl }: Props) {
+export function ProfileForm({ clienteId, nombre, email, telefono, avatarUrl, fechaNacimiento }: Props) {
   const [state, formAction, pending] = useActionState(actualizarPerfil, init)
   const [uploadedAvatarUrl, setUploadedAvatarUrl] = useState<string | null>(null)
 
@@ -79,6 +80,17 @@ export function ProfileForm({ clienteId, nombre, email, telefono, avatarUrl }: P
             name="telefono"
             defaultValue={telefono ?? ''}
             placeholder="809-555-0000"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="fechaNacimiento">Fecha de nacimiento</Label>
+          <Input
+            id="fechaNacimiento"
+            name="fechaNacimiento"
+            type="date"
+            defaultValue={fechaNacimiento ?? ''}
+            max={new Date().toISOString().slice(0, 10)}
           />
         </div>
       </div>
