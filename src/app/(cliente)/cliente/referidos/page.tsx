@@ -54,8 +54,36 @@ const ESTADO_HISTORIAL = {
 
 const MEDALLAS = ['🥇', '🥈', '🥉']
 
+function ErrorReferidos({ detalle }: { detalle: string }) {
+  return (
+    <div className="space-y-2">
+      <p className="text-slate-600">
+        No pudimos cargar tu panel de referidos. Intenta de nuevo en unos momentos.
+      </p>
+      {detalle && (
+        <details className="text-left">
+          <summary className="cursor-pointer text-xs text-slate-400">
+            Detalle técnico
+          </summary>
+          <pre className="mt-2 overflow-x-auto rounded bg-slate-100 p-3 text-xs text-slate-500">
+            {detalle}
+          </pre>
+        </details>
+      )}
+    </div>
+  )
+}
+
 export default async function ReferidosClientePage() {
   const user = await requireRole('CLIENTE')
+
+  if (!user.metadata.clienteId) {
+    return (
+      <p className="text-slate-600">
+        Tu cuenta no está asociada a una empresa todavía.
+      </p>
+    )
+  }
 
   let cliente: {
     id: string
@@ -63,23 +91,24 @@ export default async function ReferidosClientePage() {
     companyId: string
     company: { name: string; slug: string }
   } | null = null
+  let errorDetalle = ''
 
   try {
-    cliente = user.metadata.clienteId
-      ? await prisma.cliente.findUnique({
-          where: { id: user.metadata.clienteId },
-          select: {
-            id: true,
-            nombre: true,
-            companyId: true,
-            company: { select: { name: true, slug: true } },
-          },
-        })
-      : null
+    cliente = await prisma.cliente.findUnique({
+      where: { id: user.metadata.clienteId },
+      select: {
+        id: true,
+        nombre: true,
+        companyId: true,
+        company: { select: { name: true, slug: true } },
+      },
+    })
   } catch (e) {
-    console.error('[cliente-referidos] cliente', e)
+    errorDetalle = e instanceof Error ? e.message : String(e)
+    console.error('[cliente-referidos] cliente', errorDetalle)
   }
 
+  if (errorDetalle) return <ErrorReferidos detalle={errorDetalle} />
   if (!cliente) {
     return <p className="text-slate-600">No se encontró tu información.</p>
   }
@@ -92,15 +121,12 @@ export default async function ReferidosClientePage() {
       getReferidosDashboard(cliente.id, cliente.companyId, user.supabaseId),
     ])
   } catch (e) {
-    console.error('[cliente-referidos] dashboard', e)
+    errorDetalle = e instanceof Error ? e.message : String(e)
+    console.error('[cliente-referidos] dashboard', errorDetalle)
   }
 
   if (!dashboard) {
-    return (
-      <p className="text-slate-600">
-        No pudimos cargar tu panel de referidos. Intenta de nuevo más tarde.
-      </p>
-    )
+    return <ErrorReferidos detalle={errorDetalle} />
   }
 
   const shareUrl = absoluteUrl(`/r/${codigoCorto}`)
