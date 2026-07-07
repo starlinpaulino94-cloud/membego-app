@@ -9,7 +9,7 @@ import {
 } from 'lucide-react'
 import { requireRole } from '@/lib/auth/guards'
 import { prisma } from '@/lib/prisma'
-import { getFaqs, listTicketsCliente } from '@/modules/soporte/queries'
+import { getFaqs, listTicketsCliente, getComunicacionConfig } from '@/modules/soporte/queries'
 import { renderPlantilla, buildWaLink, horarioLegible, estadoLabel, estadoBadgeClass } from '@/lib/soporte'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -30,29 +30,29 @@ export default async function AyudaPage() {
   const companyId = user.metadata.companyId
   const clienteId = user.metadata.clienteId
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let config: any = null
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let cliente: any = null
+  let config: Awaited<ReturnType<typeof getComunicacionConfig>> = null
+  let cliente: { nombre: string; company: { name: string } } | null = null
   let faqs: Awaited<ReturnType<typeof getFaqs>> = []
   let tickets: Awaited<ReturnType<typeof listTicketsCliente>> = []
 
   try {
-    const results = await Promise.all([
-      companyId ? prisma.whatsAppConfig.findUnique({ where: { companyId } }).catch(() => null) : null,
+    const [c, cl, f, t] = await Promise.all([
+      companyId ? getComunicacionConfig(companyId).catch(() => null) : null,
       clienteId
-        ? prisma.cliente.findUnique({
-            where: { id: clienteId },
-            select: { nombre: true, company: { select: { name: true } } },
-          })
+        ? prisma.cliente
+            .findUnique({
+              where: { id: clienteId },
+              select: { nombre: true, company: { select: { name: true } } },
+            })
+            .catch(() => null)
         : null,
       getFaqs(companyId ?? null, { activeOnly: true }).catch(() => []),
       clienteId ? listTicketsCliente(clienteId).catch(() => []) : [],
     ])
-    config = results[0]
-    cliente = results[1]
-    faqs = results[2] as typeof faqs
-    tickets = results[3] as typeof tickets
+    config = c
+    cliente = cl
+    faqs = f
+    tickets = t
   } catch (e) {
     console.error('[cliente-ayuda]', e)
   }
