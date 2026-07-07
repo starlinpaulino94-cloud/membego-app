@@ -1,112 +1,159 @@
 import Link from 'next/link'
-import { Check, Sparkles, Crown, Star } from 'lucide-react'
+import { CheckCircle2, Clock, ArrowRightLeft, CreditCard } from 'lucide-react'
 import { requireRole } from '@/lib/auth/guards'
 import { prisma } from '@/lib/prisma'
-import { activeMembership } from '@/modules/cliente/queries'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
+import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { EstadoBadge } from '@/components/EstadoBadge'
-import type { MembershipEstado } from '@/types'
+import { PlanesGrid, type PlanItem } from '@/components/cliente/PlanesGrid'
 
 export const dynamic = 'force-dynamic'
 
-function formatPrice(n: number) {
-  return new Intl.NumberFormat('es-DO').format(n)
-}
+const PENDIENTE_PAGO_ESTADOS = ['PENDIENTE', 'PENDIENTE_PAGO', 'RECHAZADA']
 
 export default async function PlanesPage() {
   const user = await requireRole('CLIENTE')
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let cliente: any = null
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let planes: any[] = []
+  if (!user.metadata.clienteId) {
+    return <p className="text-slate-600">Tu cuenta no está completamente configurada.</p>
+  }
 
+  let cliente
   try {
-    cliente = user.metadata.clienteId
-      ? await prisma.cliente.findUnique({
-          where: { id: user.metadata.clienteId },
+    cliente = await prisma.cliente.findUnique({
+      where: { id: user.metadata.clienteId },
+      select: {
+        id: true,
+        company: { select: { id: true, name: true } },
+        memberships: {
           select: {
             id: true,
-            company: { select: { id: true, name: true, type: true } },
-            memberships: {
-              select: {
-                estado: true, fechaVencimiento: true,
-                plan: { select: { id: true, nombre: true, precio: true, esIlimitado: true, beneficios: true, descripcion: true, lavadosIncluidos: true } },
-              },
-              orderBy: { createdAt: 'desc' },
-              take: 1,
-            },
+            estado: true,
+            planId: true,
+            planIdSolicitado: true,
+            plan: { select: { nombre: true, precio: true } },
+            planSolicitado: { select: { nombre: true } },
           },
-        })
-      : null
+          take: 1,
+        },
+      },
+    })
   } catch (e) {
     console.error('[cliente-planes]', e)
     return <p className="text-slate-600">No pudimos cargar tu información. Intenta más tarde.</p>
   }
 
-  if (!cliente) {
-    return <p className="text-slate-600">No se encontró tu información.</p>
-  }
+  if (!cliente) return <p className="text-slate-600">No se encontró tu información.</p>
 
-  try {
-    planes = await prisma.plan.findMany({
+  const planesRaw = await prisma.plan
+    .findMany({
       where: { companyId: cliente.company.id, activo: true },
-      select: { id: true, nombre: true, precio: true, esIlimitado: true, beneficios: true, descripcion: true, lavadosIncluidos: true },
+      select: {
+        id: true, nombre: true, precio: true, esIlimitado: true,
+        descripcion: true, lavadosIncluidos: true, beneficios: true, vigenciaDias: true,
+      },
       orderBy: { precio: 'asc' },
     })
-  } catch (e) {
-    console.error('[cliente-planes] plans', e)
-  }
+    .catch((e) => {
+      console.error('[cliente-planes] plans', e)
+      return []
+    })
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const active: any = activeMembership(cliente.memberships)
-  const latestMembership = cliente.memberships[0]
+  const planes: PlanItem[] = planesRaw.map((p) => ({
+    id: p.id,
+    nombre: p.nombre,
+    precio: Number(p.precio),
+    esIlimitado: p.esIlimitado,
+    descripcion: p.descripcion,
+    lavadosIncluidos: p.lavadosIncluidos,
+    beneficios: p.beneficios,
+    vigenciaDias: p.vigenciaDias,
+  }))
+
+  const membership = cliente.memberships[0] ?? null
+  const isActive = membership?.estado === 'ACTIVA'
+  const pendingPayment =
+    membership && PENDIENTE_PAGO_ESTADOS.includes(membership.estado) ? membership : null
+  const pendingChange = isActive && membership?.planIdSolicitado ? membership : null
 
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">
-          Oportunidades disponibles
-        </h1>
+        <h1 className="text-2xl font-bold text-slate-900">Oportunidades disponibles</h1>
         <p className="mt-1 text-slate-500">
-          Elige el plan que mejor se adapte a ti en {cliente.company.name}
+          Elige o cambia el plan que mejor se adapte a ti en {cliente.company.name}
         </p>
       </div>
 
-      {/* Estado actual */}
-      {active && (
-        <Card className="border-green-200 bg-green-50">
-          <CardContent className="flex items-center justify-between py-4">
-            <div>
-              <p className="text-sm text-green-700">Ya tienes una membresía activa</p>
-              <p className="text-lg font-semibold text-green-900">
-                {active.plan.nombre} ·{' '}
-                {active.plan.esIlimitado
-                  ? 'Ilimitado'
-                  : `${active.lavadosRestantes} usos restantes`}
-              </p>
+      {/* Banner: pago pendiente */}
+      {pendingPayment && (
+        <Card className="border-amber-200 bg-amber-50">
+          <CardContent className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-start gap-3">
+              <Clock className="mt-0.5 h-5 w-5 text-amber-600" />
+              <div>
+                <p className="font-medium text-amber-900">
+                  Tienes el plan {pendingPayment.plan.nombre} pendiente de pago
+                </p>
+                <p className="text-sm text-amber-700">
+                  {pendingPayment.estado === 'RECHAZADA'
+                    ? 'Tu comprobante fue rechazado. Envía uno nuevo para activarlo.'
+                    : 'Sube tu comprobante para que el equipo active tu membresía.'}
+                </p>
+              </div>
             </div>
-            <Link href="/cliente/dashboard">
-              <Button variant="outline">Ver mi membresía</Button>
-            </Link>
+            <Button asChild className="bg-amber-600 hover:bg-amber-500">
+              <Link href={`/membresia/${pendingPayment.id}`}>
+                <CreditCard className="mr-2 h-4 w-4" /> Completar pago
+              </Link>
+            </Button>
           </CardContent>
         </Card>
       )}
 
-      {!active && latestMembership && (
-        <Card className="border-amber-200 bg-amber-50">
-          <CardContent className="flex items-center justify-between py-4">
-            <div>
-              <p className="text-sm text-amber-700">
-                Tienes una membresía pendiente de pago
-              </p>
-              <p className="text-lg font-semibold text-amber-900">
-                {latestMembership.plan.nombre}
-              </p>
+      {/* Banner: cambio de plan solicitado */}
+      {pendingChange && (
+        <Card className="border-sky-200 bg-sky-50">
+          <CardContent className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-start gap-3">
+              <ArrowRightLeft className="mt-0.5 h-5 w-5 text-sky-600" />
+              <div>
+                <p className="font-medium text-sky-900">
+                  Cambio a {pendingChange.planSolicitado?.nombre} solicitado
+                </p>
+                <p className="text-sm text-sky-700">
+                  Tu plan actual sigue activo. Sube el comprobante del nuevo plan para
+                  que el equipo lo apruebe.
+                </p>
+              </div>
             </div>
-            <EstadoBadge estado={latestMembership.estado as MembershipEstado} />
+            <Button asChild className="bg-sky-600 hover:bg-sky-500">
+              <Link href={`/membresia/${pendingChange.id}`}>
+                <CreditCard className="mr-2 h-4 w-4" /> Subir comprobante
+              </Link>
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Banner: membresía activa sin cambios */}
+      {isActive && !pendingChange && (
+        <Card className="border-emerald-200 bg-emerald-50">
+          <CardContent className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-start gap-3">
+              <CheckCircle2 className="mt-0.5 h-5 w-5 text-emerald-600" />
+              <div>
+                <p className="font-medium text-emerald-900">
+                  Tu plan {membership?.plan.nombre} está activo
+                </p>
+                <p className="text-sm text-emerald-700">
+                  Puedes cambiar a otro plan cuando quieras; el actual sigue vigente
+                  hasta que se apruebe el cambio.
+                </p>
+              </div>
+            </div>
+            <Button asChild variant="outline">
+              <Link href="/mis-membresias">Ver mi membresía</Link>
+            </Button>
           </CardContent>
         </Card>
       )}
@@ -119,123 +166,15 @@ export default async function PlanesPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {planes.map((plan, idx) => {
-            const isFeatured = idx === 1 // el del medio como destacado
-            return (
-              <Card
-                key={plan.id}
-                className={
-                  isFeatured
-                    ? 'relative border-sky-300 shadow-lg ring-1 ring-sky-200'
-                    : 'relative'
-                }
-              >
-                {isFeatured && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                    <Badge className="bg-sky-500 text-white hover:bg-sky-500">
-                      <Star className="mr-1 h-3 w-3" />
-                      Más popular
-                    </Badge>
-                  </div>
-                )}
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="flex items-center gap-2">
-                      {plan.esIlimitado ? (
-                        <Crown className="h-5 w-5 text-amber-500" />
-                      ) : (
-                        <Sparkles className="h-5 w-5 text-sky-500" />
-                      )}
-                      {plan.nombre}
-                    </CardTitle>
-                    {plan.esIlimitado && (
-                      <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100">
-                        Ilimitado
-                      </Badge>
-                    )}
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div>
-                    <p className="text-3xl font-extrabold text-slate-900">
-                      RD${formatPrice(Number(plan.precio))}
-                      <span className="text-base font-normal text-slate-400">
-                        /mes
-                      </span>
-                    </p>
-                    {plan.descripcion && (
-                      <p className="mt-2 text-sm text-slate-500">
-                        {plan.descripcion}
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="rounded-lg bg-slate-50 p-3 text-sm">
-                    <p className="font-medium text-slate-700">
-                      {plan.esIlimitado
-                        ? 'Usos ilimitados'
-                        : `${plan.lavadosIncluidos} usos incluidos`}
-                    </p>
-                    <p className="text-xs text-slate-500">Vigencia: 30 días</p>
-                  </div>
-
-                  {plan.beneficios.length > 0 && (
-                    <ul className="space-y-2">
-                      {plan.beneficios.map((b: string) => (
-                        <li
-                          key={b}
-                          className="flex items-start gap-2 text-sm text-slate-600"
-                        >
-                          <Check className="mt-0.5 h-4 w-4 shrink-0 text-green-500" />
-                          {b}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-
-                  {active ? (
-                    <Button
-                      disabled
-                      variant="outline"
-                      className="w-full"
-                    >
-                      Ya tienes plan activo
-                    </Button>
-                  ) : (
-                    <Link href={`/cliente/membresia?planId=${plan.id}`} className="block">
-                      <Button
-                        className={
-                          isFeatured
-                            ? 'w-full bg-sky-500 hover:bg-sky-400'
-                            : 'w-full'
-                        }
-                      >
-                        Quiero este plan
-                      </Button>
-                    </Link>
-                  )}
-                </CardContent>
-              </Card>
-            )
-          })}
-        </div>
+        <PlanesGrid
+          planes={planes}
+          currentPlanId={isActive ? membership!.planId : null}
+          requestedPlanId={membership?.planIdSolicitado ?? null}
+          hasActive={!!isActive}
+          activeMembershipId={membership?.id ?? null}
+          currentPlanPrecio={isActive ? Number(membership!.plan.precio) : null}
+        />
       )}
-
-      {/* Info adicional */}
-      <Card className="bg-slate-50">
-        <CardContent className="py-6 text-center text-sm text-slate-500">
-          <p>
-            ¿Tienes preguntas sobre los planes?{' '}
-            <Link
-              href="/cliente/perfil"
-              className="font-medium text-sky-600 hover:underline"
-            >
-              Contáctanos
-            </Link>
-          </p>
-        </CardContent>
-      </Card>
     </div>
   )
 }

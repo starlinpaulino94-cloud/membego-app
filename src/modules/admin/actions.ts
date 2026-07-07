@@ -94,6 +94,133 @@ export async function confirmarPago(
   }
 }
 
+/**
+ * Aprobar un cambio de plan solicitado por el cliente (membresía ACTIVA con
+ * planIdSolicitado). Aplica el nuevo plan y reinicia el período/usos.
+ */
+export async function aprobarCambioPlan(
+  _prev: AdminActionState,
+  formData: FormData
+): Promise<AdminActionState> {
+  try {
+    const user = await requireAdminUser()
+    if (!user) return { error: 'No autorizado.' }
+
+    const membershipId = String(formData.get('membershipId') ?? '')
+    const membership = await assertOwnership(membershipId, user)
+    if (!membership) return { error: 'Membresía no encontrada.' }
+    if (!membership.planIdSolicitado) {
+      return { error: 'Esta membresía no tiene un cambio de plan pendiente.' }
+    }
+
+    const nuevoPlan = await prisma.plan.findUnique({
+      where: { id: membership.planIdSolicitado },
+    })
+    if (!nuevoPlan) return { error: 'El plan solicitado ya no existe.' }
+
+    const now = new Date()
+    await prisma.membership.update({
+      where: { id: membership.id },
+      data: {
+        planId: nuevoPlan.id,
+        planIdSolicitado: null,
+        estado: 'ACTIVA',
+        pagoConfirmado: true,
+        montoPagado: nuevoPlan.precio,
+        fechaInicio: now,
+        fechaVencimiento: periodEnd(now, nuevoPlan.vigenciaDias),
+        lavadosRestantes: nuevoPlan.esIlimitado ? 0 : nuevoPlan.lavadosIncluidos,
+        rechazadoReason: null,
+      },
+    })
+
+    await prisma.auditLog.create({
+      data: {
+        companyId: membership.cliente.companyId,
+        userId: user.metadata.dbUserId ?? null,
+        accion: 'PAGO_APROBADO',
+        entidadTipo: 'Membership',
+        entidadId: membership.id,
+        payload: {
+          cambioDePlan: true,
+          planAnterior: membership.planId,
+          planNuevo: nuevoPlan.id,
+          monto: Number(nuevoPlan.precio),
+        },
+      },
+    })
+
+    const clienteUser = await prisma.user.findUnique({
+      where: { supabaseId: membership.cliente.supabaseId },
+      select: { id: true },
+    })
+    if (clienteUser) {
+      await crearNotificacion({
+        userId: clienteUser.id,
+        tipo: 'PAGO_APROBADO',
+        titulo: 'Cambio de plan aprobado',
+        mensaje: `Tu cambio al plan "${nuevoPlan.nombre}" fue aprobado y ya está activo.`,
+        href: '/mis-membresias',
+      })
+    }
+
+    revalidatePath('/admin/pagos')
+    revalidatePath('/admin/clientes')
+    revalidatePath('/mis-membresias')
+    return { success: true }
+  } catch (e) {
+    console.error('[admin] aprobarCambioPlan error:', e)
+    return { error: 'Ocurrió un error inesperado. Intenta de nuevo.' }
+  }
+}
+
+/** Rechazar un cambio de plan: limpia la solicitud; el plan vigente no cambia. */
+export async function rechazarCambioPlan(
+  _prev: AdminActionState,
+  formData: FormData
+): Promise<AdminActionState> {
+  try {
+    const user = await requireAdminUser()
+    if (!user) return { error: 'No autorizado.' }
+
+    const membershipId = String(formData.get('membershipId') ?? '')
+    const motivo = String(formData.get('motivo') ?? '').trim()
+    const membership = await assertOwnership(membershipId, user)
+    if (!membership) return { error: 'Membresía no encontrada.' }
+    if (!membership.planIdSolicitado) {
+      return { error: 'Esta membresía no tiene un cambio de plan pendiente.' }
+    }
+
+    await prisma.membership.update({
+      where: { id: membership.id },
+      data: { planIdSolicitado: null },
+    })
+
+    const clienteUser = await prisma.user.findUnique({
+      where: { supabaseId: membership.cliente.supabaseId },
+      select: { id: true },
+    })
+    if (clienteUser) {
+      await crearNotificacion({
+        userId: clienteUser.id,
+        tipo: 'PAGO_RECHAZADO',
+        titulo: 'Cambio de plan rechazado',
+        mensaje: motivo
+          ? `Tu solicitud de cambio de plan fue rechazada: ${motivo}`
+          : 'Tu solicitud de cambio de plan fue rechazada. Tu plan actual sigue vigente.',
+        href: '/mis-membresias',
+      })
+    }
+
+    revalidatePath('/admin/pagos')
+    revalidatePath('/mis-membresias')
+    return { success: true }
+  } catch (e) {
+    console.error('[admin] rechazarCambioPlan error:', e)
+    return { error: 'Ocurrió un error inesperado. Intenta de nuevo.' }
+  }
+}
+
 /** Create a PENDIENTE membership for a cliente with the given plan. */
 export async function crearMembresia(
   clienteId: string,

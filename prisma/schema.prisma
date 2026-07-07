@@ -258,7 +258,8 @@ model Plan {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
-  memberships Membership[]
+  memberships           Membership[]
+  membershipsSolicitadas Membership[] @relation("PlanSolicitado")
 
   @@map("plans")
 }
@@ -443,6 +444,11 @@ model Membership {
   company          Company          @relation(fields: [companyId], references: [id])
   planId           String
   plan             Plan             @relation(fields: [planId], references: [id])
+  // Cambio de plan solicitado por el cliente mientras la membresía sigue ACTIVA.
+  // El admin lo aprueba (con el comprobante) y se aplica; hasta entonces el plan
+  // vigente no cambia. null = sin cambio pendiente.
+  planIdSolicitado String?
+  planSolicitado   Plan?            @relation("PlanSolicitado", fields: [planIdSolicitado], references: [id])
   userId           String? // empleado/admin que la creó
   user             User?            @relation(fields: [userId], references: [id])
   metodoPagoId     String? // método de pago seleccionado

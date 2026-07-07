@@ -9,6 +9,7 @@ import { formSubmitLimiter } from '@/lib/rate-limit'
 export interface SeleccionState {
   error?: string
   success?: boolean
+  membershipId?: string
 }
 
 export async function seleccionarPlan(
@@ -57,15 +58,17 @@ export async function seleccionarPlan(
       }
     }
 
+    let membershipId: string
     if (existing) {
       // Reuse existing membership (PENDIENTE or PENDIENTE_PAGO)
       await prisma.membership.update({
         where: { id: existing.id },
         data: { planId: plan.id, montoPagado: null, pagoConfirmado: false },
       })
+      membershipId = existing.id
     } else {
       // Create new membership with companyId
-      await prisma.membership.create({
+      const created = await prisma.membership.create({
         data: {
           clienteId: cliente.id,
           companyId: cliente.companyId,
@@ -74,13 +77,80 @@ export async function seleccionarPlan(
           estado: 'PENDIENTE',
         },
       })
+      membershipId = created.id
     }
 
     revalidatePath('/mis-membresias')
-    revalidatePath('/cliente/dashboard')
-    return { success: true }
+    revalidatePath('/cliente/planes')
+    return { success: true, membershipId }
   } catch (e) {
     console.error('[membresia] seleccionarPlan error:', e)
+    return { error: 'Ocurrió un error inesperado. Intenta de nuevo.' }
+  }
+}
+
+/**
+ * El cliente con membresía ACTIVA solicita cambiar de plan (subir o bajar).
+ * No toca el plan vigente: solo registra `planIdSolicitado`. El cambio se aplica
+ * cuando el admin aprueba el comprobante del nuevo plan. Así el cliente no pierde
+ * acceso mientras se procesa el cambio.
+ */
+export async function solicitarCambioPlan(
+  _prev: SeleccionState,
+  formData: FormData
+): Promise<SeleccionState> {
+  try {
+    const user = await getUser()
+    if (!user || user.metadata.role !== 'CLIENTE' || !user.metadata.clienteId) {
+      return { error: 'No autorizado.' }
+    }
+
+    if (!formSubmitLimiter(user.metadata.clienteId)) {
+      return { error: 'Demasiados intentos. Intenta de nuevo en unos minutos.' }
+    }
+
+    const planId = String(formData.get('planId') ?? '')
+    if (!planId) return { error: 'Selecciona un plan.' }
+
+    const cliente = await prisma.cliente.findUnique({
+      where: { id: user.metadata.clienteId },
+    })
+    if (!cliente) return { error: 'Cliente no encontrado.' }
+
+    const plan = await prisma.plan.findUnique({ where: { id: planId } })
+    if (!plan || plan.companyId !== cliente.companyId || !plan.activo) {
+      return { error: 'Plan no válido para tu empresa.' }
+    }
+
+    const membership = await prisma.membership.findUnique({
+      where: {
+        clienteId_companyId: { clienteId: cliente.id, companyId: cliente.companyId },
+      },
+    })
+    if (!membership || membership.estado !== 'ACTIVA') {
+      return { error: 'No tienes una membresía activa para cambiar.' }
+    }
+    if (membership.planId === plan.id) {
+      return { error: 'Ese ya es tu plan actual.' }
+    }
+
+    await prisma.membership.update({
+      where: { id: membership.id },
+      data: { planIdSolicitado: plan.id },
+    })
+
+    await notificarAdmins(cliente.companyId, {
+      tipo: 'NUEVO_COMPROBANTE',
+      titulo: 'Solicitud de cambio de plan',
+      mensaje: `${cliente.nombre} solicitó cambiar al plan ${plan.nombre}. Falta su comprobante para aprobarlo.`,
+      href: '/admin/pagos',
+    })
+
+    revalidatePath('/mis-membresias')
+    revalidatePath('/cliente/planes')
+    return { success: true, membershipId: membership.id }
+  } catch (e) {
+    console.error('[membresia] solicitarCambioPlan error:', e)
     return { error: 'Ocurrió un error inesperado. Intenta de nuevo.' }
   }
 }
@@ -148,30 +218,42 @@ export async function enviarComprobante(
   if (membership.clienteId !== user.metadata.clienteId) {
     return { error: 'No autorizado.' }
   }
-  if (!['PENDIENTE', 'RECHAZADA'].includes(membership.estado)) {
+
+  // Comprobante de un cambio de plan: la membresía está ACTIVA y tiene un cambio
+  // solicitado. No se cambia el estado (no pierde acceso); el admin lo aprueba.
+  const esCambioDePlan =
+    membership.estado === 'ACTIVA' && membership.planIdSolicitado != null
+
+  if (!esCambioDePlan && !['PENDIENTE', 'RECHAZADA'].includes(membership.estado)) {
     return { error: 'Solo puedes enviar comprobante en estado Pendiente o Rechazado.' }
   }
 
   await prisma.membership.update({
     where: { id: membershipId },
     data: {
-      estado: 'PENDIENTE_PAGO',
       comprobanteUrl,
       comprobanteNota: nota,
       metodoPagoId: metodoPagoId || null,
-      rechazadoReason: null,
+      // En un cambio de plan la membresía sigue ACTIVA; en un pago normal pasa a
+      // PENDIENTE_PAGO para entrar a la cola de validación del admin.
+      ...(esCambioDePlan
+        ? {}
+        : { estado: 'PENDIENTE_PAGO', rechazadoReason: null }),
     },
   })
 
-  // Notify admins of this company
   await notificarAdmins(membership.cliente.companyId, {
     tipo: 'NUEVO_COMPROBANTE',
-    titulo: 'Nuevo comprobante de pago',
-    mensaje: `${membership.cliente.nombre} envió un comprobante para su membresía. Revísalo para activarla.`,
+    titulo: esCambioDePlan
+      ? 'Comprobante de cambio de plan'
+      : 'Nuevo comprobante de pago',
+    mensaje: esCambioDePlan
+      ? `${membership.cliente.nombre} envió el comprobante para su cambio de plan. Revísalo para aplicarlo.`
+      : `${membership.cliente.nombre} envió un comprobante para su membresía. Revísalo para activarla.`,
     href: `/admin/pagos`,
   })
 
-  revalidatePath('/cliente/membresia')
-  revalidatePath('/cliente/dashboard')
+  revalidatePath('/mis-membresias')
+  revalidatePath('/cliente/pagos')
   return { success: true }
 }
