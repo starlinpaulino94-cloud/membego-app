@@ -19,6 +19,10 @@ import {
   LifeBuoy,
   Newspaper,
   TrendingUp,
+  Store,
+  Bell,
+  Flag,
+  Zap,
   type LucideIcon,
 } from 'lucide-react'
 import type { AppRole } from '@/types'
@@ -46,6 +50,7 @@ const ADMIN_NAV: NavGroup[] = [
       { href: '/admin/membresias', label: 'Membresías', icon: CreditCard },
       { href: '/admin/promociones', label: 'Promociones', icon: Megaphone },
       { href: '/admin/publicaciones', label: 'Publicaciones', icon: Newspaper },
+      { href: '/admin/campanas', label: 'Campañas', icon: Flag },
       { href: '/admin/referidos', label: 'Referidos', icon: Gift },
     ],
   },
@@ -59,6 +64,7 @@ const ADMIN_NAV: NavGroup[] = [
   {
     label: 'Empresa',
     items: [
+      { href: '/admin/perfil', label: 'Perfil público', icon: Store },
       { href: '/admin/sucursales', label: 'Sucursales', icon: Building2 },
       { href: '/admin/metodos-pago', label: 'Métodos de pago', icon: Landmark },
       { href: '/admin/planes', label: 'Planes', icon: Package },
@@ -67,6 +73,8 @@ const ADMIN_NAV: NavGroup[] = [
   {
     label: 'Soporte',
     items: [
+      { href: '/admin/notificaciones', label: 'Notificaciones', icon: Bell },
+      { href: '/admin/automatizaciones', label: 'Automatizaciones', icon: Zap },
       { href: '/admin/comunicacion', label: 'Comunicación y Soporte', icon: MessageCircle },
       { href: '/admin/tickets', label: 'Tickets', icon: LifeBuoy },
     ],
@@ -135,6 +143,7 @@ const SUPERADMIN_NAV: NavGroup[] = [
       { href: '/admin/membresias', label: 'Membresías', icon: CreditCard },
       { href: '/admin/promociones', label: 'Promociones', icon: Megaphone },
       { href: '/admin/publicaciones', label: 'Publicaciones', icon: Newspaper },
+      { href: '/admin/campanas', label: 'Campañas', icon: Flag },
       { href: '/admin/referidos', label: 'Referidos', icon: Gift },
     ],
   },
@@ -148,6 +157,7 @@ const SUPERADMIN_NAV: NavGroup[] = [
   {
     label: 'Empresa',
     items: [
+      { href: '/admin/perfil', label: 'Perfil público', icon: Store },
       { href: '/admin/sucursales', label: 'Sucursales', icon: Building2 },
       { href: '/admin/metodos-pago', label: 'Métodos de pago', icon: Landmark },
       { href: '/admin/planes', label: 'Planes', icon: Package },
@@ -156,6 +166,8 @@ const SUPERADMIN_NAV: NavGroup[] = [
   {
     label: 'Soporte',
     items: [
+      { href: '/admin/notificaciones', label: 'Notificaciones', icon: Bell },
+      { href: '/admin/automatizaciones', label: 'Automatizaciones', icon: Zap },
       { href: '/admin/comunicacion', label: 'Comunicación y Soporte', icon: MessageCircle },
       { href: '/admin/tickets', label: 'Tickets', icon: LifeBuoy },
     ],

@@ -1,0 +1,88 @@
+'use server'
+
+import { revalidatePath } from 'next/cache'
+import { prisma } from '@/lib/prisma'
+import { requireAdminUser } from '@/lib/auth/guards'
+
+// F4.1: la empresa administra su propio perfil público del marketplace.
+// Solo puede tocar campos de presentación — nunca isActive/isPublished/
+// isFeatured (eso es del superadmin) ni datos de otra empresa.
+
+export interface PerfilState {
+  error?: string
+  success?: boolean
+}
+
+const val = (formData: FormData, key: string) =>
+  String(formData.get(key) ?? '').trim() || null
+
+export async function actualizarPerfilPublico(
+  _prev: PerfilState,
+  formData: FormData
+): Promise<PerfilState> {
+  const user = await requireAdminUser()
+  if (!user) return { error: 'No autorizado.' }
+
+  const companyId = user.metadata.companyId
+  if (!companyId) {
+    return {
+      error:
+        'Esta vista es del panel de empresa. Como superadmin, edita empresas desde /superadmin/empresas.',
+    }
+  }
+
+  const galleryImages = formData
+    .getAll('galleryImages')
+    .map(String)
+    .filter(Boolean)
+    .slice(0, 8)
+
+  const categoryIds = formData
+    .getAll('categoryIds')
+    .map(String)
+    .filter(Boolean)
+
+  try {
+    await prisma.$transaction([
+      prisma.company.update({
+        where: { id: companyId },
+        data: {
+          description: val(formData, 'description'),
+          horario: val(formData, 'horario'),
+          logoUrl: val(formData, 'logoUrl'),
+          bannerUrl: val(formData, 'bannerUrl'),
+          galleryImages,
+          direccion: val(formData, 'direccion'),
+          ciudad: val(formData, 'ciudad'),
+          provincia: val(formData, 'provincia'),
+          pais: val(formData, 'pais'),
+          telefono: val(formData, 'telefono'),
+          whatsapp: val(formData, 'whatsapp'),
+          email: val(formData, 'email'),
+          website: val(formData, 'website'),
+          instagram: val(formData, 'instagram'),
+          facebook: val(formData, 'facebook'),
+          tiktok: val(formData, 'tiktok'),
+          googleMapsUrl: val(formData, 'googleMapsUrl'),
+        },
+      }),
+      prisma.companyToCategory.deleteMany({ where: { companyId } }),
+      ...(categoryIds.length > 0
+        ? [
+            prisma.companyToCategory.createMany({
+              data: categoryIds.map((categoryId) => ({ companyId, categoryId })),
+              skipDuplicates: true,
+            }),
+          ]
+        : []),
+    ])
+
+    revalidatePath('/admin/perfil')
+    revalidatePath('/empresas', 'layout')
+    revalidatePath('/')
+    return { success: true }
+  } catch (e) {
+    console.error('[perfil-empresa]', e)
+    return { error: 'No se pudo guardar. Intenta de nuevo.' }
+  }
+}

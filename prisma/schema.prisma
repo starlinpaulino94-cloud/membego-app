@@ -110,6 +110,7 @@ model User {
   notificaciones  Notificacion[]
   follows         CompanyFollow[]
   promosGuardadas PromocionGuardada[]
+  notasCliente    ClienteNota[]
 
   // Listados de empleados por empresa (/admin/empleados) y conteos por empresa.
   @@index([companyId])
@@ -147,6 +148,9 @@ model Company {
   facebook              String?
   tiktok                String?
   googleMapsUrl         String?
+  // F4.1: horario de atención mostrado en el perfil público (texto libre,
+  // ej. "Lun-Vie 8:00-18:00 · Sáb 9:00-14:00").
+  horario               String?
   totalMembersCount     Int      @default(0)
   activePromotionsCount Int      @default(0)
   averageRating         Decimal? @db.Decimal(3, 2)
@@ -169,6 +173,7 @@ model Company {
   referralEvents   ReferralEvent[]
   followers        CompanyFollow[]
   posts            CompanyPost[]
+  campanas         Campana[]
 
   @@index([isPublished, isFeatured])
   @@index([ciudad, provincia])
@@ -231,14 +236,23 @@ model Promocion {
 
   // FASE 2: Marketplace fields
   slug          String?
-  tipo          String   @default("general") // "descuento" | "2x1" | "evento" | "general"
-  descuento     Int? // % si aplica
+  tipo          String   @default("general") // ver PROMO_TIPOS en src/lib/promociones.ts
+  descuento     Int? // % o monto fijo según tipo
   codigo        String? // Código cupón
   isFeatured    Boolean  @default(false)
   featuredOrder Int?
   viewCount     Int      @default(0)
   shareCount    Int      @default(0)
   tags          String[] @default([])
+
+  // F4.2: Promociones 2.0
+  visibilidad String   @default("publica") // "publica" (todo MembeGo) | "privada" (solo miembros)
+  maxCanjes   Int? // límite de canjes (null = ilimitado)
+  campanaId   String?
+  campana     Campana? @relation(fields: [campanaId], references: [id], onDelete: SetNull)
+  canjes      Int      @default(0)
+  prioridad   Int      @default(0) // mayor = primero en los listados
+  archivada   Boolean  @default(false)
 
   guardadaPor PromocionGuardada[]
 
@@ -262,6 +276,9 @@ model Plan {
   vigenciaDias     Int      @default(30) // duración del período
   condiciones      String? // texto de condiciones/restricciones
   activo           Boolean  @default(true)
+  // F4.3: presentación del plan en tarjetas públicas y del panel.
+  color            String? // hex o token, ej. "#0ea5e9"
+  orden            Int      @default(0) // menor = primero
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
@@ -297,6 +314,7 @@ model Cliente {
   referralEvents  ReferralEvent[] @relation("ReferralEvents")
   tickets         SupportTicket[]
   ratings         CompanyRating[]
+  notas           ClienteNota[]
 
   @@unique([supabaseId, companyId])
   // Filtros frecuentes solo por empresa (adminMetrics, reportes, /admin/clientes).
@@ -727,6 +745,8 @@ model CompanyPost {
   imagenUrl   String?
   fechaEvento DateTime? // solo EVENTO
   lugar       String? // solo EVENTO
+  campanaId   String?
+  campana     Campana?  @relation(fields: [campanaId], references: [id], onDelete: SetNull)
   activo      Boolean   @default(true)
   publicadaEn DateTime  @default(now())
   createdAt   DateTime  @default(now())
@@ -735,4 +755,40 @@ model CompanyPost {
   @@index([companyId, tipo, activo])
   @@index([tipo, fechaEvento])
   @@map("company_posts")
+}
+
+// F4.4: notas internas del CRM — múltiples por cliente, con autor y fecha.
+// Solo visibles para el equipo de la empresa (nunca para el cliente).
+model ClienteNota {
+  id        String   @id @default(cuid())
+  clienteId String
+  cliente   Cliente  @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  autorId   String?
+  autor     User?    @relation(fields: [autorId], references: [id], onDelete: SetNull)
+  texto     String
+  createdAt DateTime @default(now())
+
+  @@index([clienteId, createdAt])
+  @@map("cliente_notas")
+}
+
+// F4.6: campañas — agrupan promociones y publicaciones bajo un mismo
+// paraguas (ej. "Black Friday") para medirlas en conjunto.
+model Campana {
+  id          String    @id @default(cuid())
+  companyId   String
+  company     Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  nombre      String
+  descripcion String?
+  fechaInicio DateTime?
+  fechaFin    DateTime?
+  activo      Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  promociones Promocion[]
+  posts       CompanyPost[]
+
+  @@index([companyId, activo])
+  @@map("campanas")
 }

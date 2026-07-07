@@ -14,7 +14,8 @@ import {
 } from '@/components/admin/MembershipActions'
 import { ConfirmarPagoButton, RechazarPagoButton } from '@/components/admin/ValidarPagoActions'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { FileText } from 'lucide-react'
+import { NotasCliente } from '@/components/admin/NotasCliente'
+import { FileText, MessageCircle, Mail, StickyNote } from 'lucide-react'
 import type { MembershipEstado } from '@/types'
 
 export const dynamic = 'force-dynamic'
@@ -48,6 +49,11 @@ export default async function ClienteDetailPage({
           orderBy: { fechaVisita: 'desc' },
           take: 10,
           include: { vehiculo: true },
+        },
+        notas: {
+          orderBy: { createdAt: 'desc' },
+          take: 20,
+          include: { autor: { select: { name: true } } },
         },
       },
     })
@@ -94,7 +100,7 @@ export default async function ClienteDetailPage({
         ← Volver a clientes
       </Link>
 
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">
             {cliente.nombre}
@@ -104,9 +110,30 @@ export default async function ClienteDetailPage({
             {cliente.telefono ? ` · ${cliente.telefono}` : ''}
           </p>
         </div>
-        {membership && (
-          <EstadoBadge estado={membership.estado as MembershipEstado} />
-        )}
+        <div className="flex items-center gap-2">
+          {/* Contacto rápido */}
+          {cliente.telefono && (
+            <a
+              href={`https://wa.me/${cliente.telefono.replace(/\D/g, '')}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-green-200 bg-green-50 px-3 py-1.5 text-sm font-medium text-green-700 transition hover:bg-green-100"
+            >
+              <MessageCircle className="h-4 w-4" /> WhatsApp
+            </a>
+          )}
+          {cliente.email && (
+            <a
+              href={`mailto:${cliente.email}`}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50"
+            >
+              <Mail className="h-4 w-4" /> Correo
+            </a>
+          )}
+          {membership && (
+            <EstadoBadge estado={membership.estado as MembershipEstado} />
+          )}
+        </div>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
@@ -277,6 +304,26 @@ export default async function ClienteDetailPage({
           </CardContent>
         </Card>
       )}
+
+      {/* Notas internas (CRM) */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <StickyNote className="h-4 w-4 text-amber-500" /> Notas internas
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <NotasCliente
+            clienteId={cliente.id}
+            notas={cliente.notas.map((n) => ({
+              id: n.id,
+              texto: n.texto,
+              autorNombre: n.autor?.name ?? null,
+              createdAt: n.createdAt,
+            }))}
+          />
+        </CardContent>
+      </Card>
 
       {/* Visits */}
       <Card>

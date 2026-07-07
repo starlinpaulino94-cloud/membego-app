@@ -31,7 +31,13 @@ interface ExistingPost {
   imagenUrl: string | null
   fechaEvento: Date | null
   lugar: string | null
+  campanaId: string | null
   activo: boolean
+}
+
+interface CampanaOption {
+  id: string
+  nombre: string
 }
 
 const init: PostState = {}
@@ -43,7 +49,13 @@ function toDatetimeLocal(d: Date | null) {
   return date.toISOString().slice(0, 16)
 }
 
-export function PostForm({ existing }: { existing?: ExistingPost }) {
+export function PostForm({
+  existing,
+  campanas = [],
+}: {
+  existing?: ExistingPost
+  campanas?: CampanaOption[]
+}) {
   const router = useRouter()
   const action = existing ? actualizarPost : crearPost
   const [state, formAction, pending] = useActionState(action, init)
@@ -143,6 +155,25 @@ export function PostForm({ existing }: { existing?: ExistingPost }) {
           placeholder="https://..."
         />
       </div>
+
+      {campanas.length > 0 && (
+        <div className="space-y-2">
+          <Label htmlFor="campanaId">Campaña (opcional)</Label>
+          <Select name="campanaId" defaultValue={existing?.campanaId ?? 'none'}>
+            <SelectTrigger id="campanaId">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">Sin campaña</SelectItem>
+              {campanas.map((c) => (
+                <SelectItem key={c.id} value={c.id}>
+                  {c.nombre}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
 
       {existing && (
         <div className="flex items-center gap-3">

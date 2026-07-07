@@ -68,6 +68,7 @@ export async function getCompaniesPublic(filters: MarketplaceFilters = {}): Prom
         facebook: true,
         tiktok: true,
         googleMapsUrl: true,
+        horario: true,
         totalMembersCount: true,
         activePromotionsCount: true,
         averageRating: true,
@@ -125,6 +126,7 @@ export async function getCompanyPublic(companySlug: string): Promise<CompanyPubl
         facebook: true,
         tiktok: true,
         googleMapsUrl: true,
+        horario: true,
         totalMembersCount: true,
         activePromotionsCount: true,
         averageRating: true,
@@ -170,6 +172,8 @@ export async function getPromotionsPublic(filters: PromotionFilters = {}): Promi
     const promotions = await prisma.promocion.findMany({
       where: {
         activo: true,
+        archivada: false,
+        visibilidad: 'publica',
         vigenciaHasta: {
           gt: now,
         },
@@ -255,6 +259,8 @@ export async function getClientePromociones(
       where: {
         companyId: { in: companyIds },
         activo: true,
+        // Miembro de la empresa: ve públicas Y privadas (pero no archivadas).
+        archivada: false,
         vigenciaDesde: { lte: now },
         OR: [{ vigenciaHasta: null }, { vigenciaHasta: { gte: now } }],
         company: { isPublished: true, isActive: true },
@@ -297,6 +303,8 @@ export async function getFeaturedPromotions(limit: number = 6): Promise<Promotio
       where: {
         isFeatured: true,
         activo: true,
+        archivada: false,
+        visibilidad: 'publica',
         vigenciaHasta: {
           gt: now,
         },
@@ -379,14 +387,28 @@ export async function getPromotionDetail(promotionId: string): Promise<Promotion
           },
         },
         activo: true,
+        archivada: true,
+        visibilidad: true,
       },
     })
 
-    if (!promotion || !promotion.activo || !promotion.company) return null
+    if (!promotion || !promotion.activo || promotion.archivada || !promotion.company) return null
     if (!promotion.company.isPublished || !promotion.company.isActive) return null
     if (promotion.vigenciaHasta && promotion.vigenciaHasta < now) return null
 
-    const { activo: _activo, ...rest } = promotion
+    // F4.2: las privadas solo las ve un miembro de esa empresa.
+    if (promotion.visibilidad === 'privada') {
+      const { getUser } = await import('@/lib/auth')
+      const user = await getUser()
+      if (!user) return null
+      const esMiembro = await prisma.cliente.findFirst({
+        where: { supabaseId: user.supabaseId, companyId: promotion.company.id },
+        select: { id: true },
+      })
+      if (!esMiembro) return null
+    }
+
+    const { activo: _activo, archivada: _arch, visibilidad: _vis, ...rest } = promotion
     // No exponer flags internos de la empresa en el payload público.
     const { isPublished: _p, isActive: _a, ...company } = rest.company
     return { ...rest, company } as PromotionPublic
@@ -499,6 +521,8 @@ export async function getPlatformStats(): Promise<PlatformStats> {
         prisma.promocion.count({
           where: {
             activo: true,
+            archivada: false,
+            visibilidad: 'publica',
             vigenciaDesde: { lte: now },
             OR: [{ vigenciaHasta: null }, { vigenciaHasta: { gte: now } }],
             company: { isPublished: true, isActive: true },
@@ -538,7 +562,7 @@ export async function getCompanyPlanesPublic(companyId: string): Promise<PlanPub
   try {
     const planes = await prisma.plan.findMany({
       where: { companyId, activo: true },
-      orderBy: { precio: 'asc' },
+      orderBy: [{ orden: 'asc' }, { precio: 'asc' }],
       select: {
         id: true, nombre: true, precio: true, esIlimitado: true,
         lavadosIncluidos: true, descripcion: true, beneficios: true, vigenciaDias: true,

@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { prisma } from '@/lib/prisma'
 import { getUser } from '@/lib/auth'
+import { requireAdminUser } from '@/lib/auth/guards'
 
 async function requireSuperAdmin() {
   const user = await getUser()
@@ -15,48 +16,108 @@ export interface PlanActionState {
   success?: boolean
 }
 
-export async function crearPlan(
-  _prev: PlanActionState,
-  formData: FormData
-): Promise<PlanActionState> {
-  if (!(await requireSuperAdmin())) return { error: 'No autorizado.' }
-
-  const companyId = String(formData.get('companyId') ?? '').trim()
+/**
+ * F4.3: parsea los campos del plan (compartido entre crear y actualizar).
+ * Incluye vigencia, condiciones, color y orden de presentación.
+ */
+function parsePlan(formData: FormData): { error: string } | {
+  nombre: string
+  precio: number
+  lavados: number
+  esIlimitado: boolean
+  descripcion: string | null
+  beneficios: string[]
+  vigenciaDias: number
+  condiciones: string | null
+  color: string | null
+  orden: number
+} {
   const nombre = String(formData.get('nombre') ?? '').trim()
   const precioRaw = String(formData.get('precio') ?? '').trim()
   const lavadosRaw = String(formData.get('lavados') ?? '').trim()
   const esIlimitado = formData.get('esIlimitado') === 'on'
   const descripcion = String(formData.get('descripcion') ?? '').trim()
   const beneficiosRaw = String(formData.get('beneficios') ?? '').trim()
+  const vigenciaRaw = String(formData.get('vigenciaDias') ?? '').trim()
+  const condiciones = String(formData.get('condiciones') ?? '').trim()
+  const color = String(formData.get('color') ?? '').trim()
+  const ordenRaw = String(formData.get('orden') ?? '').trim()
 
-  if (!companyId || !nombre || !precioRaw) {
-    return { error: 'Empresa, nombre y precio son obligatorios.' }
-  }
+  if (!nombre || !precioRaw) return { error: 'Nombre y precio son obligatorios.' }
 
   const precio = Number(precioRaw)
   if (isNaN(precio) || precio < 0) return { error: 'Precio inválido.' }
 
-  const lavados = Number(lavadosRaw) || 0
-  const beneficios = beneficiosRaw
-    .split('\n')
-    .map((b) => b.trim())
-    .filter(Boolean)
+  const vigenciaDias = vigenciaRaw ? Number(vigenciaRaw) : 30
+  if (isNaN(vigenciaDias) || vigenciaDias < 1) {
+    return { error: 'La vigencia debe ser al menos 1 día.' }
+  }
+
+  const orden = ordenRaw ? Number(ordenRaw) : 0
+  if (isNaN(orden)) return { error: 'El orden no es válido.' }
+
+  return {
+    nombre,
+    precio,
+    lavados: Number(lavadosRaw) || 0,
+    esIlimitado,
+    descripcion: descripcion || null,
+    beneficios: beneficiosRaw
+      .split('\n')
+      .map((b) => b.trim())
+      .filter(Boolean),
+    vigenciaDias,
+    condiciones: condiciones || null,
+    color: color || null,
+    orden,
+  }
+}
+
+function revalidatePlanes() {
+  revalidatePath('/superadmin/planes')
+  revalidatePath('/admin/planes')
+  revalidatePath('/cliente/planes')
+  revalidatePath('/empresas', 'layout')
+}
+
+/**
+ * F4.3: la empresa crea sus propios planes; el superadmin puede crear para
+ * cualquier empresa (pasa companyId en el form).
+ */
+export async function crearPlan(
+  _prev: PlanActionState,
+  formData: FormData
+): Promise<PlanActionState> {
+  const user = await requireAdminUser()
+  if (!user) return { error: 'No autorizado.' }
+
+  const companyId =
+    user.metadata.role === 'SUPERADMIN'
+      ? String(formData.get('companyId') ?? '').trim()
+      : (user.metadata.companyId ?? '')
+  if (!companyId) return { error: 'Empresa requerida.' }
+
+  const parsed = parsePlan(formData)
+  if ('error' in parsed) return { error: parsed.error }
 
   try {
     await prisma.plan.create({
       data: {
         companyId,
-        nombre,
-        precio,
-        lavadosIncluidos: esIlimitado ? 0 : lavados,
-        esIlimitado,
-        descripcion: descripcion || null,
-        beneficios,
+        nombre: parsed.nombre,
+        precio: parsed.precio,
+        lavadosIncluidos: parsed.esIlimitado ? 0 : parsed.lavados,
+        esIlimitado: parsed.esIlimitado,
+        descripcion: parsed.descripcion,
+        beneficios: parsed.beneficios,
+        vigenciaDias: parsed.vigenciaDias,
+        condiciones: parsed.condiciones,
+        color: parsed.color,
+        orden: parsed.orden,
       },
     })
 
-    revalidatePath('/superadmin/planes')
-    revalidatePath('/admin/planes')
+    revalidatePlanes()
     return { success: true }
   } catch (e) {
     console.error('[plan]', e)
@@ -64,50 +125,62 @@ export async function crearPlan(
   }
 }
 
+/** Devuelve el plan solo si pertenece a la empresa del usuario (o superadmin). */
+async function planDeMiEmpresa(
+  planId: string,
+  user: NonNullable<Awaited<ReturnType<typeof requireAdminUser>>>
+) {
+  const plan = await prisma.plan.findUnique({
+    where: { id: planId },
+    select: { id: true, companyId: true },
+  })
+  if (!plan) return null
+  if (
+    user.metadata.role !== 'SUPERADMIN' &&
+    plan.companyId !== user.metadata.companyId
+  ) {
+    return null
+  }
+  return plan
+}
+
 export async function actualizarPlan(
   _prev: PlanActionState,
   formData: FormData
 ): Promise<PlanActionState> {
-  if (!(await requireSuperAdmin())) return { error: 'No autorizado.' }
+  const user = await requireAdminUser()
+  if (!user) return { error: 'No autorizado.' }
 
   const planId = String(formData.get('planId') ?? '').trim()
-  const nombre = String(formData.get('nombre') ?? '').trim()
-  const precioRaw = String(formData.get('precio') ?? '').trim()
-  const lavadosRaw = String(formData.get('lavados') ?? '').trim()
-  const esIlimitado = formData.get('esIlimitado') === 'on'
-  const descripcion = String(formData.get('descripcion') ?? '').trim()
-  const beneficiosRaw = String(formData.get('beneficios') ?? '').trim()
+  if (!planId) return { error: 'Plan no especificado.' }
+
+  const parsed = parsePlan(formData)
+  if ('error' in parsed) return { error: parsed.error }
+
   const activo = formData.get('activo') === 'on'
 
-  if (!planId || !nombre || !precioRaw) {
-    return { error: 'Nombre y precio son obligatorios.' }
-  }
-
-  const precio = Number(precioRaw)
-  if (isNaN(precio) || precio < 0) return { error: 'Precio inválido.' }
-
-  const lavados = Number(lavadosRaw) || 0
-  const beneficios = beneficiosRaw
-    .split('\n')
-    .map((b) => b.trim())
-    .filter(Boolean)
-
   try {
+    const plan = await planDeMiEmpresa(planId, user)
+    if (!plan) return { error: 'Plan no encontrado.' }
+
     await prisma.plan.update({
       where: { id: planId },
       data: {
-        nombre,
-        precio,
-        lavadosIncluidos: esIlimitado ? 0 : lavados,
-        esIlimitado,
-        descripcion: descripcion || null,
-        beneficios,
+        nombre: parsed.nombre,
+        precio: parsed.precio,
+        lavadosIncluidos: parsed.esIlimitado ? 0 : parsed.lavados,
+        esIlimitado: parsed.esIlimitado,
+        descripcion: parsed.descripcion,
+        beneficios: parsed.beneficios,
+        vigenciaDias: parsed.vigenciaDias,
+        condiciones: parsed.condiciones,
+        color: parsed.color,
+        orden: parsed.orden,
         activo,
       },
     })
 
-    revalidatePath('/superadmin/planes')
-    revalidatePath('/admin/planes')
+    revalidatePlanes()
     return { success: true }
   } catch (e) {
     console.error('[plan]', e)
@@ -119,20 +192,23 @@ export async function eliminarPlan(
   _prev: PlanActionState,
   formData: FormData
 ): Promise<PlanActionState> {
-  if (!(await requireSuperAdmin())) return { error: 'No autorizado.' }
+  const user = await requireAdminUser()
+  if (!user) return { error: 'No autorizado.' }
 
   const planId = String(formData.get('planId') ?? '').trim()
   if (!planId) return { error: 'Plan no especificado.' }
 
   try {
+    const plan = await planDeMiEmpresa(planId, user)
+    if (!plan) return { error: 'Plan no encontrado.' }
+
     const count = await prisma.membership.count({ where: { planId } })
     if (count > 0) {
       return { error: `No se puede eliminar: hay ${count} membresía(s) asociadas.` }
     }
 
     await prisma.plan.delete({ where: { id: planId } })
-    revalidatePath('/superadmin/planes')
-    revalidatePath('/admin/planes')
+    revalidatePlanes()
     return { success: true }
   } catch (e) {
     console.error('[plan]', e)
