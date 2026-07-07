@@ -173,6 +173,7 @@ model Company {
   referralEvents   ReferralEvent[]
   followers        CompanyFollow[]
   posts            CompanyPost[]
+  campanas         Campana[]
 
   @@index([isPublished, isFeatured])
   @@index([ciudad, provincia])
@@ -245,11 +246,13 @@ model Promocion {
   tags          String[] @default([])
 
   // F4.2: Promociones 2.0
-  visibilidad String  @default("publica") // "publica" (todo MembeGo) | "privada" (solo miembros)
+  visibilidad String   @default("publica") // "publica" (todo MembeGo) | "privada" (solo miembros)
   maxCanjes   Int? // límite de canjes (null = ilimitado)
-  canjes      Int     @default(0)
-  prioridad   Int     @default(0) // mayor = primero en los listados
-  archivada   Boolean @default(false)
+  campanaId   String?
+  campana     Campana? @relation(fields: [campanaId], references: [id], onDelete: SetNull)
+  canjes      Int      @default(0)
+  prioridad   Int      @default(0) // mayor = primero en los listados
+  archivada   Boolean  @default(false)
 
   guardadaPor PromocionGuardada[]
 
@@ -742,6 +745,8 @@ model CompanyPost {
   imagenUrl   String?
   fechaEvento DateTime? // solo EVENTO
   lugar       String? // solo EVENTO
+  campanaId   String?
+  campana     Campana?  @relation(fields: [campanaId], references: [id], onDelete: SetNull)
   activo      Boolean   @default(true)
   publicadaEn DateTime  @default(now())
   createdAt   DateTime  @default(now())
@@ -765,4 +770,25 @@ model ClienteNota {
 
   @@index([clienteId, createdAt])
   @@map("cliente_notas")
+}
+
+// F4.6: campañas — agrupan promociones y publicaciones bajo un mismo
+// paraguas (ej. "Black Friday") para medirlas en conjunto.
+model Campana {
+  id          String    @id @default(cuid())
+  companyId   String
+  company     Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  nombre      String
+  descripcion String?
+  fechaInicio DateTime?
+  fechaFin    DateTime?
+  activo      Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  promociones Promocion[]
+  posts       CompanyPost[]
+
+  @@index([companyId, activo])
+  @@map("campanas")
 }

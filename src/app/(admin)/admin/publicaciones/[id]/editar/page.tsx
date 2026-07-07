@@ -18,6 +18,12 @@ export default async function EditarPublicacionPage({
 
   const post = await prisma.companyPost.findUnique({ where: { id } })
   if (!post) notFound()
+
+  const campanas = await prisma.campana.findMany({
+    where: { companyId: post.companyId, activo: true },
+    select: { id: true, nombre: true },
+    orderBy: { createdAt: 'desc' },
+  })
   // Aislamiento: solo la empresa dueña (o superadmin) puede editar.
   if (companyId && post.companyId !== companyId) notFound()
 
@@ -28,6 +34,7 @@ export default async function EditarPublicacionPage({
         <p className="text-slate-500">{post.titulo}</p>
       </div>
       <PostForm
+        campanas={campanas}
         existing={{
           id: post.id,
           tipo: post.tipo,
@@ -36,6 +43,7 @@ export default async function EditarPublicacionPage({
           imagenUrl: post.imagenUrl,
           fechaEvento: post.fechaEvento,
           lugar: post.lugar,
+          campanaId: post.campanaId,
           activo: post.activo,
         }}
       />

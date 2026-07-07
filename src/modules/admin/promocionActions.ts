@@ -25,6 +25,7 @@ function parsePromocion(formData: FormData): { error: string } | {
     vigenciaHasta: Date | null
     maxCanjes: number | null
     prioridad: number
+    campanaId: string | null
   }
 } {
   const titulo = String(formData.get('titulo') ?? '').trim()
@@ -33,6 +34,8 @@ function parsePromocion(formData: FormData): { error: string } | {
   const tipo = String(formData.get('tipo') ?? 'general').trim()
   const codigo = String(formData.get('codigo') ?? '').trim() || null
   const visibilidad = String(formData.get('visibilidad') ?? 'publica').trim()
+  const campanaRaw = String(formData.get('campanaId') ?? '').trim()
+  const campanaId = campanaRaw && campanaRaw !== 'none' ? campanaRaw : null
 
   const descuentoRaw = String(formData.get('descuento') ?? '').trim()
   const descuento = descuentoRaw ? Number(descuentoRaw) : null
@@ -75,8 +78,23 @@ function parsePromocion(formData: FormData): { error: string } | {
       vigenciaHasta,
       maxCanjes,
       prioridad,
+      campanaId,
     },
   }
+}
+
+/** Valida que la campaña exista y pertenezca a la empresa. */
+async function validarCampana(
+  campanaId: string | null,
+  companyId: string
+): Promise<string | null> {
+  if (!campanaId) return null
+  const campana = await prisma.campana.findUnique({
+    where: { id: campanaId },
+    select: { companyId: true },
+  })
+  if (!campana || campana.companyId !== companyId) return 'Campaña inválida.'
+  return null
 }
 
 function revalidatePromos() {
@@ -119,6 +137,9 @@ export async function crearPromocion(
   const parsed = parsePromocion(formData)
   if ('error' in parsed) return { error: parsed.error }
 
+  const campanaError = await validarCampana(parsed.data.campanaId, companyId)
+  if (campanaError) return { error: campanaError }
+
   try {
     await prisma.promocion.create({ data: { companyId, ...parsed.data } })
 
@@ -156,6 +177,9 @@ export async function actualizarPromocion(
   try {
     const promo = await promoDeMiEmpresa(id, user)
     if (!promo) return { error: 'Promoción no encontrada.' }
+
+    const campanaError = await validarCampana(parsed.data.campanaId, promo.companyId)
+    if (campanaError) return { error: campanaError }
 
     await prisma.promocion.update({
       where: { id },
@@ -252,6 +276,7 @@ export async function duplicarPromocion(
         vigenciaHasta: original.vigenciaHasta,
         maxCanjes: original.maxCanjes,
         prioridad: original.prioridad,
+        campanaId: original.campanaId,
         tags: original.tags,
         // La copia nace pausada para editarla antes de publicar.
         activo: false,

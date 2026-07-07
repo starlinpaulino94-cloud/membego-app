@@ -42,7 +42,13 @@ interface Existing {
   vigenciaHasta: Date | null
   maxCanjes: number | null
   prioridad: number
+  campanaId: string | null
   activo: boolean
+}
+
+interface CampanaOption {
+  id: string
+  nombre: string
 }
 
 const init: PromocionState = {}
@@ -54,7 +60,13 @@ function toDatetimeLocal(d: Date | null) {
   return date.toISOString().slice(0, 16)
 }
 
-export function PromocionForm({ existing }: { existing?: Existing }) {
+export function PromocionForm({
+  existing,
+  campanas = [],
+}: {
+  existing?: Existing
+  campanas?: CampanaOption[]
+}) {
   const router = useRouter()
   const action = existing ? actualizarPromocion : crearPromocion
   const [state, formAction, pending] = useActionState(action, init)
@@ -242,6 +254,28 @@ export function PromocionForm({ existing }: { existing?: Existing }) {
             en el marketplace público.
           </p>
         </div>
+
+        {campanas.length > 0 && (
+          <div className="space-y-2">
+            <Label htmlFor="campanaId">Campaña (opcional)</Label>
+            <Select name="campanaId" defaultValue={existing?.campanaId ?? 'none'}>
+              <SelectTrigger id="campanaId">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Sin campaña</SelectItem>
+                {campanas.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.nombre}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Agrupa esta promoción bajo una campaña para medirla en conjunto.
+            </p>
+          </div>
+        )}
 
         {existing && (
           <div className="flex items-center gap-3">

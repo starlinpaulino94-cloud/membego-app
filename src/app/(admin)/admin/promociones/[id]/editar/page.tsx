@@ -14,6 +14,12 @@ export default async function EditarPromocionPage({
 
   const promo = await prisma.promocion.findUnique({ where: { id } })
   if (!promo) notFound()
+
+  const campanas = await prisma.campana.findMany({
+    where: { companyId: promo.companyId, activo: true },
+    select: { id: true, nombre: true },
+    orderBy: { createdAt: 'desc' },
+  })
   if (
     user.metadata.role !== 'SUPERADMIN' &&
     promo.companyId !== user.metadata.companyId
@@ -26,7 +32,7 @@ export default async function EditarPromocionPage({
       <div>
         <h1 className="text-2xl font-bold text-slate-900">Editar promoción</h1>
       </div>
-      <PromocionForm existing={promo} />
+      <PromocionForm existing={promo} campanas={campanas} />
     </div>
   )
 }

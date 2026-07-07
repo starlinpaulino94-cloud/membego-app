@@ -29,6 +29,8 @@ function parsePost(formData: FormData) {
   const contenido = String(formData.get('contenido') ?? '').trim()
   const imagenUrl = String(formData.get('imagenUrl') ?? '').trim() || null
   const lugar = String(formData.get('lugar') ?? '').trim() || null
+  const campanaRaw = String(formData.get('campanaId') ?? '').trim()
+  const campanaId = campanaRaw && campanaRaw !== 'none' ? campanaRaw : null
   const fechaEventoRaw = String(formData.get('fechaEvento') ?? '').trim()
   const fechaEvento = fechaEventoRaw ? new Date(fechaEventoRaw) : null
 
@@ -48,8 +50,23 @@ function parsePost(formData: FormData) {
       imagenUrl,
       lugar: tipo === 'EVENTO' ? lugar : null,
       fechaEvento: tipo === 'EVENTO' ? fechaEvento : null,
+      campanaId,
     },
   }
+}
+
+/** Valida que la campaña exista y pertenezca a la empresa. */
+async function validarCampana(
+  campanaId: string | null,
+  companyId: string
+): Promise<string | null> {
+  if (!campanaId) return null
+  const campana = await prisma.campana.findUnique({
+    where: { id: campanaId },
+    select: { companyId: true },
+  })
+  if (!campana || campana.companyId !== companyId) return 'Campaña inválida.'
+  return null
 }
 
 function revalidatePosts() {
@@ -72,6 +89,9 @@ export async function crearPost(
 
   const parsed = parsePost(formData)
   if ('error' in parsed) return { error: parsed.error }
+
+  const campanaError = await validarCampana(parsed.data.campanaId, companyId)
+  if (campanaError) return { error: campanaError }
 
   try {
     await prisma.companyPost.create({
@@ -121,6 +141,9 @@ export async function actualizarPost(
     ) {
       return { error: 'No autorizado.' }
     }
+
+    const campanaError = await validarCampana(parsed.data.campanaId, post.companyId)
+    if (campanaError) return { error: campanaError }
 
     await prisma.companyPost.update({
       where: { id },
