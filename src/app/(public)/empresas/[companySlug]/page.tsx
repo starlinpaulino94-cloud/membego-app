@@ -19,6 +19,9 @@ import {
   Crown,
   Sparkles,
   QrCode,
+  BadgeCheck,
+  CalendarDays,
+  Newspaper,
 } from 'lucide-react'
 import { PromotionGrid } from '@/components/public/PromotionGrid'
 import { FollowButton } from '@/components/public/FollowButton'
@@ -26,6 +29,7 @@ import {
   getCompanyPublic,
   getCompanyStats,
   getCompanyPlanesPublic,
+  getCompanyPostsPublic,
   getPromotionsPublic,
 } from '@/modules/marketplace/queries'
 
@@ -54,11 +58,23 @@ export default async function CompanyDetailPage({
   const company = await getCompanyPublic(companySlug)
   if (!company) notFound()
 
-  const [stats, planes, promotions] = await Promise.all([
+  const [stats, planes, promotions, posts] = await Promise.all([
     getCompanyStats(companySlug),
     getCompanyPlanesPublic(company.id),
     getPromotionsPublic({ company: companySlug, limit: 12 }),
+    getCompanyPostsPublic(company.id),
   ])
+
+  // Navegación por secciones (solo las que tienen contenido).
+  const seccionesNav = [
+    planes.length > 0 && { id: 'membresias', label: 'Membresías' },
+    promotions.length > 0 && { id: 'promociones', label: 'Promociones' },
+    posts.beneficios.length > 0 && { id: 'beneficios', label: 'Beneficios' },
+    posts.eventos.length > 0 && { id: 'eventos', label: 'Eventos' },
+    posts.noticias.length > 0 && { id: 'noticias', label: 'Noticias' },
+    company.galleryImages.length > 0 && { id: 'galeria', label: 'Galería' },
+    { id: 'informacion', label: 'Información' },
+  ].filter(Boolean) as { id: string; label: string }[]
 
   const initials = company.name.slice(0, 2).toUpperCase()
   const location = [company.ciudad, company.provincia, company.pais]
@@ -218,9 +234,26 @@ export default async function CompanyDetailPage({
           )}
         </div>
 
+        {/* Navegación de secciones (mini web) */}
+        {seccionesNav.length > 1 && (
+          <nav className="sticky top-16 z-30 mt-6 -mx-4 overflow-x-auto border-b border-slate-200 bg-white/90 px-4 backdrop-blur sm:mx-0 sm:rounded-full sm:border sm:px-2">
+            <div className="flex gap-1 py-2">
+              {seccionesNav.map((s) => (
+                <a
+                  key={s.id}
+                  href={`#${s.id}`}
+                  className="whitespace-nowrap rounded-full px-4 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-blue-50 hover:text-blue-700"
+                >
+                  {s.label}
+                </a>
+              ))}
+            </div>
+          </nav>
+        )}
+
         {/* Planes */}
         {planes.length > 0 && (
-          <section className="mt-14">
+          <section id="membresias" className="mt-14 scroll-mt-32">
             <div className="mx-auto max-w-2xl text-center">
               <h2 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
                 Planes de membresía
@@ -310,7 +343,7 @@ export default async function CompanyDetailPage({
 
         {/* Promociones */}
         {promotions && promotions.length > 0 && (
-          <section className="mt-14">
+          <section id="promociones" className="mt-14 scroll-mt-32">
             <h2 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
               Promociones vigentes
             </h2>
@@ -323,9 +356,113 @@ export default async function CompanyDetailPage({
           </section>
         )}
 
+        {/* Beneficios para miembros */}
+        {posts.beneficios.length > 0 && (
+          <section id="beneficios" className="mt-14 scroll-mt-32">
+            <h2 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
+              Beneficios para miembros
+            </h2>
+            <p className="mt-2 text-slate-600">
+              Ventajas permanentes por ser miembro de {company.name}.
+            </p>
+            <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {posts.beneficios.map((b) => (
+                <div
+                  key={b.id}
+                  className="rounded-2xl border border-emerald-100 bg-emerald-50/50 p-5"
+                >
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-700">
+                    <BadgeCheck className="h-3.5 w-3.5" /> Beneficio
+                  </span>
+                  <h3 className="mt-3 font-semibold text-slate-900">{b.titulo}</h3>
+                  <p className="mt-1 text-sm text-slate-600">{b.contenido}</p>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Eventos */}
+        {posts.eventos.length > 0 && (
+          <section id="eventos" className="mt-14 scroll-mt-32">
+            <h2 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
+              Próximos eventos
+            </h2>
+            <div className="mt-6 grid gap-4 sm:grid-cols-2">
+              {posts.eventos.map((e) => (
+                <div
+                  key={e.id}
+                  className="flex gap-4 rounded-2xl border border-slate-200 bg-white p-5"
+                >
+                  <div className="flex h-14 w-14 shrink-0 flex-col items-center justify-center rounded-xl bg-violet-50 text-violet-700">
+                    <span className="text-lg font-bold leading-none">
+                      {e.fechaEvento ? new Date(e.fechaEvento).getDate() : '—'}
+                    </span>
+                    <span className="text-[10px] font-semibold uppercase">
+                      {e.fechaEvento
+                        ? new Intl.DateTimeFormat('es-DO', { month: 'short' }).format(
+                            new Date(e.fechaEvento)
+                          )
+                        : ''}
+                    </span>
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-slate-900">{e.titulo}</h3>
+                    <p className="mt-1 line-clamp-2 text-sm text-slate-600">
+                      {e.contenido}
+                    </p>
+                    <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
+                      {e.fechaEvento && (
+                        <span className="inline-flex items-center gap-1">
+                          <CalendarDays className="h-3.5 w-3.5" />
+                          {new Intl.DateTimeFormat('es-DO', {
+                            dateStyle: 'medium',
+                            timeStyle: 'short',
+                          }).format(new Date(e.fechaEvento))}
+                        </span>
+                      )}
+                      {e.lugar && (
+                        <span className="inline-flex items-center gap-1">
+                          <MapPin className="h-3.5 w-3.5" /> {e.lugar}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Noticias */}
+        {posts.noticias.length > 0 && (
+          <section id="noticias" className="mt-14 scroll-mt-32">
+            <h2 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
+              Noticias
+            </h2>
+            <div className="mt-6 space-y-4">
+              {posts.noticias.map((n) => (
+                <article
+                  key={n.id}
+                  className="rounded-2xl border border-slate-200 bg-white p-5"
+                >
+                  <div className="flex items-center gap-2 text-xs text-slate-400">
+                    <Newspaper className="h-3.5 w-3.5" />
+                    {new Intl.DateTimeFormat('es-DO', { dateStyle: 'long' }).format(
+                      new Date(n.publicadaEn)
+                    )}
+                  </div>
+                  <h3 className="mt-2 font-semibold text-slate-900">{n.titulo}</h3>
+                  <p className="mt-1 text-sm text-slate-600">{n.contenido}</p>
+                </article>
+              ))}
+            </div>
+          </section>
+        )}
+
         {/* Galería */}
         {company.galleryImages && company.galleryImages.length > 0 && (
-          <section className="mt-14">
+          <section id="galeria" className="mt-14 scroll-mt-32">
             <h2 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
               Galería
             </h2>
@@ -347,22 +484,52 @@ export default async function CompanyDetailPage({
           </section>
         )}
 
-        {/* Ubicación */}
-        {company.googleMapsUrl && (
-          <section className="mt-14">
-            <h2 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
-              Ubicación
-            </h2>
-            <a
-              href={company.googleMapsUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-4 inline-flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-3 text-sm font-medium text-blue-600 transition hover:bg-slate-50"
-            >
-              <MapPin className="h-4 w-4" /> Ver en Google Maps
-            </a>
-          </section>
-        )}
+        {/* Información */}
+        <section id="informacion" className="mt-14 scroll-mt-32">
+          <h2 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
+            Información
+          </h2>
+          <div className="mt-6 grid gap-4 sm:grid-cols-2">
+            {location && (
+              <div className="rounded-2xl border border-slate-200 bg-white p-5">
+                <h3 className="flex items-center gap-2 font-semibold text-slate-900">
+                  <MapPin className="h-4 w-4 text-blue-600" /> Ubicación
+                </h3>
+                <p className="mt-2 text-sm text-slate-600">{location}</p>
+                {company.googleMapsUrl && (
+                  <a
+                    href={company.googleMapsUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-3 inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-blue-600 transition hover:bg-slate-50"
+                  >
+                    Ver en Google Maps
+                  </a>
+                )}
+              </div>
+            )}
+            {contactLinks.length > 0 && (
+              <div className="rounded-2xl border border-slate-200 bg-white p-5">
+                <h3 className="flex items-center gap-2 font-semibold text-slate-900">
+                  <Phone className="h-4 w-4 text-blue-600" /> Contacto
+                </h3>
+                <div className="mt-2 space-y-2">
+                  {contactLinks.map((c) => (
+                    <a
+                      key={c.label}
+                      href={c.href}
+                      target={c.href.startsWith('http') ? '_blank' : undefined}
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2 text-sm text-slate-600 transition hover:text-blue-600"
+                    >
+                      <c.icon className="h-4 w-4" /> {c.label}
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </section>
       </div>
 
       {/* CTA final */}

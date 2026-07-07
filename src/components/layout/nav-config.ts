@@ -17,6 +17,7 @@ import {
   User,
   ShieldCheck,
   LifeBuoy,
+  Newspaper,
   type LucideIcon,
 } from 'lucide-react'
 import type { AppRole } from '@/types'
@@ -43,6 +44,7 @@ const ADMIN_NAV: NavGroup[] = [
       { href: '/admin/clientes', label: 'Clientes', icon: Users },
       { href: '/admin/membresias', label: 'Membresías', icon: CreditCard },
       { href: '/admin/promociones', label: 'Promociones', icon: Megaphone },
+      { href: '/admin/publicaciones', label: 'Publicaciones', icon: Newspaper },
       { href: '/admin/referidos', label: 'Referidos', icon: Gift },
     ],
   },
@@ -130,6 +132,7 @@ const SUPERADMIN_NAV: NavGroup[] = [
       { href: '/admin/clientes', label: 'Clientes', icon: Users },
       { href: '/admin/membresias', label: 'Membresías', icon: CreditCard },
       { href: '/admin/promociones', label: 'Promociones', icon: Megaphone },
+      { href: '/admin/publicaciones', label: 'Publicaciones', icon: Newspaper },
       { href: '/admin/referidos', label: 'Referidos', icon: Gift },
     ],
   },

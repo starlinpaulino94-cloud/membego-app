@@ -168,6 +168,7 @@ model Company {
   ratings          CompanyRating[]
   referralEvents   ReferralEvent[]
   followers        CompanyFollow[]
+  posts            CompanyPost[]
 
   @@index([isPublished, isFeatured])
   @@index([ciudad, provincia])
@@ -706,4 +707,32 @@ model PromocionGuardada {
   @@index([userId, createdAt])
   @@index([promocionId])
   @@map("promociones_guardadas")
+}
+
+// F3.3: Publicaciones de empresa — eventos, noticias y beneficios permanentes.
+// Un solo modelo flexible: fechaEvento/lugar solo aplican a EVENTO.
+enum PostTipo {
+  EVENTO
+  NOTICIA
+  BENEFICIO
+}
+
+model CompanyPost {
+  id          String    @id @default(cuid())
+  companyId   String
+  company     Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  tipo        PostTipo
+  titulo      String
+  contenido   String
+  imagenUrl   String?
+  fechaEvento DateTime? // solo EVENTO
+  lugar       String? // solo EVENTO
+  activo      Boolean   @default(true)
+  publicadaEn DateTime  @default(now())
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([companyId, tipo, activo])
+  @@index([tipo, fechaEvento])
+  @@map("company_posts")
 }

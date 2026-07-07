@@ -1,0 +1,146 @@
+import Link from 'next/link'
+import { ADMIN_ROLES } from '@/types'
+import { requireRole } from '@/lib/auth/guards'
+import { companyFilter } from '@/modules/admin/queries'
+import { prisma } from '@/lib/prisma'
+import { Card, CardContent } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { DeletePostButton } from '@/components/admin/DeletePostButton'
+import {
+  Newspaper,
+  CalendarDays,
+  BadgeCheck,
+  Plus,
+  Pencil,
+  MapPin,
+} from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
+
+export const dynamic = 'force-dynamic'
+
+const TIPO_META: Record<string, { label: string; icon: LucideIcon; chip: string }> = {
+  EVENTO: { label: 'Evento', icon: CalendarDays, chip: 'bg-violet-100 text-violet-700' },
+  NOTICIA: { label: 'Noticia', icon: Newspaper, chip: 'bg-sky-100 text-sky-700' },
+  BENEFICIO: { label: 'Beneficio', icon: BadgeCheck, chip: 'bg-emerald-100 text-emerald-700' },
+}
+
+function fmtFecha(d: Date | null) {
+  if (!d) return null
+  return new Intl.DateTimeFormat('es-DO', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(new Date(d))
+}
+
+export default async function PublicacionesPage() {
+  const user = await requireRole(ADMIN_ROLES)
+  const companyId = companyFilter(user)
+
+  let posts: Awaited<ReturnType<typeof query>> = []
+  async function query() {
+    return prisma.companyPost.findMany({
+      where: companyId ? { companyId } : {},
+      include: { company: { select: { name: true } } },
+      orderBy: { createdAt: 'desc' },
+    })
+  }
+  try {
+    posts = await query()
+  } catch (e) {
+    console.error('[admin-publicaciones]', e)
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">Publicaciones</h1>
+          <p className="text-slate-500">
+            Eventos, noticias y beneficios de tu empresa. Tus seguidores se
+            notifican automáticamente al publicar.
+          </p>
+        </div>
+        <Link href="/admin/publicaciones/nuevo">
+          <Button className="bg-sky-500 hover:bg-sky-400">
+            <Plus className="mr-2 h-4 w-4" />
+            Nueva publicación
+          </Button>
+        </Link>
+      </div>
+
+      {posts.length === 0 ? (
+        <Card>
+          <CardContent className="py-16 text-center text-slate-500">
+            <Newspaper className="mx-auto mb-3 h-10 w-10 text-slate-300" />
+            <p className="font-medium">Sin publicaciones</p>
+            <p className="text-sm">
+              Publica un evento, una noticia o un beneficio para tus
+              seguidores.
+            </p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2">
+          {posts.map((p) => {
+            const meta = TIPO_META[p.tipo] ?? TIPO_META.NOTICIA
+            return (
+              <Card key={p.id} className={p.activo ? '' : 'opacity-60'}>
+                <CardContent className="p-5">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className={`rounded-lg p-2 ${meta.chip}`}>
+                        <meta.icon className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <p className="font-semibold text-slate-900">{p.titulo}</p>
+                        <div className="flex flex-wrap items-center gap-2 text-xs text-slate-400">
+                          <span className={`rounded-full px-2 py-0.5 font-medium ${meta.chip}`}>
+                            {meta.label}
+                          </span>
+                          {!companyId && <span>{p.company.name}</span>}
+                        </div>
+                      </div>
+                    </div>
+                    <Badge variant={p.activo ? 'default' : 'secondary'}>
+                      {p.activo ? 'Activa' : 'Oculta'}
+                    </Badge>
+                  </div>
+
+                  <p className="mt-3 line-clamp-2 text-sm text-slate-600">
+                    {p.contenido}
+                  </p>
+
+                  {p.tipo === 'EVENTO' && (
+                    <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
+                      {p.fechaEvento && (
+                        <span className="inline-flex items-center gap-1">
+                          <CalendarDays className="h-3.5 w-3.5" />
+                          {fmtFecha(p.fechaEvento)}
+                        </span>
+                      )}
+                      {p.lugar && (
+                        <span className="inline-flex items-center gap-1">
+                          <MapPin className="h-3.5 w-3.5" /> {p.lugar}
+                        </span>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="mt-4 flex items-center justify-end gap-1 border-t border-slate-100 pt-3">
+                    <Link href={`/admin/publicaciones/${p.id}/editar`}>
+                      <Button size="icon" variant="ghost">
+                        <Pencil className="h-4 w-4 text-slate-500" />
+                      </Button>
+                    </Link>
+                    <DeletePostButton id={p.id} titulo={p.titulo} />
+                  </div>
+                </CardContent>
+              </Card>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
