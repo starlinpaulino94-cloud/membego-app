@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import Link from 'next/link'
 import Image from 'next/image'
 import { QRDisplay } from '@/components/qr/QRDisplay'
+import { ComprobanteForm } from '@/components/membresia/ComprobanteForm'
 
 export const metadata = {
   title: 'Detalles de Membresía',
@@ -28,6 +29,7 @@ export default async function MembershipDetail({ params }: { params: Promise<{ m
           include: { company: true },
         },
         plan: true,
+        planSolicitado: true,
       },
     })
   } catch (error) {
@@ -65,6 +67,20 @@ export default async function MembershipDetail({ params }: { params: Promise<{ m
     where: { membresiaId: membresiaId, activo: true },
     orderBy: { createdAt: 'desc' },
   })
+
+  // ¿Necesita pago? Membresía pendiente/rechazada, o activa con cambio de plan
+  // solicitado (que requiere comprobante del nuevo plan).
+  const needsInitialPayment = ['PENDIENTE', 'RECHAZADA'].includes(membership.estado)
+  const isChangePending = isActive && membership.planIdSolicitado != null
+  const needsPayment = needsInitialPayment || isChangePending
+  const planAPagar = isChangePending ? membership.planSolicitado : membership.plan
+
+  const metodosPago = needsPayment
+    ? await prisma.metodoPago.findMany({
+        where: { companyId: membership.cliente.companyId, activo: true },
+        orderBy: { createdAt: 'asc' },
+      })
+    : []
 
   return (
     <main className="container max-w-2xl py-8">
@@ -106,6 +122,65 @@ export default async function MembershipDetail({ params }: { params: Promise<{ m
           )}
         </div>
       </div>
+
+      {/* Sección de pago (pendiente o cambio de plan) */}
+      {needsPayment && (
+        <div className="mb-8 space-y-4 rounded-lg border p-6">
+          <div>
+            <h2 className="font-semibold">
+              {isChangePending ? 'Pago del cambio de plan' : 'Completar pago'}
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              {isChangePending
+                ? `Cambio al plan ${planAPagar?.nombre}. Sube el comprobante para que el equipo lo apruebe; tu plan actual sigue activo mientras tanto.`
+                : 'Realiza el pago con uno de los métodos y sube tu comprobante para activar tu membresía.'}
+            </p>
+          </div>
+
+          <div className="rounded-lg bg-muted p-4">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-muted-foreground">Monto a pagar</span>
+              <span className="text-xl font-bold">
+                RD${new Intl.NumberFormat('es-DO').format(Number(planAPagar?.precio ?? 0))}
+              </span>
+            </div>
+          </div>
+
+          {membership.estado === 'RECHAZADA' && membership.rechazadoReason && (
+            <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
+              <strong>Motivo del rechazo:</strong> {membership.rechazadoReason}
+            </div>
+          )}
+
+          {metodosPago.length > 0 && (
+            <div className="space-y-2">
+              <h3 className="text-sm font-medium">Datos para el pago</h3>
+              {metodosPago.map((m) => (
+                <div key={m.id} className="rounded-lg border p-3 text-sm">
+                  <p className="font-medium">{m.nombre}</p>
+                  {m.titular && (
+                    <p className="text-muted-foreground">Titular: {m.titular}</p>
+                  )}
+                  {m.numeroCuenta && (
+                    <p className="text-muted-foreground">
+                      Cuenta: {m.numeroCuenta}
+                      {m.tipoCuenta ? ` (${m.tipoCuenta})` : ''}
+                    </p>
+                  )}
+                  {m.instrucciones && (
+                    <p className="mt-1 text-xs text-muted-foreground">{m.instrucciones}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          <ComprobanteForm
+            membershipId={membership.id}
+            metodosPago={metodosPago.map((m) => ({ id: m.id, nombre: m.nombre }))}
+          />
+        </div>
+      )}
 
       {/* QR Section */}
       {qrToken ? (

@@ -63,7 +63,7 @@ export default async function PagosPage() {
             <CreditCard className="mx-auto mb-3 h-10 w-10 text-slate-300" />
             <p className="font-medium">Sin historial de pagos</p>
             <p className="text-sm">Selecciona un plan para comenzar.</p>
-            <Link href="/cliente/membresia" className="mt-4 block">
+            <Link href="/cliente/planes" className="mt-4 block">
               <Button className="bg-sky-500 hover:bg-sky-400">Ver planes</Button>
             </Link>
           </CardContent>
@@ -139,8 +139,8 @@ export default async function PagosPage() {
                 )}
 
                 {/* Action for pending/rejected */}
-                {(m.estado === 'PENDIENTE' || m.estado === 'RECHAZADA') && i === 0 && (
-                  <Link href="/cliente/membresia">
+                {(m.estado === 'PENDIENTE' || m.estado === 'RECHAZADA') && (
+                  <Link href={`/membresia/${m.id}`}>
                     <Button size="sm" className="bg-sky-500 hover:bg-sky-400">
                       {m.estado === 'RECHAZADA' ? 'Reenviar comprobante' : 'Enviar comprobante'}
                     </Button>
