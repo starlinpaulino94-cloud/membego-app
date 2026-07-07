@@ -480,3 +480,82 @@ export async function getFeaturedCompanies(limit: number = 6): Promise<CompanyPu
     offset: 0,
   })
 }
+
+export interface PlatformStats {
+  empresas: number
+  membresiasActivas: number
+  promocionesVigentes: number
+  ciudades: number
+}
+
+/** Métricas reales de la plataforma para la landing (nunca datos personales). */
+export async function getPlatformStats(): Promise<PlatformStats> {
+  try {
+    const now = new Date()
+    const [empresas, membresiasActivas, promocionesVigentes, ciudadesRows] =
+      await Promise.all([
+        prisma.company.count({ where: { isActive: true, isPublished: true } }),
+        prisma.membership.count({ where: { estado: 'ACTIVA' } }),
+        prisma.promocion.count({
+          where: {
+            activo: true,
+            vigenciaDesde: { lte: now },
+            OR: [{ vigenciaHasta: null }, { vigenciaHasta: { gte: now } }],
+            company: { isPublished: true, isActive: true },
+          },
+        }),
+        prisma.company.findMany({
+          where: { isActive: true, isPublished: true, ciudad: { not: null } },
+          select: { ciudad: true },
+          distinct: ['ciudad'],
+        }),
+      ])
+    return {
+      empresas,
+      membresiasActivas,
+      promocionesVigentes,
+      ciudades: ciudadesRows.length,
+    }
+  } catch (error) {
+    console.error('[getPlatformStats] Error:', error)
+    return { empresas: 0, membresiasActivas: 0, promocionesVigentes: 0, ciudades: 0 }
+  }
+}
+
+export interface PlanPublic {
+  id: string
+  nombre: string
+  precio: number
+  esIlimitado: boolean
+  lavadosIncluidos: number
+  descripcion: string | null
+  beneficios: string[]
+  vigenciaDias: number
+}
+
+/** Planes activos de una empresa para mostrar en su perfil público. */
+export async function getCompanyPlanesPublic(companyId: string): Promise<PlanPublic[]> {
+  try {
+    const planes = await prisma.plan.findMany({
+      where: { companyId, activo: true },
+      orderBy: { precio: 'asc' },
+      select: {
+        id: true, nombre: true, precio: true, esIlimitado: true,
+        lavadosIncluidos: true, descripcion: true, beneficios: true, vigenciaDias: true,
+      },
+    })
+    return planes.map((p) => ({
+      id: p.id,
+      nombre: p.nombre,
+      precio: Number(p.precio),
+      esIlimitado: p.esIlimitado,
+      lavadosIncluidos: p.lavadosIncluidos,
+      descripcion: p.descripcion,
+      beneficios: p.beneficios,
+      vigenciaDias: p.vigenciaDias,
+    }))
+  } catch (error) {
+    console.error('[getCompanyPlanesPublic] Error:', error)
+    return []
+  }
+}

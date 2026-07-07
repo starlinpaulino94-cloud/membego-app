@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { Tag } from 'lucide-react'
 import { SearchBar } from '@/components/public/SearchBar'
 import { PromotionGrid } from '@/components/public/PromotionGrid'
 import { getPromotionsPublic } from '@/modules/marketplace/queries'
@@ -28,14 +29,20 @@ export default async function PromotionsPage({
   return (
     <div className="min-h-screen bg-white">
       {/* Header */}
-      <section className="bg-gradient-to-br from-blue-50 to-neutral-50 py-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
-          <div>
-            <h1 className="text-4xl sm:text-5xl font-bold text-neutral-900">
-              Todas las Promociones
+      <section className="relative overflow-hidden bg-gradient-to-br from-blue-700 via-sky-600 to-indigo-800 py-14">
+        <div className="absolute -top-16 right-10 h-56 w-56 rounded-full bg-sky-400/30 blur-3xl" />
+        <div className="absolute -bottom-20 -left-10 h-56 w-56 rounded-full bg-indigo-400/20 blur-3xl" />
+        <div className="relative mx-auto max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8">
+          <div className="text-white">
+            <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-sm font-medium text-sky-100 ring-1 ring-inset ring-white/20">
+              <Tag className="h-4 w-4" /> Ofertas vigentes
+            </span>
+            <h1 className="mt-4 text-4xl font-extrabold tracking-tight sm:text-5xl">
+              Promociones
             </h1>
-            <p className="text-neutral-600 mt-2 text-lg">
-              Descubre las mejores ofertas y beneficios disponibles
+            <p className="mt-2 max-w-xl text-lg text-sky-100">
+              Descubre descuentos, regalos y beneficios exclusivos de las
+              empresas afiliadas a MembeGo.
             </p>
           </div>
           <SearchBar placeholder="Buscar promociones..." />

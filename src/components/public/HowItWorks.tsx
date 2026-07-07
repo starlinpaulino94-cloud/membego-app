@@ -1,65 +1,57 @@
-export function HowItWorks() {
-  const steps = [
-    {
-      number: '1',
-      title: 'Explora Empresas',
-      description: 'Descubre las mejores empresas de tu ciudad con sus perfiles completos y ofertas.',
-      icon: '🏢',
-    },
-    {
-      number: '2',
-      title: 'Descubre Beneficios',
-      description: 'Accede a promociones, descuentos y beneficios exclusivos de cada empresa.',
-      icon: '🎁',
-    },
-    {
-      number: '3',
-      title: 'Regístrate',
-      description: 'Crea tu cuenta y obtén acceso a todos los beneficios de membresía.',
-      icon: '📝',
-    },
-    {
-      number: '4',
-      title: 'Disfruta Beneficios',
-      description: 'Accede a tu dashboard de membresías y disfruta de todos tus beneficios.',
-      icon: '🎉',
-    },
-  ]
+import { Search, CreditCard, QrCode, Sparkles } from 'lucide-react'
 
+const STEPS = [
+  {
+    icon: Search,
+    title: 'Elige una empresa',
+    description: 'Explora los negocios afiliados y encuentra el que se adapta a ti.',
+  },
+  {
+    icon: CreditCard,
+    title: 'Activa tu plan',
+    description: 'Selecciona un plan, realiza tu pago y espera la confirmación.',
+  },
+  {
+    icon: QrCode,
+    title: 'Recibe tu QR',
+    description: 'Se genera tu membresía digital con un código QR único y seguro.',
+  },
+  {
+    icon: Sparkles,
+    title: 'Disfruta beneficios',
+    description: 'Preséntalo en el negocio y accede a tus beneficios al instante.',
+  },
+]
+
+export function HowItWorks() {
   return (
-    <section className="py-12 sm:py-16 bg-neutral-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Header */}
-        <div className="text-center mb-12">
-          <h2 className="text-3xl sm:text-4xl font-bold text-neutral-900">
-            Cómo Funciona
+    <section className="bg-slate-50 py-16 sm:py-24">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-2xl text-center">
+          <h2 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
+            Cómo funciona
           </h2>
-          <p className="text-neutral-600 mt-2 text-lg">
-            Cuatro pasos simples para acceder a beneficios exclusivos
+          <p className="mt-4 text-lg text-slate-600">
+            Cuatro pasos simples para empezar a disfrutar tus beneficios.
           </p>
         </div>
 
-        {/* Steps */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {steps.map((step, index) => (
-            <div key={index} className="relative">
-              {/* Card */}
-              <div className="bg-white rounded-lg p-6 text-center h-full">
-                <div className="text-5xl mb-4">{step.icon}</div>
-                <div className="text-3xl font-bold text-blue-600 mb-2">
-                  {step.number}
+        <div className="mt-14 grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+          {STEPS.map((step, i) => (
+            <div key={step.title} className="relative">
+              <div className="h-full rounded-2xl border border-slate-100 bg-white p-6 text-center shadow-sm">
+                <div className="relative mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-600 to-sky-500 text-white">
+                  <step.icon className="h-6 w-6" />
+                  <span className="absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full bg-slate-900 text-xs font-bold text-white">
+                    {i + 1}
+                  </span>
                 </div>
-                <h3 className="font-bold text-neutral-900 mb-2">
-                  {step.title}
-                </h3>
-                <p className="text-neutral-600 text-sm">
-                  {step.description}
-                </p>
+                <h3 className="mt-4 font-semibold text-slate-900">{step.title}</h3>
+                <p className="mt-2 text-sm text-slate-600">{step.description}</p>
               </div>
 
-              {/* Arrow */}
-              {index < steps.length - 1 && (
-                <div className="hidden lg:block absolute -right-3 top-1/2 -translate-y-1/2 text-2xl text-neutral-300">
+              {i < STEPS.length - 1 && (
+                <div className="absolute -right-3 top-1/2 hidden -translate-y-1/2 text-2xl text-slate-300 lg:block">
                   →
                 </div>
               )}
