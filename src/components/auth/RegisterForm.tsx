@@ -192,6 +192,22 @@ export function RegisterForm({
               </div>
             )}
 
+            {/* F5.2: auto-seguir con opción de desmarcar (el hidden va primero;
+                si el checkbox está marcado, su valor "on" queda al final). */}
+            <label className="flex items-start gap-2 text-sm text-slate-300">
+              <input type="hidden" name="seguirEmpresa" value="off" />
+              <input
+                type="checkbox"
+                name="seguirEmpresa"
+                value="on"
+                defaultChecked
+                className="mt-0.5 h-4 w-4 rounded border-slate-500"
+              />
+              <span>
+                Seguir a {companyName} para recibir sus promociones y novedades.
+              </span>
+            </label>
+
             <Button
               type="submit"
               disabled={pending}

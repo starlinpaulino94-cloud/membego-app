@@ -3,9 +3,10 @@ import Link from 'next/link'
 import { CreditCard, Compass, AlertCircle, Sparkles } from 'lucide-react'
 import { getUser } from '@/lib/auth'
 import { getClienteAllMemberships } from '@/modules/cliente/queries'
-import { getNovedadesInicio } from '@/modules/social/queries'
+import { getNovedadesInicio, getOnboardingCliente } from '@/modules/social/queries'
 import { MembershipCard } from '@/components/cliente/MembershipCard'
 import { FeedNovedades } from '@/components/cliente/FeedNovedades'
+import { OnboardingClienteCard } from '@/components/cliente/OnboardingClienteCard'
 import { Button } from '@/components/ui/button'
 
 export const metadata = {
@@ -31,10 +32,15 @@ export default async function MisMembresias() {
     )
   }
 
-  // Feed de novedades de empresas seguidas (falla en silencio: es secundario).
-  const novedades = user.metadata.dbUserId
-    ? await getNovedadesInicio(user.metadata.dbUserId)
-    : []
+  // Feed de novedades y onboarding (fallan en silencio: son secundarios).
+  const [novedades, onboarding] = user.metadata.dbUserId
+    ? await Promise.all([
+        getNovedadesInicio(user.metadata.dbUserId),
+        getOnboardingCliente(user.metadata.dbUserId, user.supabaseId).catch(
+          () => null
+        ),
+      ])
+    : [[], null]
 
   return (
     <main className="container max-w-4xl py-8">
@@ -53,6 +59,13 @@ export default async function MisMembresias() {
           </Link>
         </Button>
       </div>
+
+      {/* Onboarding B2C (F5.2) */}
+      {onboarding && (
+        <div className="mb-6">
+          <OnboardingClienteCard onboarding={onboarding} />
+        </div>
+      )}
 
       {loadError ? (
         <div className="flex flex-col items-center gap-4 rounded-xl border border-destructive/30 bg-destructive/5 p-8 text-center">

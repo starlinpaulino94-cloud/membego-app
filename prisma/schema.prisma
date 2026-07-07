@@ -111,6 +111,7 @@ model User {
   follows         CompanyFollow[]
   promosGuardadas PromocionGuardada[]
   notasCliente    ClienteNota[]
+  intereses       UserInteres[]
 
   // Listados de empleados por empresa (/admin/empleados) y conteos por empresa.
   @@index([companyId])
@@ -656,7 +657,8 @@ model BusinessCategory {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  companies CompanyToCategory[]
+  companies   CompanyToCategory[]
+  interesados UserInteres[]
 
   @@index([active, order])
   @@map("business_categories")
@@ -791,4 +793,19 @@ model Campana {
 
   @@index([companyId, activo])
   @@map("campanas")
+}
+
+// F5.2: intereses del cliente (categorías favoritas, cross-empresa).
+// Alimentan las recomendaciones del feed y el onboarding B2C.
+model UserInteres {
+  id         String           @id @default(cuid())
+  userId     String
+  user       User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  categoryId String
+  category   BusinessCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  createdAt  DateTime         @default(now())
+
+  @@unique([userId, categoryId])
+  @@index([categoryId])
+  @@map("user_intereses")
 }

@@ -331,17 +331,31 @@ async function getEmpresasRecomendadas(
       ...(seguidasIds.length > 0 && { id: { notIn: seguidasIds } }),
     }
 
-    // Categorías de las empresas seguidas.
+    // Afinidad: categorías de las empresas seguidas + intereses del usuario
+    // (F5.2 — el onboarding B2C alimenta directamente las recomendaciones).
     let candidatas: Awaited<
       ReturnType<typeof prisma.company.findMany<{ select: typeof companySelect }>>
     > = []
 
-    if (seguidasIds.length > 0) {
-      const cats = await prisma.companyToCategory.findMany({
-        where: { companyId: { in: seguidasIds } },
-        select: { categoryId: true },
-      })
-      const categoryIds = [...new Set(cats.map((c) => c.categoryId))]
+    {
+      const [cats, intereses] = await Promise.all([
+        seguidasIds.length > 0
+          ? prisma.companyToCategory.findMany({
+              where: { companyId: { in: seguidasIds } },
+              select: { categoryId: true },
+            })
+          : Promise.resolve([]),
+        prisma.userInteres.findMany({
+          where: { userId: dbUserId },
+          select: { categoryId: true },
+        }),
+      ])
+      const categoryIds = [
+        ...new Set([
+          ...cats.map((c) => c.categoryId),
+          ...intereses.map((i) => i.categoryId),
+        ]),
+      ]
       if (categoryIds.length > 0) {
         candidatas = await prisma.company.findMany({
           where: {
@@ -573,5 +587,86 @@ export async function getNovedadesInicio(
   } catch (e) {
     console.error('[social] getNovedadesInicio', e)
     return []
+  }
+}
+
+// ─── F5.2: Onboarding del cliente ────────────────────────────────────────────
+
+export interface OnboardingClienteItem {
+  key: string
+  label: string
+  done: boolean
+  href: string
+  cta: string
+}
+
+export interface OnboardingCliente {
+  items: OnboardingClienteItem[]
+  completados: number
+  total: number
+}
+
+/**
+ * Checklist B2C calculado desde datos reales (retomable por diseño):
+ * cuenta → perfil → intereses → seguir empresas → primera membresía.
+ */
+export async function getOnboardingCliente(
+  dbUserId: string,
+  supabaseId: string
+): Promise<OnboardingCliente> {
+  const [cliente, intereses, follows, memberships] = await Promise.all([
+    prisma.cliente.findFirst({
+      where: { supabaseId },
+      select: { fechaNacimiento: true, telefono: true },
+    }),
+    prisma.userInteres.count({ where: { userId: dbUserId } }),
+    prisma.companyFollow.count({ where: { userId: dbUserId } }),
+    prisma.membership.count({
+      where: { cliente: { supabaseId } },
+    }),
+  ])
+
+  const items: OnboardingClienteItem[] = [
+    {
+      key: 'cuenta',
+      label: 'Cuenta creada',
+      done: true,
+      href: '/cliente/perfil',
+      cta: '',
+    },
+    {
+      key: 'perfil',
+      label: 'Perfil completado (fecha de nacimiento)',
+      done: !!cliente?.fechaNacimiento,
+      href: '/cliente/perfil',
+      cta: 'Completar perfil',
+    },
+    {
+      key: 'intereses',
+      label: 'Intereses seleccionados',
+      done: intereses > 0,
+      href: '/cliente/intereses',
+      cta: 'Elegir intereses',
+    },
+    {
+      key: 'seguidas',
+      label: 'Sigues al menos una empresa',
+      done: follows > 0,
+      href: '/empresas',
+      cta: 'Descubrir empresas',
+    },
+    {
+      key: 'membresia',
+      label: 'Primera membresía',
+      done: memberships > 0,
+      href: '/empresas',
+      cta: 'Explorar planes',
+    },
+  ]
+
+  return {
+    items,
+    completados: items.filter((i) => i.done).length,
+    total: items.length,
   }
 }
