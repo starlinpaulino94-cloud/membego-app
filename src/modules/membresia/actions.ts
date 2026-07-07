@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { prisma } from '@/lib/prisma'
 import { getUser } from '@/lib/auth'
-import { notificarAdmins } from '@/modules/notificaciones/actions'
+import { notificarAdmins } from '@/modules/notificaciones/service'
 import { formSubmitLimiter } from '@/lib/rate-limit'
 
 export interface SeleccionState {

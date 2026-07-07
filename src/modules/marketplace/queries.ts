@@ -559,3 +559,73 @@ export async function getCompanyPlanesPublic(companyId: string): Promise<PlanPub
     return []
   }
 }
+
+// ─── F3.3: Publicaciones públicas de la empresa ──────────────────────────────
+
+export interface CompanyPostPublic {
+  id: string
+  tipo: string
+  titulo: string
+  contenido: string
+  imagenUrl: string | null
+  fechaEvento: Date | null
+  lugar: string | null
+  publicadaEn: Date
+}
+
+export interface CompanyPostsPublic {
+  beneficios: CompanyPostPublic[]
+  eventos: CompanyPostPublic[]
+  noticias: CompanyPostPublic[]
+}
+
+/** Beneficios, eventos futuros y noticias recientes del perfil público. */
+export async function getCompanyPostsPublic(
+  companyId: string
+): Promise<CompanyPostsPublic> {
+  const empty: CompanyPostsPublic = { beneficios: [], eventos: [], noticias: [] }
+  try {
+    const now = new Date()
+    const select = {
+      id: true,
+      tipo: true,
+      titulo: true,
+      contenido: true,
+      imagenUrl: true,
+      fechaEvento: true,
+      lugar: true,
+      publicadaEn: true,
+    } as const
+
+    const [beneficios, eventos, noticias] = await Promise.all([
+      prisma.companyPost.findMany({
+        where: { companyId, activo: true, tipo: 'BENEFICIO' },
+        select,
+        orderBy: { publicadaEn: 'desc' },
+        take: 12,
+      }),
+      prisma.companyPost.findMany({
+        where: {
+          companyId,
+          activo: true,
+          tipo: 'EVENTO',
+          fechaEvento: { gte: now },
+        },
+        select,
+        orderBy: { fechaEvento: 'asc' },
+        take: 12,
+      }),
+      prisma.companyPost.findMany({
+        where: { companyId, activo: true, tipo: 'NOTICIA' },
+        select,
+        orderBy: { publicadaEn: 'desc' },
+        take: 12,
+      }),
+    ])
+
+    return { beneficios, eventos, noticias }
+  } catch (error) {
+    console.error('[getCompanyPostsPublic] Error:', error)
+    return empty
+  }
+}

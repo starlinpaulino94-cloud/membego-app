@@ -103,11 +103,13 @@ model User {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
-  memberships    Membership[]
-  visits         Visit[]        @relation("EmpleadoVisits")
-  auditLogs      AuditLog[]
-  comprobantes   Comprobante[]
-  notificaciones Notificacion[]
+  memberships     Membership[]
+  visits          Visit[]             @relation("EmpleadoVisits")
+  auditLogs       AuditLog[]
+  comprobantes    Comprobante[]
+  notificaciones  Notificacion[]
+  follows         CompanyFollow[]
+  promosGuardadas PromocionGuardada[]
 
   // Listados de empleados por empresa (/admin/empleados) y conteos por empresa.
   @@index([companyId])
@@ -165,6 +167,8 @@ model Company {
   categories       CompanyToCategory[]
   ratings          CompanyRating[]
   referralEvents   ReferralEvent[]
+  followers        CompanyFollow[]
+  posts            CompanyPost[]
 
   @@index([isPublished, isFeatured])
   @@index([ciudad, provincia])
@@ -236,6 +240,8 @@ model Promocion {
   shareCount    Int      @default(0)
   tags          String[] @default([])
 
+  guardadaPor PromocionGuardada[]
+
   @@index([companyId, activo])
   @@index([isFeatured, vigenciaHasta])
   @@index([tipo])
@@ -259,7 +265,7 @@ model Plan {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
-  memberships           Membership[]
+  memberships            Membership[]
   membershipsSolicitadas Membership[] @relation("PlanSolicitado")
 
   @@map("plans")
@@ -668,4 +674,65 @@ model CompanyRating {
   @@index([companyId])
   @@index([rating])
   @@map("company_ratings")
+}
+
+// ─── FASE 3: Capa social del marketplace ────────────────────────────────────
+// Seguir empresas: el cliente (User, cross-empresa) sigue negocios para
+// recibir sus promociones y novedades. esFavorita las prioriza en toda la app.
+model CompanyFollow {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  companyId  String
+  company    Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  esFavorita Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  @@unique([userId, companyId])
+  @@index([companyId])
+  @@index([userId, esFavorita])
+  @@map("company_follows")
+}
+
+// Promociones guardadas por el cliente ("Mis promociones guardadas").
+model PromocionGuardada {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  promocionId String
+  promocion   Promocion @relation(fields: [promocionId], references: [id], onDelete: Cascade)
+  createdAt   DateTime  @default(now())
+
+  @@unique([userId, promocionId])
+  @@index([userId, createdAt])
+  @@index([promocionId])
+  @@map("promociones_guardadas")
+}
+
+// F3.3: Publicaciones de empresa — eventos, noticias y beneficios permanentes.
+// Un solo modelo flexible: fechaEvento/lugar solo aplican a EVENTO.
+enum PostTipo {
+  EVENTO
+  NOTICIA
+  BENEFICIO
+}
+
+model CompanyPost {
+  id          String    @id @default(cuid())
+  companyId   String
+  company     Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  tipo        PostTipo
+  titulo      String
+  contenido   String
+  imagenUrl   String?
+  fechaEvento DateTime? // solo EVENTO
+  lugar       String? // solo EVENTO
+  activo      Boolean   @default(true)
+  publicadaEn DateTime  @default(now())
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([companyId, tipo, activo])
+  @@index([tipo, fechaEvento])
+  @@map("company_posts")
 }

@@ -5,7 +5,7 @@ import { prisma } from '@/lib/prisma'
 import { getUser } from '@/lib/auth'
 import { requireAdminUser } from '@/lib/auth/guards'
 import { sendEmail } from '@/lib/email'
-import { crearNotificacion, notificarAdmins } from '@/modules/notificaciones/actions'
+import { crearNotificacion, notificarAdmins } from '@/modules/notificaciones/service'
 import {
   normalizarCodigoPais,
   normalizarNumero,

@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { prisma } from '@/lib/prisma'
 import { requireAdminUser } from '@/lib/auth/guards'
-import { notificarClientesEmpresa } from '@/modules/notificaciones/actions'
+import { notificarSeguidoresEmpresa } from '@/modules/notificaciones/service'
 
 export interface PromocionState {
   error?: string
@@ -38,7 +38,8 @@ export async function crearPromocion(
       data: { companyId, titulo, descripcion, imagenUrl, vigenciaHasta },
     })
 
-    await notificarClientesEmpresa(companyId, {
+    // FASE 3: solo los seguidores de la empresa reciben la notificación.
+    await notificarSeguidoresEmpresa(companyId, {
       tipo: 'PROMOCION_NUEVA',
       titulo: '¡Nueva promoción disponible!',
       mensaje: titulo,

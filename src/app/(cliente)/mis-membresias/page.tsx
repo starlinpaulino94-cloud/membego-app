@@ -3,7 +3,9 @@ import Link from 'next/link'
 import { CreditCard, Compass, AlertCircle, Sparkles } from 'lucide-react'
 import { getUser } from '@/lib/auth'
 import { getClienteAllMemberships } from '@/modules/cliente/queries'
+import { getNovedadesInicio } from '@/modules/social/queries'
 import { MembershipCard } from '@/components/cliente/MembershipCard'
+import { FeedNovedades } from '@/components/cliente/FeedNovedades'
 import { Button } from '@/components/ui/button'
 
 export const metadata = {
@@ -28,6 +30,11 @@ export default async function MisMembresias() {
       error instanceof Error ? error.message : String(error)
     )
   }
+
+  // Feed de novedades de empresas seguidas (falla en silencio: es secundario).
+  const novedades = user.metadata.dbUserId
+    ? await getNovedadesInicio(user.metadata.dbUserId)
+    : []
 
   return (
     <main className="container max-w-4xl py-8">
@@ -64,6 +71,7 @@ export default async function MisMembresias() {
           </Button>
         </div>
       ) : memberships.length === 0 ? (
+        <div className="space-y-6">
         <div className="flex flex-col items-center gap-5 rounded-xl border border-dashed p-10 text-center">
           <div className="flex h-14 w-14 items-center justify-center rounded-full bg-muted">
             <CreditCard className="h-7 w-7 text-muted-foreground" />
@@ -84,6 +92,8 @@ export default async function MisMembresias() {
             </Button>
           </div>
         </div>
+        <FeedNovedades novedades={novedades} />
+        </div>
       ) : (
         <div className="space-y-6">
           <div className="grid gap-4 sm:grid-cols-2">
@@ -91,6 +101,9 @@ export default async function MisMembresias() {
               <MembershipCard key={membership.id} membership={membership} />
             ))}
           </div>
+
+          {/* Feed de novedades de empresas seguidas */}
+          <FeedNovedades novedades={novedades} />
 
           {/* CTA to explore more */}
           <div className="flex flex-col items-center gap-3 rounded-xl border bg-gradient-to-br from-sky-50 to-blue-50 p-6 text-center">

@@ -13,6 +13,16 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  redirects: async () => {
+    return [
+      // FASE 3: alias amigable del perfil público (membego.com/empresa/slug).
+      {
+        source: '/empresa/:slug*',
+        destination: '/empresas/:slug*',
+        permanent: true,
+      },
+    ]
+  },
   headers: async () => {
     return [
       {

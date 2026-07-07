@@ -11,10 +11,16 @@ export interface ClienteActionState {
   success?: boolean
 }
 
-/** Lista todas las empresas donde el usuario logueado tiene una cuenta de cliente. */
-export async function getClienteCompanies(supabaseId: string) {
+/**
+ * Lista todas las empresas donde el usuario logueado tiene una cuenta de
+ * cliente. Siempre usa el supabaseId de la sesión (nunca uno recibido como
+ * argumento) para no exponer datos de otros usuarios.
+ */
+export async function getClienteCompanies() {
+  const user = await getUser()
+  if (!user) return []
   return prisma.cliente.findMany({
-    where: { supabaseId },
+    where: { supabaseId: user.supabaseId },
     include: { company: true },
     orderBy: { createdAt: 'asc' },
   })

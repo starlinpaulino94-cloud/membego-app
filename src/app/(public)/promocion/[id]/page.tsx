@@ -3,6 +3,7 @@ import Image from 'next/image'
 import { notFound } from 'next/navigation'
 import { recordPromotionView } from '@/modules/marketplace/actions'
 import { getPromotionDetail } from '@/modules/marketplace/queries'
+import { SharePromocion } from '@/components/public/SharePromocion'
 
 interface PromotionDetailPageProps {
   params: Promise<{ id: string }>
@@ -184,10 +185,17 @@ export default async function PromotionDetailPage({
               </div>
             )}
 
-            {/* Stats */}
-            <div className="flex gap-4 text-sm text-neutral-600">
-              <span>👁 {promotion.viewCount} vistas</span>
-              <span>📤 {promotion.shareCount} compartidas</span>
+            {/* Stats + compartir */}
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div className="flex gap-4 text-sm text-neutral-600">
+                <span>{promotion.viewCount} vistas</span>
+                <span>{promotion.shareCount} compartidas</span>
+              </div>
+              <SharePromocion
+                promocionId={promotion.id}
+                titulo={promotion.titulo}
+                companyName={promotion.company.name}
+              />
             </div>
 
             {/* CTA */}

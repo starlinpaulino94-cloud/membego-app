@@ -17,6 +17,8 @@ import {
   User,
   ShieldCheck,
   LifeBuoy,
+  Newspaper,
+  TrendingUp,
   type LucideIcon,
 } from 'lucide-react'
 import type { AppRole } from '@/types'
@@ -43,6 +45,7 @@ const ADMIN_NAV: NavGroup[] = [
       { href: '/admin/clientes', label: 'Clientes', icon: Users },
       { href: '/admin/membresias', label: 'Membresías', icon: CreditCard },
       { href: '/admin/promociones', label: 'Promociones', icon: Megaphone },
+      { href: '/admin/publicaciones', label: 'Publicaciones', icon: Newspaper },
       { href: '/admin/referidos', label: 'Referidos', icon: Gift },
     ],
   },
@@ -73,6 +76,7 @@ const ADMIN_NAV: NavGroup[] = [
     items: [
       { href: '/admin/empleados', label: 'Empleados', icon: UserCog },
       { href: '/admin/reportes', label: 'Reportes', icon: BarChart3 },
+      { href: '/admin/audiencia', label: 'Audiencia', icon: TrendingUp },
     ],
   },
 ]
@@ -94,6 +98,7 @@ const CLIENTE_NAV: NavGroup[] = [
   {
     label: 'Beneficios',
     items: [
+      { href: '/cliente/empresas', label: 'Mis empresas', icon: Building2 },
       { href: '/cliente/promociones', label: 'Promociones', icon: Megaphone },
       { href: '/cliente/referidos', label: 'Referidos', icon: Gift },
     ],
@@ -129,6 +134,7 @@ const SUPERADMIN_NAV: NavGroup[] = [
       { href: '/admin/clientes', label: 'Clientes', icon: Users },
       { href: '/admin/membresias', label: 'Membresías', icon: CreditCard },
       { href: '/admin/promociones', label: 'Promociones', icon: Megaphone },
+      { href: '/admin/publicaciones', label: 'Publicaciones', icon: Newspaper },
       { href: '/admin/referidos', label: 'Referidos', icon: Gift },
     ],
   },
@@ -159,6 +165,7 @@ const SUPERADMIN_NAV: NavGroup[] = [
     items: [
       { href: '/admin/empleados', label: 'Empleados', icon: UserCog },
       { href: '/admin/reportes', label: 'Reportes', icon: BarChart3 },
+      { href: '/admin/audiencia', label: 'Audiencia', icon: TrendingUp },
     ],
   },
 ]
