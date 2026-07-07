@@ -18,6 +18,7 @@ import {
   ShieldCheck,
   LifeBuoy,
   Newspaper,
+  TrendingUp,
   type LucideIcon,
 } from 'lucide-react'
 import type { AppRole } from '@/types'
@@ -75,6 +76,7 @@ const ADMIN_NAV: NavGroup[] = [
     items: [
       { href: '/admin/empleados', label: 'Empleados', icon: UserCog },
       { href: '/admin/reportes', label: 'Reportes', icon: BarChart3 },
+      { href: '/admin/audiencia', label: 'Audiencia', icon: TrendingUp },
     ],
   },
 ]
@@ -163,6 +165,7 @@ const SUPERADMIN_NAV: NavGroup[] = [
     items: [
       { href: '/admin/empleados', label: 'Empleados', icon: UserCog },
       { href: '/admin/reportes', label: 'Reportes', icon: BarChart3 },
+      { href: '/admin/audiencia', label: 'Audiencia', icon: TrendingUp },
     ],
   },
 ]

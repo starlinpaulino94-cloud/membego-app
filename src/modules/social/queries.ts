@@ -339,3 +339,200 @@ async function getEmpresasRecomendadas(
     return []
   }
 }
+
+// ─── F3.4: Audiencia de la empresa ───────────────────────────────────────────
+
+export interface AudienciaStats {
+  seguidores: number
+  nuevosSeguidores30d: number
+  favoritos: number
+  clientesNuevos30d: number
+  vistasTotales: number
+  compartidasTotales: number
+  guardadasTotales: number
+  /** % de vistas que terminaron en compartir o guardar. */
+  ctr: number
+  promos: {
+    id: string
+    titulo: string
+    activo: boolean
+    vistas: number
+    compartidas: number
+    guardadas: number
+  }[]
+}
+
+/** Métricas de audiencia y engagement de una empresa (panel admin). */
+export async function getAudienciaEmpresa(
+  companyId: string
+): Promise<AudienciaStats> {
+  const hace30dias = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+
+  const [
+    seguidores,
+    nuevosSeguidores30d,
+    favoritos,
+    clientesNuevos30d,
+    agregados,
+    guardadasTotales,
+    promosRaw,
+  ] = await Promise.all([
+    prisma.companyFollow.count({ where: { companyId } }),
+    prisma.companyFollow.count({
+      where: { companyId, createdAt: { gte: hace30dias } },
+    }),
+    prisma.companyFollow.count({ where: { companyId, esFavorita: true } }),
+    prisma.cliente.count({
+      where: { companyId, createdAt: { gte: hace30dias } },
+    }),
+    prisma.promocion.aggregate({
+      where: { companyId },
+      _sum: { viewCount: true, shareCount: true },
+    }),
+    prisma.promocionGuardada.count({
+      where: { promocion: { companyId } },
+    }),
+    prisma.promocion.findMany({
+      where: { companyId },
+      select: {
+        id: true,
+        titulo: true,
+        activo: true,
+        viewCount: true,
+        shareCount: true,
+        _count: { select: { guardadaPor: true } },
+      },
+      orderBy: { viewCount: 'desc' },
+      take: 20,
+    }),
+  ])
+
+  const vistasTotales = agregados._sum.viewCount ?? 0
+  const compartidasTotales = agregados._sum.shareCount ?? 0
+  const interacciones = compartidasTotales + guardadasTotales
+  const ctr = vistasTotales > 0 ? (interacciones / vistasTotales) * 100 : 0
+
+  return {
+    seguidores,
+    nuevosSeguidores30d,
+    favoritos,
+    clientesNuevos30d,
+    vistasTotales,
+    compartidasTotales,
+    guardadasTotales,
+    ctr,
+    promos: promosRaw.map((p) => ({
+      id: p.id,
+      titulo: p.titulo,
+      activo: p.activo,
+      vistas: p.viewCount,
+      compartidas: p.shareCount,
+      guardadas: p._count.guardadaPor,
+    })),
+  }
+}
+
+// ─── F3.4: Novedades para el inicio del cliente ──────────────────────────────
+
+export interface NovedadInicio {
+  id: string
+  /** 'PROMOCION' | 'EVENTO' | 'NOTICIA' | 'BENEFICIO' */
+  tipo: string
+  titulo: string
+  companyName: string
+  companySlug: string
+  /** Fecha del evento (eventos) o de publicación (resto). */
+  fecha: Date
+  href: string
+}
+
+/**
+ * Novedades recientes de las empresas que el usuario sigue, para el feed del
+ * inicio: promociones nuevas, próximos eventos y publicaciones recientes.
+ */
+export async function getNovedadesInicio(
+  dbUserId: string,
+  limit = 6
+): Promise<NovedadInicio[]> {
+  try {
+    const follows = await prisma.companyFollow.findMany({
+      where: { userId: dbUserId },
+      select: { companyId: true },
+    })
+    const companyIds = follows.map((f) => f.companyId)
+    if (companyIds.length === 0) return []
+
+    const now = new Date()
+    const hace14dias = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000)
+    const companySel = { select: { name: true, slug: true } } as const
+
+    const [promos, posts] = await Promise.all([
+      prisma.promocion.findMany({
+        where: {
+          companyId: { in: companyIds },
+          activo: true,
+          publicadaEn: { gte: hace14dias },
+          OR: [{ vigenciaHasta: null }, { vigenciaHasta: { gte: now } }],
+        },
+        select: {
+          id: true,
+          titulo: true,
+          publicadaEn: true,
+          company: companySel,
+        },
+        orderBy: { publicadaEn: 'desc' },
+        take: limit,
+      }),
+      prisma.companyPost.findMany({
+        where: {
+          companyId: { in: companyIds },
+          activo: true,
+          OR: [
+            // Eventos futuros…
+            { tipo: 'EVENTO', fechaEvento: { gte: now } },
+            // …y noticias/beneficios recientes.
+            { tipo: { not: 'EVENTO' }, publicadaEn: { gte: hace14dias } },
+          ],
+        },
+        select: {
+          id: true,
+          tipo: true,
+          titulo: true,
+          fechaEvento: true,
+          publicadaEn: true,
+          company: companySel,
+        },
+        orderBy: { publicadaEn: 'desc' },
+        take: limit,
+      }),
+    ])
+
+    const items: NovedadInicio[] = [
+      ...promos.map((p) => ({
+        id: p.id,
+        tipo: 'PROMOCION',
+        titulo: p.titulo,
+        companyName: p.company.name,
+        companySlug: p.company.slug,
+        fecha: p.publicadaEn,
+        href: `/promocion/${p.id}`,
+      })),
+      ...posts.map((p) => ({
+        id: p.id,
+        tipo: p.tipo as string,
+        titulo: p.titulo,
+        companyName: p.company.name,
+        companySlug: p.company.slug,
+        fecha: p.tipo === 'EVENTO' && p.fechaEvento ? p.fechaEvento : p.publicadaEn,
+        href: `/empresas/${p.company.slug}`,
+      })),
+    ]
+
+    // Más recientes primero (eventos por cercanía se mezclan por fecha).
+    items.sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime())
+    return items.slice(0, limit)
+  } catch (e) {
+    console.error('[social] getNovedadesInicio', e)
+    return []
+  }
+}

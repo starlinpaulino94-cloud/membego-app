@@ -25,6 +25,7 @@ import {
 } from 'lucide-react'
 import { PromotionGrid } from '@/components/public/PromotionGrid'
 import { FollowButton } from '@/components/public/FollowButton'
+import { ShareButton } from '@/components/public/ShareButton'
 import {
   getCompanyPublic,
   getCompanyStats,
@@ -201,6 +202,11 @@ export default async function CompanyDetailPage({
               <FollowButton
                 companyId={company.id}
                 redirectTo={`/empresas/${company.slug}`}
+              />
+              <ShareButton
+                title={company.name}
+                text={`Descubre ${company.name} en MembeGo: membresías, promociones y beneficios.`}
+                path={`/empresas/${company.slug}`}
               />
             </div>
           </div>
