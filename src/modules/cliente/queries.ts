@@ -142,14 +142,38 @@ export async function getClientePerfil(clienteId: string) {
   }
 }
 
+export interface VisitaHistorial {
+  id: string
+  servicio: string
+  fechaVisita: Date
+  descontado: boolean
+  notas: string | null
+  sucursal: string | null
+  empleado: string | null
+  planNombre: string | null
+  vehiculo: { marca: string; modelo: string; placa: string | null } | null
+}
+
+export interface HistorialVisitas {
+  total: number
+  pages: number
+  esteMes: number
+  visitas: VisitaHistorial[]
+}
+
 export async function getClienteVisitas(
   clienteId: string,
   page = 1,
   pageSize = 20
-) {
+): Promise<HistorialVisitas> {
   const skip = (page - 1) * pageSize
-  const [total, visitas] = await Promise.all([
+  const inicioMes = new Date()
+  inicioMes.setDate(1)
+  inicioMes.setHours(0, 0, 0, 0)
+
+  const [total, esteMes, visitas] = await Promise.all([
     prisma.visit.count({ where: { clienteId } }),
+    prisma.visit.count({ where: { clienteId, fechaVisita: { gte: inicioMes } } }),
     prisma.visit.findMany({
       where: { clienteId },
       select: {
@@ -157,10 +181,11 @@ export async function getClienteVisitas(
         servicio: true,
         fechaVisita: true,
         descontado: true,
-        clienteId: true,
-        vehiculoId: true,
-        vehiculo: true,
-        membership: { select: { id: true, plan: { select: { nombre: true } } } },
+        notas: true,
+        sucursal: { select: { nombre: true } },
+        empleado: { select: { name: true } },
+        membership: { select: { plan: { select: { nombre: true } } } },
+        vehiculo: { select: { marca: true, modelo: true, placa: true } },
       },
       orderBy: { fechaVisita: 'desc' },
       skip,
@@ -168,12 +193,24 @@ export async function getClienteVisitas(
     }),
   ])
 
-  const enrichedVisitas = visitas.map((v) => ({
-    ...v,
-    sucursal: null as { id: string; nombre: string } | null,
-  }))
-
-  return { total, visitas: enrichedVisitas, pages: Math.ceil(total / pageSize) }
+  return {
+    total,
+    esteMes,
+    pages: Math.ceil(total / pageSize),
+    visitas: visitas.map((v) => ({
+      id: v.id,
+      servicio: v.servicio,
+      fechaVisita: v.fechaVisita,
+      descontado: v.descontado,
+      notas: v.notas,
+      sucursal: v.sucursal?.nombre ?? null,
+      empleado: v.empleado?.name ?? null,
+      planNombre: v.membership?.plan?.nombre ?? null,
+      vehiculo: v.vehiculo
+        ? { marca: v.vehiculo.marca, modelo: v.vehiculo.modelo, placa: v.vehiculo.placa }
+        : null,
+    })),
+  }
 }
 
 export function activeMembership<
