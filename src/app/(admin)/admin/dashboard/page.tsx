@@ -19,6 +19,8 @@ import {
 import { requireRole } from '@/lib/auth/guards'
 import { adminMetrics } from '@/modules/admin/queries'
 import { getDashboardEjecutivo, type DashboardEjecutivo } from '@/modules/admin/dashboardQueries'
+import { getOnboardingEmpresa, type OnboardingEmpresa } from '@/modules/empresas/onboarding'
+import { OnboardingChecklist } from '@/components/admin/OnboardingChecklist'
 import { prisma } from '@/lib/prisma'
 import { StatCard } from '@/components/ui/stat-card'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -78,12 +80,14 @@ export default async function AdminDashboard() {
 
   let d: DashboardEjecutivo | null = null
   let companyName = ''
+  let onboarding: OnboardingEmpresa | null = null
   try {
-    ;[d, companyName] = await Promise.all([
+    ;[d, companyName, onboarding] = await Promise.all([
       getDashboardEjecutivo(companyId),
       prisma.company
         .findUnique({ where: { id: companyId }, select: { name: true } })
         .then((c) => c?.name ?? ''),
+      getOnboardingEmpresa(companyId).catch(() => null),
     ])
   } catch (e) {
     console.error('[admin-dashboard]', e)
@@ -111,6 +115,9 @@ export default async function AdminDashboard() {
           {new Intl.DateTimeFormat('es-DO', { dateStyle: 'long' }).format(new Date())}
         </p>
       </div>
+
+      {/* Onboarding (F5.1): guía hasta publicar el perfil */}
+      {onboarding && <OnboardingChecklist onboarding={onboarding} />}
 
       {/* Clientes y membresías */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

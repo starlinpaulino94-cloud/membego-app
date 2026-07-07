@@ -130,6 +130,9 @@ export async function registrarCliente(
   const password = String(formData.get('password') ?? '')
   const telefono = String(formData.get('telefono') ?? '').trim()
   const refCode = String(formData.get('refCode') ?? '').trim()
+  // F5.2: auto-seguir con opción de desmarcar. El hidden "off" va primero;
+  // si el checkbox está marcado, el último valor es "on".
+  const seguirEmpresa = formData.getAll('seguirEmpresa').at(-1) !== 'off'
 
   // Vehiculo (optional, for carwash)
   const marca = String(formData.get('marca') ?? '').trim()
@@ -201,17 +204,18 @@ export async function registrarCliente(
         }
       }
 
-      // FASE 3: al registrarse en una empresa, el cliente la sigue
-      // automáticamente (recibe sus promociones y novedades).
-      await prisma.companyFollow
-        .upsert({
-          where: {
-            userId_companyId: { userId: existingUser.id, companyId: company.id },
-          },
-          update: {},
-          create: { userId: existingUser.id, companyId: company.id },
-        })
-        .catch((e) => console.error('[registro] auto-follow error:', e))
+      // FASE 3/5.2: seguir la empresa al registrarse (salvo que lo desmarque).
+      if (seguirEmpresa) {
+        await prisma.companyFollow
+          .upsert({
+            where: {
+              userId_companyId: { userId: existingUser.id, companyId: company.id },
+            },
+            update: {},
+            create: { userId: existingUser.id, companyId: company.id },
+          })
+          .catch((e) => console.error('[registro] auto-follow error:', e))
+      }
 
       await admin.auth.admin.updateUserById(existingUser.supabaseId, {
         app_metadata: {
@@ -274,10 +278,12 @@ export async function registrarCliente(
         },
       })
 
-      // FASE 3: auto-seguir la empresa al registrarse.
-      await tx.companyFollow.create({
-        data: { userId: dbUser.id, companyId: company.id },
-      })
+      // FASE 3/5.2: seguir la empresa al registrarse (salvo que lo desmarque).
+      if (seguirEmpresa) {
+        await tx.companyFollow.create({
+          data: { userId: dbUser.id, companyId: company.id },
+        })
+      }
 
       // QR se genera solo al activar la membresía, no en el registro
 

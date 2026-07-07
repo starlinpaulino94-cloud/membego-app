@@ -24,7 +24,7 @@ export function ForBusinessCTA() {
               </p>
               <div className="mt-8">
                 <Link
-                  href="/contact"
+                  href="/registro-empresa"
                   className="inline-flex items-center gap-2 rounded-xl bg-white px-6 py-3 font-semibold text-slate-900 transition hover:bg-slate-100"
                 >
                   Registrar mi empresa
