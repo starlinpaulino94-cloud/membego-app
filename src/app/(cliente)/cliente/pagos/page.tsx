@@ -9,6 +9,8 @@ import {
 } from 'lucide-react'
 import { requireRole } from '@/lib/auth/guards'
 import { getClientePagos } from '@/modules/cliente/queries'
+import { getRegionalPrefs } from '@/modules/empresas/regional'
+import { formatMoney } from '@/lib/format'
 import { EstadoBadge } from '@/components/EstadoBadge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -28,11 +30,6 @@ function fmtDateTime(d: Date) {
   }).format(d)
 }
 
-function fmtMonto(n: number | null) {
-  if (!n) return '—'
-  return `RD$${new Intl.NumberFormat('es-DO').format(n)}`
-}
-
 const ESTADO_LABEL: Record<MembershipEstado, string> = {
   PENDIENTE: 'Pendiente de pago',
   PENDIENTE_PAGO: 'Comprobante enviado',
@@ -48,6 +45,9 @@ export default async function PagosPage() {
   const user = await requireRole('CLIENTE')
   const clienteId = user.metadata.clienteId
   if (!clienteId) return <p className="text-slate-600">No autorizado.</p>
+
+  const prefs = await getRegionalPrefs(user.metadata.companyId)
+  const fmtMonto = (n: number | null) => (n ? formatMoney(n, prefs) : '—')
 
   let data: Awaited<ReturnType<typeof getClientePagos>> = { membership: null, historial: [] }
   let loadError = false

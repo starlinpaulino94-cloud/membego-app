@@ -8,6 +8,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { QRDisplay } from '@/components/qr/QRDisplay'
 import { ComprobanteForm } from '@/components/membresia/ComprobanteForm'
+import { formatMoney } from '@/lib/format'
 
 export const metadata = {
   title: 'Detalles de Membresía',
@@ -141,7 +142,7 @@ export default async function MembershipDetail({ params }: { params: Promise<{ m
             <div className="flex items-center justify-between">
               <span className="text-sm text-muted-foreground">Monto a pagar</span>
               <span className="text-xl font-bold">
-                RD${new Intl.NumberFormat('es-DO').format(Number(planAPagar?.precio ?? 0))}
+                {formatMoney(Number(planAPagar?.precio ?? 0), membership.cliente.company)}
               </span>
             </div>
           </div>

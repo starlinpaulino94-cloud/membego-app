@@ -20,6 +20,7 @@ import {
   type SeleccionState,
 } from '@/modules/membresia/actions'
 import { cn } from '@/lib/utils'
+import { formatMoney, type RegionalPrefs } from '@/lib/format'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -53,10 +54,7 @@ interface Props {
   hasActive: boolean
   activeMembershipId: string | null
   currentPlanPrecio: number | null
-}
-
-function fmt(n: number) {
-  return new Intl.NumberFormat('es-DO').format(n)
+  prefs?: RegionalPrefs | null
 }
 
 function SubmitButton({
@@ -84,6 +82,7 @@ export function PlanesGrid({
   hasActive,
   activeMembershipId,
   currentPlanPrecio,
+  prefs,
 }: Props) {
   const router = useRouter()
   const init: SeleccionState = {}
@@ -156,7 +155,7 @@ export function PlanesGrid({
             <CardContent className="flex flex-1 flex-col space-y-4">
               <div>
                 <p className="text-3xl font-extrabold text-slate-900">
-                  RD${fmt(plan.precio)}
+                  {formatMoney(plan.precio, prefs)}
                   <span className="text-base font-normal text-slate-400">/mes</span>
                 </p>
                 {plan.descripcion && (
@@ -220,7 +219,7 @@ export function PlanesGrid({
                         </AlertDialogTitle>
                         <AlertDialogDescription>
                           Tu plan actual seguirá activo. Para aplicar el cambio deberás
-                          subir el comprobante del nuevo plan (RD${fmt(plan.precio)}) y
+                          subir el comprobante del nuevo plan ({formatMoney(plan.precio, prefs)}) y
                           el equipo lo aprobará. ¿Continuar?
                         </AlertDialogDescription>
                       </AlertDialogHeader>
