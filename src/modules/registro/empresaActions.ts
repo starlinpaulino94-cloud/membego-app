@@ -5,6 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { ensureEmailIdentity } from '@/lib/supabase/identity'
 import { registerLimiter } from '@/lib/rate-limit'
 import { getRequestMeta } from '@/lib/server-utils'
+import { TERMS_VERSION } from '@/lib/legal'
 
 // F5.1: registro self-service de empresas (B2B). La empresa se crea
 // DESPUBLICADA (isPublished: false): no aparece en el marketplace hasta
@@ -52,6 +53,7 @@ export async function registrarEmpresa(
   const nombreComercial = String(formData.get('nombreComercial') ?? '').trim()
   const tipo = String(formData.get('tipo') ?? 'otro').trim() || 'otro'
   const aceptaTerminos = formData.get('terminos') === 'on'
+  const marketingConsent = formData.getAll('marketingConsent').at(-1) === 'on'
 
   if (!nombrePropietario || !email || !password || !nombreComercial) {
     return { error: 'Completa todos los campos obligatorios.' }
@@ -103,6 +105,7 @@ export async function registrarEmpresa(
 
     await ensureEmailIdentity(supabaseId, email)
 
+    const now = new Date()
     const dbUser = await prisma.user.create({
       data: {
         supabaseId,
@@ -110,6 +113,10 @@ export async function registrarEmpresa(
         name: nombrePropietario,
         role: 'ADMINISTRADOR',
         companyId,
+        termsAcceptedAt: now,
+        termsVersion: TERMS_VERSION,
+        marketingConsent,
+        marketingConsentAt: marketingConsent ? now : null,
       },
     })
 

@@ -208,6 +208,43 @@ export function RegisterForm({
               </span>
             </label>
 
+            {/* Aceptación de términos (obligatoria) — se persiste con versión. */}
+            <label className="flex items-start gap-2 text-sm text-slate-300">
+              <input
+                type="checkbox"
+                name="terminos"
+                value="on"
+                required
+                className="mt-0.5 h-4 w-4 rounded border-slate-500"
+              />
+              <span>
+                Acepto los{' '}
+                <a href="/terms" target="_blank" className="text-sky-400 hover:underline">
+                  términos y condiciones
+                </a>{' '}
+                y la{' '}
+                <a href="/privacy" target="_blank" className="text-sky-400 hover:underline">
+                  política de privacidad
+                </a>
+                .
+              </span>
+            </label>
+
+            {/* Consentimiento de marketing (opcional). El hidden "off" va
+                primero; si se marca, "on" queda al final. */}
+            <label className="flex items-start gap-2 text-sm text-slate-300">
+              <input type="hidden" name="marketingConsent" value="off" />
+              <input
+                type="checkbox"
+                name="marketingConsent"
+                value="on"
+                className="mt-0.5 h-4 w-4 rounded border-slate-500"
+              />
+              <span>
+                Quiero recibir novedades y ofertas de MembeGo por correo (opcional).
+              </span>
+            </label>
+
             <Button
               type="submit"
               disabled={pending}

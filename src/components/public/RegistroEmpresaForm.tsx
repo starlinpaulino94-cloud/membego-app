@@ -131,6 +131,14 @@ export function RegistroEmpresaForm() {
         </span>
       </label>
 
+      {/* Consentimiento de marketing (opcional). El hidden "off" va primero;
+          si se marca, "on" queda al final. */}
+      <label className="flex items-start gap-2 text-sm text-slate-600">
+        <input type="hidden" name="marketingConsent" value="off" />
+        <input type="checkbox" name="marketingConsent" value="on" className="mt-0.5 h-4 w-4 rounded border-slate-300" />
+        <span>Quiero recibir novedades y consejos de MembeGo por correo (opcional).</span>
+      </label>
+
       <Button type="submit" disabled={pending} size="lg" className="w-full bg-blue-600 hover:bg-blue-700">
         {pending ? (
           <Loader2 className="mr-2 h-4 w-4 animate-spin" />

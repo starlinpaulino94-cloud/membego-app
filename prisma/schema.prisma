@@ -100,6 +100,12 @@ model User {
   role       AppRole  @default(CLIENTE)
   companyId  String?
   company    Company? @relation(fields: [companyId], references: [id])
+  // Consentimiento (cumplimiento): rastro auditable de aceptación de términos
+  // y opt-in de comunicaciones de marketing, con la versión y el momento.
+  termsAcceptedAt    DateTime?
+  termsVersion       String?
+  marketingConsent   Boolean   @default(false)
+  marketingConsentAt DateTime?
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
