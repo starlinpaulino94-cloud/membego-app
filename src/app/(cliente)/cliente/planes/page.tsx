@@ -23,7 +23,7 @@ export default async function PlanesPage() {
       where: { id: user.metadata.clienteId },
       select: {
         id: true,
-        company: { select: { id: true, name: true } },
+        company: { select: { id: true, name: true, moneda: true, idioma: true } },
         memberships: {
           select: {
             id: true,
@@ -173,6 +173,7 @@ export default async function PlanesPage() {
           hasActive={!!isActive}
           activeMembershipId={membership?.id ?? null}
           currentPlanPrecio={isActive ? Number(membership!.plan.precio) : null}
+          prefs={cliente.company}
         />
       )}
     </div>

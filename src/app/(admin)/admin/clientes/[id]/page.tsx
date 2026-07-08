@@ -3,6 +3,8 @@ import { ADMIN_ROLES } from '@/types'
 import { notFound } from 'next/navigation'
 import { requireRole } from '@/lib/auth/guards'
 import { companyFilter } from '@/modules/admin/queries'
+import { getRegionalPrefs } from '@/modules/empresas/regional'
+import { formatMoney } from '@/lib/format'
 import { prisma } from '@/lib/prisma'
 import { QRDisplay } from '@/components/qr/QRDisplay'
 import { EstadoBadge } from '@/components/EstadoBadge'
@@ -72,6 +74,8 @@ export default async function ClienteDetailPage({
 
   if (!cliente) notFound()
   if (companyId && cliente.companyId !== companyId) notFound()
+
+  const prefs = await getRegionalPrefs(cliente.companyId)
 
   let planes: { id: string; nombre: string; precio: string }[] = []
   try {
@@ -177,9 +181,7 @@ export default async function ClienteDetailPage({
                   <Info label="Plan" value={membership.plan.nombre} />
                   <Info
                     label="Precio"
-                    value={`RD$${new Intl.NumberFormat('es-DO').format(
-                      Number(membership.plan.precio)
-                    )}`}
+                    value={formatMoney(Number(membership.plan.precio), prefs)}
                   />
                   <Info
                     label="Usos restantes"

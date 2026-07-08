@@ -34,6 +34,8 @@ import {
   getCompanyPostsPublic,
   getPromotionsPublic,
 } from '@/modules/marketplace/queries'
+import { getRegionalPrefs } from '@/modules/empresas/regional'
+import { formatMoney } from '@/lib/format'
 
 interface CompanyDetailPageProps {
   params: Promise<{ companySlug: string }>
@@ -48,10 +50,6 @@ const TIPO_LABEL: Record<string, string> = {
   salon: 'Salón',
 }
 
-function fmtPrice(n: number) {
-  return new Intl.NumberFormat('es-DO').format(n)
-}
-
 export default async function CompanyDetailPage({
   params,
 }: CompanyDetailPageProps) {
@@ -60,11 +58,12 @@ export default async function CompanyDetailPage({
   const company = await getCompanyPublic(companySlug)
   if (!company) notFound()
 
-  const [stats, planes, promotions, posts] = await Promise.all([
+  const [stats, planes, promotions, posts, prefs] = await Promise.all([
     getCompanyStats(companySlug),
     getCompanyPlanesPublic(company.id),
     getPromotionsPublic({ company: companySlug, limit: 12 }),
     getCompanyPostsPublic(company.id),
+    getRegionalPrefs(company.id),
   ])
 
   // Navegación por secciones (solo las que tienen contenido).
@@ -311,7 +310,7 @@ export default async function CompanyDetailPage({
                     </div>
 
                     <p className="mt-4 text-3xl font-extrabold text-slate-900">
-                      RD${fmtPrice(plan.precio)}
+                      {formatMoney(plan.precio, prefs)}
                       <span className="text-base font-normal text-slate-400">/mes</span>
                     </p>
                     {plan.descripcion && (

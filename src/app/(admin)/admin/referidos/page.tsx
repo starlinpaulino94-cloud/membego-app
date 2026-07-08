@@ -13,6 +13,8 @@ import {
 import { requireRole } from '@/lib/auth/guards'
 import { ADMIN_ROLES } from '@/types'
 import { companyFilter } from '@/modules/admin/queries'
+import { getRegionalPrefs } from '@/modules/empresas/regional'
+import { formatMoney } from '@/lib/format'
 import { prisma } from '@/lib/prisma'
 import {
   getEmpresaReferidosDashboard,
@@ -45,10 +47,6 @@ const CANAL_LABEL: Record<string, string> = {
   directo: 'Directo',
 }
 
-function fmtMoney(n: number) {
-  return `RD$${new Intl.NumberFormat('es-DO').format(n)}`
-}
-
 /** Barra horizontal simple, renderizada en servidor. */
 function Bar({ value, max, className }: { value: number; max: number; className?: string }) {
   const pct = max > 0 ? Math.max(2, Math.round((value / max) * 100)) : 0
@@ -66,6 +64,8 @@ export default async function ReferidosPage() {
   const user = await requireRole(ADMIN_ROLES)
   const companyId = companyFilter(user)
   const where = companyId ? { companyId } : {}
+  const prefs = await getRegionalPrefs(companyId)
+  const fmtMoney = (n: number) => formatMoney(n, prefs)
 
   let dash: EmpresaReferidosDashboard | null = null
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
