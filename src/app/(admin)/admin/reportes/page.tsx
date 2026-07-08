@@ -1,22 +1,18 @@
 import { requireRole } from '@/lib/auth/guards'
 import { ADMIN_ROLES } from '@/types'
 import { companyFilter, getReportesAdmin } from '@/modules/admin/queries'
+import { getRegionalPrefs } from '@/modules/empresas/regional'
+import { formatMoney, formatDate } from '@/lib/format'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
 export const dynamic = 'force-dynamic'
 
-function fmtMoney(n: number) {
-  return `RD$${new Intl.NumberFormat('es-DO').format(n)}`
-}
-
-function fmtDate(d: Date | null) {
-  if (!d) return '—'
-  return new Intl.DateTimeFormat('es-DO', { dateStyle: 'medium' }).format(d)
-}
-
 export default async function ReportesPage() {
   const user = await requireRole(ADMIN_ROLES)
   const companyId = companyFilter(user)
+  const prefs = await getRegionalPrefs(companyId)
+  const fmtMoney = (n: number) => formatMoney(n, prefs)
+  const fmtDate = (d: Date | null) => (d ? formatDate(d, prefs) : '—')
 
   let data = {
     ingresosMes: 0,

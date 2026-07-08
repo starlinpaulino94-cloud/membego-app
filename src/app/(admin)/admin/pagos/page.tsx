@@ -3,6 +3,8 @@ import { ADMIN_ROLES } from '@/types'
 import Link from 'next/link'
 import { requireRole } from '@/lib/auth/guards'
 import { companyFilter } from '@/modules/admin/queries'
+import { getRegionalPrefs } from '@/modules/empresas/regional'
+import { formatMoney } from '@/lib/format'
 import { prisma } from '@/lib/prisma'
 import { EstadoBadge } from '@/components/EstadoBadge'
 import {
@@ -50,6 +52,8 @@ interface PendienteRow {
 export default async function PagosPage() {
   const user = await requireRole(ADMIN_ROLES)
   const companyId = companyFilter(user)
+  const prefs = await getRegionalPrefs(companyId)
+  const fmtMoney = (n: number) => formatMoney(n, prefs)
 
   // Una sola query por lista, en paralelo, con select mínimo, take y filtro
   // directo por memberships.companyId. Antes: 3 findMany secuenciales sin
@@ -174,7 +178,7 @@ export default async function PagosPage() {
                       {c.planSolicitado?.nombre}
                       {c.planSolicitado != null && (
                         <span className="ml-1 text-slate-500">
-                          · RD${new Intl.NumberFormat('es-DO').format(Number(c.planSolicitado.precio))}
+                          · {fmtMoney(Number(c.planSolicitado.precio))}
                         </span>
                       )}
                     </span>
@@ -270,9 +274,7 @@ export default async function PagosPage() {
                   </p>
                   <p>
                     <span className="text-slate-500">Precio:</span>{' '}
-                    <strong>
-                      RD${new Intl.NumberFormat('es-DO').format(Number(m.plan.precio))}
-                    </strong>
+                    <strong>{fmtMoney(Number(m.plan.precio))}</strong>
                   </p>
                   {m.metodoPago && (
                     <p>

@@ -3,6 +3,8 @@ import { Check, Infinity as InfinityIcon, Plus, Pencil, Package } from 'lucide-r
 import { ADMIN_ROLES } from '@/types'
 import { requireRole } from '@/lib/auth/guards'
 import { companyFilter } from '@/modules/admin/queries'
+import { getRegionalPrefs } from '@/modules/empresas/regional'
+import { formatMoney } from '@/lib/format'
 import { prisma } from '@/lib/prisma'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -14,6 +16,7 @@ export const dynamic = 'force-dynamic'
 export default async function PlanesPage() {
   const user = await requireRole(ADMIN_ROLES)
   const companyId = companyFilter(user)
+  const prefs = await getRegionalPrefs(companyId)
 
   let planes: {
     id: string; nombre: string; precio: unknown; esIlimitado: boolean;
@@ -104,7 +107,7 @@ export default async function PlanesPage() {
               </CardHeader>
               <CardContent className="space-y-3">
                 <p className="text-2xl font-bold">
-                  RD${new Intl.NumberFormat('es-DO').format(Number(plan.precio))}
+                  {formatMoney(Number(plan.precio), prefs)}
                   <span className="text-sm font-normal text-slate-500">/mes</span>
                 </p>
                 <p className="text-xs text-slate-500">
