@@ -26,6 +26,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import type { AppRole } from '@/types'
+import { adminSectionForPath, canAccessAdminSection } from '@/lib/auth/permissions'
 
 export interface NavLink {
   href: string
@@ -189,7 +190,20 @@ const EMPLEADO_NAV: NavGroup[] = [
   },
 ]
 
-/** Resolve the sidebar navigation for any role (8 roles collapse to 4 areas). */
+/** Deja solo los enlaces cuya sección puede abrir el rol (Marketing/Supervisor). */
+function filterNavBySection(groups: NavGroup[], role: AppRole): NavGroup[] {
+  return groups
+    .map((g) => ({
+      ...g,
+      items: g.items.filter((it) => {
+        const section = adminSectionForPath(it.href)
+        return section ? canAccessAdminSection(role, section) : false
+      }),
+    }))
+    .filter((g) => g.items.length > 0)
+}
+
+/** Resolve the sidebar navigation for any role. */
 export function navForRole(role: AppRole): NavGroup[] {
   switch (role) {
     case 'CLIENTE':
@@ -199,6 +213,10 @@ export function navForRole(role: AppRole): NavGroup[] {
     case 'EMPLEADO':
     case 'RECEPCION':
       return EMPLEADO_NAV
+    case 'MARKETING':
+    case 'SUPERVISOR':
+      // Roles acotados: mismo panel admin pero solo sus secciones.
+      return filterNavBySection(ADMIN_NAV, role)
     default:
       // ADMINISTRADOR, GERENTE, CAJERO, ADMIN_EMPRESA
       return ADMIN_NAV
@@ -219,6 +237,10 @@ export function roleLabel(role: AppRole): string {
       return 'Gerente'
     case 'CAJERO':
       return 'Cajero'
+    case 'MARKETING':
+      return 'Marketing'
+    case 'SUPERVISOR':
+      return 'Supervisor'
     default:
       return 'Administrador'
   }
@@ -231,6 +253,8 @@ export const ROLE_ICONS: Record<AppRole, LucideIcon> = {
   GERENTE: ShieldCheck,
   CAJERO: ShieldCheck,
   ADMIN_EMPRESA: ShieldCheck,
+  MARKETING: Megaphone,
+  SUPERVISOR: ShieldCheck,
   RECEPCION: ScanLine,
   EMPLEADO: ScanLine,
   CLIENTE: User,

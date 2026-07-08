@@ -1,7 +1,8 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { getSupabaseAnonKey, getSupabaseUrl } from '@/lib/env'
-import { ROLE_HOME, ROUTE_PROTECTION, type AppMetadata } from '@/types'
+import { ROLE_HOME, ROUTE_PROTECTION, FULL_ADMIN_ROLES, type AppMetadata } from '@/types'
+import { adminSectionForPath, canAccessAdminSection } from '@/lib/auth/permissions'
 
 type CookieToSet = { name: string; value: string; options?: CookieOptions }
 
@@ -91,6 +92,16 @@ export async function proxy(request: NextRequest) {
         const url = request.nextUrl.clone()
         url.pathname = ROLE_HOME[role]
         return redirectWithCookies(url, response)
+      }
+      // Autorización fina del panel: roles acotados (Marketing/Supervisor)
+      // solo acceden a sus secciones; el resto se les redirige al dashboard.
+      if (path.startsWith('/admin') && !FULL_ADMIN_ROLES.includes(role)) {
+        const section = adminSectionForPath(path)
+        if (!section || !canAccessAdminSection(role, section)) {
+          const url = request.nextUrl.clone()
+          url.pathname = '/admin/dashboard'
+          return redirectWithCookies(url, response)
+        }
       }
     }
 

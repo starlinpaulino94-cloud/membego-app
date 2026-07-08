@@ -4,6 +4,8 @@ export type AppRole =
   | 'GERENTE'
   | 'CAJERO'
   | 'RECEPCION'
+  | 'MARKETING'
+  | 'SUPERVISOR'
   | 'EMPLEADO'
   | 'CLIENTE'
   // Legacy (se mantiene para no romper usuarios existentes)
@@ -46,6 +48,8 @@ export const ROLE_HOME: Record<AppRole, string> = {
   GERENTE: '/admin/dashboard',
   CAJERO: '/admin/dashboard',
   RECEPCION: '/empleado/scanner',
+  MARKETING: '/admin/dashboard',
+  SUPERVISOR: '/admin/dashboard',
   EMPLEADO: '/empleado/scanner',
   // Directo a /mis-membresias: /cliente/dashboard era solo un redirect y
   // duplicaba middleware + layout justo después del login.
@@ -54,8 +58,22 @@ export const ROLE_HOME: Record<AppRole, string> = {
   ADMIN_EMPRESA: '/admin/dashboard',
 }
 
-// Roles que pueden acceder al panel administrativo /admin/*
+// Roles que pueden acceder al panel administrativo /admin/*. El acceso FINO
+// por sección (qué puede ver Marketing vs Supervisor) se resuelve en
+// src/lib/auth/permissions.ts; aquí solo se controla la entrada al panel.
 export const ADMIN_ROLES: AppRole[] = [
+  'SUPERADMIN',
+  'ADMINISTRADOR',
+  'GERENTE',
+  'CAJERO',
+  'MARKETING',
+  'SUPERVISOR',
+  'ADMIN_EMPRESA', // legacy
+]
+
+// Roles con acceso COMPLETO al panel (todas las secciones). Marketing y
+// Supervisor quedan fuera: su acceso está acotado por sección.
+export const FULL_ADMIN_ROLES: AppRole[] = [
   'SUPERADMIN',
   'ADMINISTRADOR',
   'GERENTE',
