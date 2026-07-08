@@ -1,5 +1,6 @@
 import Link from 'next/link'
-import { ADMIN_ROLES } from '@/types'
+import { redirect } from 'next/navigation'
+import { ADMIN_ROLES, FULL_ADMIN_ROLES } from '@/types'
 import {
   Users,
   UserPlus,
@@ -91,6 +92,18 @@ export default async function AdminDashboard() {
     ])
   } catch (e) {
     console.error('[admin-dashboard]', e)
+  }
+
+  // Onboarding: mientras la empresa no esté publicada, el asistente es su
+  // "home" (evita caer al panel vacío). Los roles acotados (Marketing/
+  // Supervisor) NO hacen onboarding: no se les redirige. Fuera del try para
+  // no tragar el NEXT_REDIRECT.
+  if (
+    onboarding &&
+    !onboarding.publicado &&
+    FULL_ADMIN_ROLES.includes(user.metadata.role)
+  ) {
+    redirect('/onboarding')
   }
 
   if (!d) {

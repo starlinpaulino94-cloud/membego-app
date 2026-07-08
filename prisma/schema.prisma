@@ -22,6 +22,8 @@ enum AppRole {
   GERENTE
   CAJERO
   RECEPCION
+  MARKETING // difusión: promociones, campañas, publicaciones, audiencia, notificaciones
+  SUPERVISOR // operación: dashboard/reportes, clientes, validar pagos, scanner
 }
 
 enum NotifTipo {
@@ -72,6 +74,13 @@ enum MembershipEstado {
 enum MetodoPagoTipo {
   TRANSFERENCIA
   PRESENCIAL
+}
+
+enum InvitacionEstado {
+  PENDIENTE
+  ACEPTADA
+  CANCELADA
+  EXPIRADA
 }
 
 enum AuditAccion {
@@ -150,6 +159,12 @@ model Company {
   galleryImages         String[] @default([])
   provincia             String?
   pais                  String?
+  // F5/Onboarding: datos legales y de ubicación precisa (paso 2-3 del wizard).
+  razonSocial           String?
+  codigoPostal          String?
+  latitud               Float?
+  longitud              Float?
+  zonaCobertura         String? // texto libre: barrios/zonas atendidas o radio
   whatsapp              String?
   instagram             String?
   facebook              String?
@@ -181,6 +196,7 @@ model Company {
   followers        CompanyFollow[]
   posts            CompanyPost[]
   campanas         Campana[]
+  invitaciones     Invitacion[]
 
   @@index([isPublished, isFeatured])
   @@index([ciudad, provincia])
@@ -299,6 +315,27 @@ model Plan {
 
   @@index([companyId])
   @@map("plans")
+}
+
+// Invitación de un miembro al equipo de una empresa (Onboarding Fase 2C).
+// El invitado abre el enlace del correo, crea su cuenta y se une con el rol
+// asignado. No bloquea la publicación (el equipo puede armarse más tarde).
+model Invitacion {
+  id          String           @id @default(cuid())
+  companyId   String
+  company     Company          @relation(fields: [companyId], references: [id])
+  email       String
+  rol         AppRole
+  token       String           @unique @default(cuid())
+  estado      InvitacionEstado @default(PENDIENTE)
+  invitadoPor String? // userId de quien invitó
+  expiraEn    DateTime
+  aceptadaEn  DateTime?
+  createdAt   DateTime         @default(now())
+
+  @@index([companyId, estado])
+  @@index([email])
+  @@map("invitaciones")
 }
 
 model Cliente {

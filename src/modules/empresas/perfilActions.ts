@@ -16,6 +16,13 @@ export interface PerfilState {
 const val = (formData: FormData, key: string) =>
   String(formData.get(key) ?? '').trim() || null
 
+const num = (formData: FormData, key: string) => {
+  const raw = String(formData.get(key) ?? '').trim()
+  if (!raw) return null
+  const n = Number(raw)
+  return Number.isFinite(n) ? n : null
+}
+
 export async function actualizarPerfilPublico(
   _prev: PerfilState,
   formData: FormData
@@ -56,6 +63,11 @@ export async function actualizarPerfilPublico(
           ciudad: val(formData, 'ciudad'),
           provincia: val(formData, 'provincia'),
           pais: val(formData, 'pais'),
+          codigoPostal: val(formData, 'codigoPostal'),
+          razonSocial: val(formData, 'razonSocial'),
+          zonaCobertura: val(formData, 'zonaCobertura'),
+          latitud: num(formData, 'latitud'),
+          longitud: num(formData, 'longitud'),
           telefono: val(formData, 'telefono'),
           whatsapp: val(formData, 'whatsapp'),
           email: val(formData, 'email'),
