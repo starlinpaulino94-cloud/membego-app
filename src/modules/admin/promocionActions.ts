@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { prisma } from '@/lib/prisma'
-import { requireAdminUser } from '@/lib/auth/guards'
+import { requireAdminUser, requireSection } from '@/lib/auth/guards'
 import { notificarSeguidoresEmpresa } from '@/modules/notificaciones/service'
 import { esTipoValido, esVisibilidadValida } from '@/lib/promociones'
 
@@ -125,7 +125,7 @@ export async function crearPromocion(
   _prev: PromocionState,
   formData: FormData
 ): Promise<PromocionState> {
-  const user = await requireAdminUser()
+  const user = await requireSection('promociones')
   if (!user) return { error: 'No autorizado.' }
 
   const companyId =
@@ -163,7 +163,7 @@ export async function actualizarPromocion(
   _prev: PromocionState,
   formData: FormData
 ): Promise<PromocionState> {
-  const user = await requireAdminUser()
+  const user = await requireSection('promociones')
   if (!user) return { error: 'No autorizado.' }
 
   const id = String(formData.get('id') ?? '').trim()
@@ -198,7 +198,7 @@ export async function eliminarPromocion(
   _prev: PromocionState,
   formData: FormData
 ): Promise<PromocionState> {
-  const user = await requireAdminUser()
+  const user = await requireSection('promociones')
   if (!user) return { error: 'No autorizado.' }
 
   const id = String(formData.get('id') ?? '').trim()
@@ -223,7 +223,7 @@ export async function alternarPausaPromocion(
   _prev: PromocionState,
   formData: FormData
 ): Promise<PromocionState> {
-  const user = await requireAdminUser()
+  const user = await requireSection('promociones')
   if (!user) return { error: 'No autorizado.' }
 
   const id = String(formData.get('id') ?? '').trim()
@@ -251,7 +251,7 @@ export async function duplicarPromocion(
   _prev: PromocionState,
   formData: FormData
 ): Promise<PromocionState> {
-  const user = await requireAdminUser()
+  const user = await requireSection('promociones')
   if (!user) return { error: 'No autorizado.' }
 
   const id = String(formData.get('id') ?? '').trim()
@@ -296,7 +296,7 @@ export async function alternarArchivoPromocion(
   _prev: PromocionState,
   formData: FormData
 ): Promise<PromocionState> {
-  const user = await requireAdminUser()
+  const user = await requireSection('promociones')
   if (!user) return { error: 'No autorizado.' }
 
   const id = String(formData.get('id') ?? '').trim()

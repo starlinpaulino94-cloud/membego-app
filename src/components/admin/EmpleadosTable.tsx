@@ -9,6 +9,8 @@ export interface EmpleadoRow {
   id: string
   name: string
   email: string
+  rol: string
+  esEmpleado: boolean
   createdAt: Date
 }
 
@@ -16,18 +18,27 @@ const columns: ColumnDef<EmpleadoRow>[] = [
   {
     accessorKey: 'name',
     header: 'Nombre',
-    cell: ({ row }) => (
-      <Link
-        href={`/admin/empleados/${row.original.id}`}
-        className="font-medium text-sky-600 hover:underline"
-      >
-        {row.getValue('name')}
-      </Link>
-    ),
+    cell: ({ row }) =>
+      // Solo los EMPLEADO tienen página de detalle editable; el resto del
+      // equipo se muestra sin enlace (evita un notFound).
+      row.original.esEmpleado ? (
+        <Link
+          href={`/admin/empleados/${row.original.id}`}
+          className="font-medium text-sky-600 hover:underline"
+        >
+          {row.getValue('name')}
+        </Link>
+      ) : (
+        <span className="font-medium text-slate-800">{row.getValue('name')}</span>
+      ),
   },
   {
     accessorKey: 'email',
     header: 'Correo',
+  },
+  {
+    accessorKey: 'rol',
+    header: 'Rol',
   },
   {
     accessorKey: 'createdAt',
@@ -40,11 +51,12 @@ const columns: ColumnDef<EmpleadoRow>[] = [
   {
     id: 'actions',
     header: 'Acciones',
-    cell: ({ row }) => (
-      <Link href={`/admin/empleados/${row.original.id}`} title="Ver detalles">
-        <ExternalLink className="h-4 w-4 text-slate-400 hover:text-slate-600" />
-      </Link>
-    ),
+    cell: ({ row }) =>
+      row.original.esEmpleado ? (
+        <Link href={`/admin/empleados/${row.original.id}`} title="Ver detalles">
+          <ExternalLink className="h-4 w-4 text-slate-400 hover:text-slate-600" />
+        </Link>
+      ) : null,
   },
 ]
 

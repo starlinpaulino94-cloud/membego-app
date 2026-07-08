@@ -95,9 +95,11 @@ export async function proxy(request: NextRequest) {
       }
       // Autorización fina del panel: roles acotados (Marketing/Supervisor)
       // solo acceden a sus secciones; el resto se les redirige al dashboard.
+      // 'dashboard' siempre se permite para cualquier rol admin, para que el
+      // destino del redirect nunca vuelva a fallar el gate (evita bucles).
       if (path.startsWith('/admin') && !FULL_ADMIN_ROLES.includes(role)) {
         const section = adminSectionForPath(path)
-        if (!section || !canAccessAdminSection(role, section)) {
+        if (section !== 'dashboard' && (!section || !canAccessAdminSection(role, section))) {
           const url = request.nextUrl.clone()
           url.pathname = '/admin/dashboard'
           return redirectWithCookies(url, response)

@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import type { PostTipo } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
-import { requireAdminUser } from '@/lib/auth/guards'
+import { requireSection } from '@/lib/auth/guards'
 import { notificarSeguidoresEmpresa } from '@/modules/notificaciones/service'
 
 // F3.3: CRUD de publicaciones de empresa (eventos, noticias, beneficios).
@@ -78,7 +78,7 @@ export async function crearPost(
   _prev: PostState,
   formData: FormData
 ): Promise<PostState> {
-  const user = await requireAdminUser()
+  const user = await requireSection('publicaciones')
   if (!user) return { error: 'No autorizado.' }
 
   const companyId =
@@ -118,7 +118,7 @@ export async function actualizarPost(
   _prev: PostState,
   formData: FormData
 ): Promise<PostState> {
-  const user = await requireAdminUser()
+  const user = await requireSection('publicaciones')
   if (!user) return { error: 'No autorizado.' }
 
   const id = String(formData.get('id') ?? '')
@@ -162,7 +162,7 @@ export async function eliminarPost(
   _prev: PostState,
   formData: FormData
 ): Promise<PostState> {
-  const user = await requireAdminUser()
+  const user = await requireSection('publicaciones')
   if (!user) return { error: 'No autorizado.' }
 
   const id = String(formData.get('id') ?? '')

@@ -46,7 +46,7 @@ export function MapaUbicacion({
 
       const icon = L.divIcon({
         className: '',
-        html: '<div style="font-size:26px;line-height:1;transform:transl(-2px,-6px)">📍</div>',
+        html: '<div style="font-size:26px;line-height:1;transform:translate(-2px,-6px)">📍</div>',
         iconSize: [26, 26],
         iconAnchor: [13, 26],
       })

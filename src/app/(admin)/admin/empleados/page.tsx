@@ -3,7 +3,7 @@ import { ADMIN_ROLES, FULL_ADMIN_ROLES } from '@/types'
 import { Plus } from 'lucide-react'
 import { requireRole } from '@/lib/auth/guards'
 import { companyFilter } from '@/modules/admin/queries'
-import { listInvitaciones } from '@/modules/admin/invitacionActions'
+import { listInvitacionesPendientes } from '@/modules/admin/invitacionActions'
 import { prisma } from '@/lib/prisma'
 import { Button } from '@/components/ui/button'
 import { EmpleadosTable, type EmpleadoRow } from '@/components/admin/EmpleadosTable'
@@ -11,7 +11,10 @@ import { InvitarEquipo } from '@/components/admin/InvitarEquipo'
 import { CancelarInvitacionButton } from '@/components/admin/CancelarInvitacionButton'
 import { roleLabel } from '@/components/layout/nav-config'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import type { AppRole } from '@/types'
+import { INVITABLE_ROLES, type AppRole } from '@/types'
+
+// Todos los roles de equipo (para listar el equipo completo, no solo empleados).
+const TEAM_ROLES: AppRole[] = [...INVITABLE_ROLES, 'ADMIN_EMPRESA']
 
 export const dynamic = 'force-dynamic'
 
@@ -21,24 +24,29 @@ export default async function EmpleadosPage() {
   // Solo los administradores plenos con empresa pueden invitar equipo.
   const puedeInvitar = !!user.metadata.companyId && FULL_ADMIN_ROLES.includes(user.metadata.role)
 
-  let empleados: EmpleadoRow[] = []
+  let miembros: EmpleadoRow[] = []
   let invitacionesPendientes: { id: string; email: string; rol: AppRole; expiraEn: Date }[] = []
   try {
-    const [emp, invs] = await Promise.all([
+    const [team, invs] = await Promise.all([
       prisma.user.findMany({
-        where: { role: 'EMPLEADO', ...(companyId ? { companyId } : {}) },
+        where: { role: { in: TEAM_ROLES }, ...(companyId ? { companyId } : {}) },
         orderBy: { createdAt: 'desc' },
         take: 200,
-        select: { id: true, name: true, email: true, createdAt: true },
+        select: { id: true, name: true, email: true, role: true, createdAt: true },
       }),
       user.metadata.companyId
-        ? listInvitaciones(user.metadata.companyId).catch(() => [])
+        ? listInvitacionesPendientes(user.metadata.companyId).catch(() => [])
         : Promise.resolve([]),
     ])
-    empleados = emp
+    miembros = team.map((m) => ({
+      id: m.id,
+      name: m.name,
+      email: m.email,
+      rol: roleLabel(m.role),
+      esEmpleado: m.role === 'EMPLEADO',
+      createdAt: m.createdAt,
+    }))
     invitacionesPendientes = invs
-      .filter((i) => i.estado === 'PENDIENTE')
-      .map((i) => ({ id: i.id, email: i.email, rol: i.rol, expiraEn: i.expiraEn }))
   } catch (e) {
     console.error('[admin-empleados]', e)
   }
@@ -48,7 +56,9 @@ export default async function EmpleadosPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Equipo</h1>
-          <p className="text-slate-500">{empleados.length} empleados</p>
+          <p className="text-slate-500">
+            {miembros.length} miembro{miembros.length !== 1 ? 's' : ''}
+          </p>
         </div>
         <Button asChild>
           <Link href="/admin/empleados/nuevo">
@@ -92,7 +102,7 @@ export default async function EmpleadosPage() {
         </Card>
       )}
 
-      <EmpleadosTable data={empleados} />
+      <EmpleadosTable data={miembros} />
     </div>
   )
 }

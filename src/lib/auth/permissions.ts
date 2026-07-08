@@ -5,37 +5,38 @@ import { FULL_ADMIN_ROLES, type AppRole } from '@/types'
  *
  * Los roles de `FULL_ADMIN_ROLES` (admin/gerente/cajero/superadmin) acceden a
  * TODAS las secciones. Los roles acotados (MARKETING, SUPERVISOR) solo a las
- * suyas. La fuente de verdad se consume tanto en el middleware (bloqueo real)
- * como en la navegación (para no mostrar lo que no pueden abrir).
+ * suyas. La fuente de verdad se consume en el middleware (navegación), en la
+ * navegación (para no mostrar lo que no pueden abrir) y en los guards de las
+ * server actions sensibles (`requireSection`), que son la barrera real: el
+ * gate del middleware no protege las actions (se despachan por ID sobre
+ * cualquier path permitido).
  */
-export type AdminSection =
-  | 'dashboard'
-  | 'clientes'
-  | 'membresias'
-  | 'promociones'
-  | 'publicaciones'
-  | 'campanas'
-  | 'referidos'
-  | 'scanner'
-  | 'pagos'
-  | 'perfil'
-  | 'sucursales'
-  | 'metodos-pago'
-  | 'planes'
-  | 'notificaciones'
-  | 'automatizaciones'
-  | 'comunicacion'
-  | 'tickets'
-  | 'empleados'
-  | 'reportes'
-  | 'audiencia'
+export const ADMIN_SECTIONS = [
+  'dashboard',
+  'clientes',
+  'membresias',
+  'promociones',
+  'publicaciones',
+  'campanas',
+  'referidos',
+  'scanner',
+  'pagos',
+  'perfil',
+  'sucursales',
+  'metodos-pago',
+  'planes',
+  'notificaciones',
+  'automatizaciones',
+  'comunicacion',
+  'whatsapp',
+  'tickets',
+  'empleados',
+  'reportes',
+  'audiencia',
+] as const
 
-const KNOWN_SECTIONS: readonly AdminSection[] = [
-  'dashboard', 'clientes', 'membresias', 'promociones', 'publicaciones',
-  'campanas', 'referidos', 'scanner', 'pagos', 'perfil', 'sucursales',
-  'metodos-pago', 'planes', 'notificaciones', 'automatizaciones',
-  'comunicacion', 'tickets', 'empleados', 'reportes', 'audiencia',
-]
+// Tipo derivado de la lista: una sola fuente de verdad (evita drift).
+export type AdminSection = (typeof ADMIN_SECTIONS)[number]
 
 // Secciones permitidas por rol acotado (Decisión 2 del plan de onboarding).
 // MARKETING = difusión; SUPERVISOR = operación. Ambos incluyen 'dashboard'
@@ -53,12 +54,14 @@ export function canAccessAdminSection(role: AppRole, section: AdminSection): boo
 
 /**
  * Deriva la sección de un path del panel: `/admin/promociones/nuevo` →
- * `promociones`. `/admin` (sin segmento) → `dashboard`. Devuelve null si el
- * path no es de /admin o la sección no es reconocida.
+ * `promociones`. Solo `/admin` exacto → `dashboard`. Devuelve null si el path
+ * no es de /admin, tiene un segmento vacío (p. ej. `/admin//x`) o la sección
+ * no es reconocida — en esos casos el llamador debe denegar (fail-closed).
  */
 export function adminSectionForPath(path: string): AdminSection | null {
-  if (path !== '/admin' && !path.startsWith('/admin/')) return null
+  if (path === '/admin') return 'dashboard'
+  if (!path.startsWith('/admin/')) return null
   const seg = path.split('/')[2]
-  if (!seg) return 'dashboard'
-  return KNOWN_SECTIONS.includes(seg as AdminSection) ? (seg as AdminSection) : null
+  if (!seg) return null
+  return (ADMIN_SECTIONS as readonly string[]).includes(seg) ? (seg as AdminSection) : null
 }

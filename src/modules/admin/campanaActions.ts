@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { prisma } from '@/lib/prisma'
-import { requireAdminUser } from '@/lib/auth/guards'
+import { requireAdminUser, requireSection } from '@/lib/auth/guards'
 
 // F4.6: CRUD de campañas. Cada empresa administra solo las suyas; al
 // eliminar, las promociones/publicaciones quedan sin campaña (SetNull).
@@ -60,7 +60,7 @@ export async function crearCampana(
   _prev: CampanaState,
   formData: FormData
 ): Promise<CampanaState> {
-  const user = await requireAdminUser()
+  const user = await requireSection('campanas')
   if (!user) return { error: 'No autorizado.' }
 
   const companyId = user.metadata.companyId
@@ -83,7 +83,7 @@ export async function actualizarCampana(
   _prev: CampanaState,
   formData: FormData
 ): Promise<CampanaState> {
-  const user = await requireAdminUser()
+  const user = await requireSection('campanas')
   if (!user) return { error: 'No autorizado.' }
 
   const id = String(formData.get('id') ?? '').trim()
@@ -114,7 +114,7 @@ export async function eliminarCampana(
   _prev: CampanaState,
   formData: FormData
 ): Promise<CampanaState> {
-  const user = await requireAdminUser()
+  const user = await requireSection('campanas')
   if (!user) return { error: 'No autorizado.' }
 
   const id = String(formData.get('id') ?? '').trim()
