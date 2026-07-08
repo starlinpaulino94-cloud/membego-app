@@ -75,7 +75,9 @@ const nextConfig: NextConfig = {
           // Permissions Policy (formerly Feature Policy)
           {
             key: 'Permissions-Policy',
-            value: 'geolocation=(), microphone=(), camera=(self), payment=()',
+            // geolocation=(self): el selector de ubicación del perfil ofrece
+            // "usar mi ubicación" (opcional). camera=(self) para el scanner QR.
+            value: 'geolocation=(self), microphone=(), camera=(self), payment=()',
           },
         ],
       },

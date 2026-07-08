@@ -20,6 +20,7 @@ import {
 } from '@/components/superadmin/CategoryMultiSelect'
 import { MediaUpload } from './MediaUpload'
 import { GalleryManager } from './GalleryManager'
+import { MapaUbicacion } from './MapaUbicacion'
 
 export interface PerfilCompanyData {
   id: string
@@ -33,6 +34,11 @@ export interface PerfilCompanyData {
   ciudad: string | null
   provincia: string | null
   pais: string | null
+  codigoPostal: string | null
+  razonSocial: string | null
+  zonaCobertura: string | null
+  latitud: number | null
+  longitud: number | null
   telefono: string | null
   whatsapp: string | null
   email: string | null
@@ -202,6 +208,14 @@ export function PerfilPublicoForm({
             <Input id="pais" name="pais" defaultValue={company.pais ?? ''} />
           </div>
           <div className="space-y-1.5">
+            <Label htmlFor="codigoPostal">Código postal</Label>
+            <Input
+              id="codigoPostal"
+              name="codigoPostal"
+              defaultValue={company.codigoPostal ?? ''}
+            />
+          </div>
+          <div className="space-y-1.5">
             <Label htmlFor="googleMapsUrl">Enlace de Google Maps</Label>
             <Input
               id="googleMapsUrl"
@@ -210,6 +224,28 @@ export function PerfilPublicoForm({
               defaultValue={company.googleMapsUrl ?? ''}
               placeholder="https://maps.app.goo.gl/…"
             />
+          </div>
+          <div className="space-y-1.5 sm:col-span-2">
+            <Label htmlFor="razonSocial">Razón social (opcional)</Label>
+            <Input
+              id="razonSocial"
+              name="razonSocial"
+              defaultValue={company.razonSocial ?? ''}
+              placeholder="Nombre legal de la empresa"
+            />
+          </div>
+          <div className="space-y-1.5 sm:col-span-2">
+            <Label htmlFor="zonaCobertura">Zona de cobertura (opcional)</Label>
+            <Input
+              id="zonaCobertura"
+              name="zonaCobertura"
+              defaultValue={company.zonaCobertura ?? ''}
+              placeholder="Ej.: toda la ciudad, radio de 10 km, sectores X e Y…"
+            />
+          </div>
+          {/* Selector de coordenadas con mapa (Leaflet+OSM) */}
+          <div className="sm:col-span-2">
+            <MapaUbicacion lat={company.latitud} lng={company.longitud} />
           </div>
         </CardContent>
       </Card>
