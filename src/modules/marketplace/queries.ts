@@ -286,6 +286,7 @@ export async function getClientePromociones(
         },
       },
       orderBy: [{ isFeatured: 'desc' }, { publicadaEn: 'desc' }],
+      take: 100,
     })
 
     return promotions as PromotionPublic[]

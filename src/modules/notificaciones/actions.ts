@@ -1,6 +1,5 @@
 'use server'
 
-import { revalidatePath } from 'next/cache'
 import { prisma } from '@/lib/prisma'
 import { getUser } from '@/lib/auth'
 
@@ -42,7 +41,9 @@ export async function marcarTodasLeidas() {
     where: { userId: user.metadata.dbUserId, leida: false },
     data: { leida: true },
   })
-  revalidatePath('/', 'layout')
+  // Sin revalidatePath: el NotificationBell actualiza su estado local y los
+  // layouts privados son dinámicos. La purga global anterior ('/','layout')
+  // invalidaba también las páginas públicas ISR en cada click.
 }
 
 export async function marcarLeida(id: string) {

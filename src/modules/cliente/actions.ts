@@ -58,7 +58,10 @@ export async function switchCompany(companyId: string): Promise<ClienteActionSta
       },
     })
 
-    revalidatePath('/', 'layout')
+    // Acotado al destino: las páginas del cliente son dinámicas y el
+    // redirect fuerza render fresco; la purga global ('/','layout')
+    // invalidaba también las páginas públicas ISR.
+    revalidatePath('/mis-membresias')
   } catch (e) {
     console.error('[cliente] switchCompany error:', e)
     return { error: 'Ocurrió un error inesperado. Intenta de nuevo.' }
