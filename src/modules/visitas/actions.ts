@@ -222,56 +222,82 @@ export async function confirmarVisita(
 
     const meta = await getRequestMeta()
 
-    const result = await prisma.$transaction(async (tx) => {
-      const membership = await tx.membership.findUnique({
-        where: { id: membershipId },
-        include: { plan: true, cliente: true },
+    // ── Validaciones de solo lectura FUERA de la transacción ────────────────
+    // En pgBouncer transaction-mode cada transacción interactiva retiene
+    // ("pin") una conexión real durante todo el callback; antes eran ~10
+    // round-trips dentro de la transacción. Las invariantes críticas (QR de
+    // un solo uso, descuento de saldo) se protegen con updates guardados
+    // dentro del núcleo atómico de abajo.
+    const membership = await prisma.membership.findUnique({
+      where: { id: membershipId },
+      include: { plan: true, cliente: true },
+    })
+    if (!membership) {
+      return { error: 'La membresía no fue encontrada. Puede haber sido eliminada.' }
+    }
+
+    if (
+      user.metadata.role !== 'SUPERADMIN' &&
+      user.metadata.companyId &&
+      membership.companyId !== user.metadata.companyId
+    ) {
+      return { error: 'Este cliente pertenece a otra empresa.' }
+    }
+
+    if (sucursalId) {
+      const sucursal = await prisma.sucursal.findUnique({
+        where: { id: sucursalId },
       })
-      if (!membership) throw new TxError('La membresía no fue encontrada. Puede haber sido eliminada.')
-
-      if (
-        user.metadata.role !== 'SUPERADMIN' &&
-        user.metadata.companyId &&
-        membership.companyId !== user.metadata.companyId
-      ) {
-        throw new TxError('Este cliente pertenece a otra empresa.')
+      if (!sucursal) {
+        return { error: 'La sucursal no fue encontrada.' }
       }
-
-      if (sucursalId) {
-        const sucursal = await tx.sucursal.findUnique({
-          where: { id: sucursalId },
-        })
-        if (!sucursal) {
-          throw new TxError('La sucursal no fue encontrada.')
-        }
-        if (sucursal.companyId !== membership.companyId) {
-          throw new TxError('La sucursal no pertenece a la empresa del cliente.')
-        }
+      if (sucursal.companyId !== membership.companyId) {
+        return { error: 'La sucursal no pertenece a la empresa del cliente.' }
       }
+    }
 
-      const now = new Date()
-      if (membership.estado !== 'ACTIVA') {
-        throw new TxError(`La membresía no está activa (estado: ${membership.estado}).`)
-      }
-      if (membership.fechaVencimiento && membership.fechaVencimiento <= now) {
-        throw new TxError('La membresía ha vencido.')
-      }
+    const now = new Date()
+    if (membership.estado !== 'ACTIVA') {
+      return { error: `La membresía no está activa (estado: ${membership.estado}).` }
+    }
+    if (membership.fechaVencimiento && membership.fechaVencimiento <= now) {
+      return { error: 'La membresía ha vencido.' }
+    }
 
-      const ilimitado = membership.plan.esIlimitado
-      if (!ilimitado && membership.lavadosRestantes <= 0) {
-        throw new TxError('No quedan usos disponibles en este período.')
-      }
+    const ilimitado = membership.plan.esIlimitado
+    if (!ilimitado && membership.lavadosRestantes <= 0) {
+      return { error: 'No quedan usos disponibles en este período.' }
+    }
 
-      let qrToken: { id: string } | null = null
+    if (qrTokenId) {
+      // Verify qrToken belongs to the correct membership
+      const qrTokenData = await prisma.qrToken.findUnique({
+        where: { id: qrTokenId },
+      })
+      if (!qrTokenData || qrTokenData.membresiaId !== membership.id) {
+        return { error: 'Este código QR no es válido para esta membresía.' }
+      }
+    }
+
+    const descontado = !ilimitado
+
+    // ── Núcleo atómico ──────────────────────────────────────────────────────
+    // Una sola transacción corta con TODAS las invariantes protegidas por
+    // updates guardados (no por las lecturas previas, que sufren TOCTOU):
+    //  - QR de un solo uso: updateMany where activo:true
+    //  - estado ACTIVA + no vencida + saldo: en el where del update de la
+    //    membresía, de modo que una cancelación/vencimiento que ocurra entre
+    //    la lectura y el commit hace count=0 y aborta.
+    // La auditoría va DENTRO (un solo createMany, más barato que 3 creates):
+    // una visita no puede quedar registrada sin su rastro de auditoría.
+    const auditBase = {
+      companyId: membership.companyId,
+      userId: user.metadata.dbUserId ?? null,
+      ...meta,
+    }
+
+    const result = await prisma.$transaction(async (tx) => {
       if (qrTokenId) {
-        // Verify qrToken belongs to the correct membership and is still active
-        const qrTokenData = await tx.qrToken.findUnique({
-          where: { id: qrTokenId },
-        })
-        if (!qrTokenData || qrTokenData.membresiaId !== membership.id) {
-          throw new TxError('Este código QR no es válido para esta membresía.')
-        }
-
         const invalidado = await tx.qrToken.updateMany({
           where: { id: qrTokenId, activo: true, membresiaId: membership.id },
           data: { activo: false },
@@ -279,17 +305,42 @@ export async function confirmarVisita(
         if (invalidado.count === 0) {
           throw new TxError('Este código QR ya fue utilizado. Pide al cliente que muestre su QR actualizado.')
         }
-        qrToken = { id: qrTokenId }
       }
 
+      // Guard de estado/vencimiento (+ saldo si aplica) atómico con el commit.
+      const guardVigente = {
+        id: membership.id,
+        estado: 'ACTIVA' as const,
+        OR: [{ fechaVencimiento: null }, { fechaVencimiento: { gt: now } }],
+      }
+      const upd = descontado
+        ? await tx.membership.updateMany({
+            where: { ...guardVigente, lavadosRestantes: { gt: 0 } },
+            data: { lavadosRestantes: { decrement: 1 } },
+          })
+        : await tx.membership.updateMany({
+            // Plan ilimitado: no se descuenta saldo, pero se re-valida
+            // estado/vencimiento tocando updatedAt de forma atómica.
+            where: guardVigente,
+            data: { updatedAt: now },
+          })
+      if (upd.count === 0) {
+        throw new TxError(
+          descontado
+            ? 'No se pudo registrar la visita: la membresía ya no está vigente o sin usos disponibles.'
+            : 'No se pudo registrar la visita: la membresía ya no está vigente.'
+        )
+      }
+
+      // Saldo real tras el decremento (no el valor leído, que sería stale
+      // frente a escaneos concurrentes).
       let restantes = membership.lavadosRestantes
-      const descontado = !ilimitado
       if (descontado) {
-        restantes = Math.max(0, membership.lavadosRestantes - 1)
-        await tx.membership.update({
+        const fresco = await tx.membership.findUnique({
           where: { id: membership.id },
-          data: { lavadosRestantes: restantes },
+          select: { lavadosRestantes: true },
         })
+        restantes = fresco?.lavadosRestantes ?? Math.max(0, restantes - 1)
       }
 
       const visit = await tx.visit.create({
@@ -307,48 +358,60 @@ export async function confirmarVisita(
         },
       })
 
-      await tx.auditLog.create({
-        data: {
-          companyId: membership.companyId,
-          userId: user.metadata.dbUserId ?? null,
-          accion: 'VISITA_CONFIRMADA',
-          entidadTipo: 'Visit',
-          entidadId: visit.id,
-          payload: { clienteId: membership.clienteId, membershipId: membership.id, servicio, descontado, restantes, sucursalId },
-          ...meta,
-        },
-      })
-
-      if (qrToken) {
+      let nuevoQrId: string | null = null
+      if (qrTokenId) {
         const nuevoQr = await tx.qrToken.create({
           data: {
             clienteId: membership.clienteId,
             membresiaId: membership.id,
           },
         })
-        await tx.auditLog.create({
-          data: {
-            companyId: membership.companyId,
-            userId: user.metadata.dbUserId ?? null,
-            accion: 'QR_USADO',
-            entidadTipo: 'QrToken',
-            entidadId: qrToken.id,
-            payload: { clienteId: membership.clienteId, membresiaId: membership.id, visitId: visit.id },
-            ...meta,
-          },
-        })
-        await tx.auditLog.create({
-          data: {
-            companyId: membership.companyId,
-            userId: user.metadata.dbUserId ?? null,
-            accion: 'QR_GENERADO',
-            entidadTipo: 'QrToken',
-            entidadId: nuevoQr.id,
-            payload: { clienteId: membership.clienteId, membresiaId: membership.id, motivo: 'regeneracion_post_uso' },
-            ...meta,
-          },
-        })
+        nuevoQrId = nuevoQr.id
       }
+
+      const auditRows = [
+        {
+          ...auditBase,
+          accion: 'VISITA_CONFIRMADA' as const,
+          entidadTipo: 'Visit',
+          entidadId: visit.id,
+          payload: {
+            clienteId: membership.clienteId,
+            membershipId: membership.id,
+            servicio,
+            descontado,
+            restantes,
+            sucursalId,
+          },
+        },
+        ...(qrTokenId && nuevoQrId
+          ? [
+              {
+                ...auditBase,
+                accion: 'QR_USADO' as const,
+                entidadTipo: 'QrToken',
+                entidadId: qrTokenId,
+                payload: {
+                  clienteId: membership.clienteId,
+                  membresiaId: membership.id,
+                  visitId: visit.id,
+                },
+              },
+              {
+                ...auditBase,
+                accion: 'QR_GENERADO' as const,
+                entidadTipo: 'QrToken',
+                entidadId: nuevoQrId,
+                payload: {
+                  clienteId: membership.clienteId,
+                  membresiaId: membership.id,
+                  motivo: 'regeneracion_post_uso',
+                },
+              },
+            ]
+          : []),
+      ]
+      await tx.auditLog.createMany({ data: auditRows })
 
       return { restantes, visitId: visit.id }
     })

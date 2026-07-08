@@ -96,6 +96,7 @@ export async function listTicketsAdmin(
       company: { select: { name: true } },
       _count: { select: { mensajes: true } },
     },
+    take: 200,
   })
 }
 
@@ -133,5 +134,6 @@ export async function listTicketsCliente(clienteId: string) {
     where: { clienteId },
     orderBy: { updatedAt: 'desc' },
     include: { _count: { select: { mensajes: true } } },
+    take: 100,
   })
 }

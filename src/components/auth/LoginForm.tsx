@@ -26,6 +26,12 @@ function checkLoginRateLimit(email: string): boolean {
   const now = Date.now()
   const entry = loginAttempts.get(email)
 
+  // Poda de entradas expiradas: el Map vive lo que viva la pestaña y antes
+  // solo crecía (un email nuevo por intento quedaba para siempre).
+  for (const [key, value] of loginAttempts) {
+    if (now > value.resetAt) loginAttempts.delete(key)
+  }
+
   if (!entry || now > entry.resetAt) {
     // New or expired window (15 minutes)
     loginAttempts.set(email, { count: 1, resetAt: now + 15 * 60 * 1000 })

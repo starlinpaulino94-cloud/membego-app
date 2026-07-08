@@ -260,6 +260,7 @@ export async function getClientePagos(clienteId: string): Promise<ClientePagos> 
     where: { clienteId },
     include: { plan: true, metodoPago: true, planSolicitado: true },
     orderBy: { createdAt: 'desc' },
+    take: 50,
   })
 
   const membershipIds = memberships.map((m) => m.id)

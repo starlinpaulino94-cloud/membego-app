@@ -51,113 +51,82 @@ export default async function PagosPage() {
   const user = await requireRole(ADMIN_ROLES)
   const companyId = companyFilter(user)
 
-  let pendientes: PendienteRow[] = []
-  try {
-    const data = await prisma.membership.findMany({
-      where: {
-        estado: 'PENDIENTE_PAGO',
-        ...(companyId ? { cliente: { companyId } } : {}),
-      },
-      select: {
-        id: true,
-        estado: true,
-        clienteId: true,
-        updatedAt: true,
-        cliente: {
-          select: { nombre: true, email: true, company: { select: { name: true } } },
-        },
-        plan: { select: { nombre: true, precio: true } },
-      },
-      orderBy: { updatedAt: 'desc' },
-    })
-    pendientes = data.map((m) => ({
-      ...m,
-      comprobanteUrl: null,
-      comprobanteNota: null,
-      adminNota: null,
-      metodoPago: null,
-    }))
-  } catch (e) {
-    console.error('[admin-pagos] basic query', e)
-  }
-
-  // Try loading extended fields
-  if (pendientes.length === 0) {
-    try {
-      const data = await prisma.membership.findMany({
+  // Una sola query por lista, en paralelo, con select mínimo, take y filtro
+  // directo por memberships.companyId. Antes: 3 findMany secuenciales sin
+  // límite, y un "fallback" invertido que además anulaba comprobanteUrl en
+  // el caso con pendientes (no se veía el comprobante).
+  // Un rechazo de la query se distingue de "no hay pendientes": si tragáramos
+  // el error como [] el admin dejaría de validar pagos sin darse cuenta.
+  // null = la query falló (se distingue de [] = sin resultados) para poder
+  // mostrar un aviso en vez de fingir "no hay pagos pendientes".
+  const [pendientesData, cambiosData] = await Promise.all([
+    prisma.membership
+      .findMany({
         where: {
           estado: 'PENDIENTE_PAGO',
-          ...(companyId ? { cliente: { companyId } } : {}),
+          ...(companyId ? { companyId } : {}),
         },
-        include: {
-          cliente: { include: { company: true } },
-          plan: true,
-          metodoPago: true,
+        select: {
+          id: true,
+          estado: true,
+          clienteId: true,
+          updatedAt: true,
+          comprobanteUrl: true,
+          comprobanteNota: true,
+          adminNota: true,
+          cliente: {
+            select: { nombre: true, email: true, company: { select: { name: true } } },
+          },
+          plan: { select: { nombre: true, precio: true } },
+          metodoPago: { select: { nombre: true } },
         },
         orderBy: { updatedAt: 'desc' },
+        take: 100,
       })
-      pendientes = data.map((m) => ({
-        id: m.id,
-        estado: m.estado,
-        clienteId: m.clienteId,
-        updatedAt: m.updatedAt,
-        comprobanteUrl: (m as Record<string, unknown>).comprobanteUrl as string | null ?? null,
-        comprobanteNota: (m as Record<string, unknown>).comprobanteNota as string | null ?? null,
-        adminNota: (m as Record<string, unknown>).adminNota as string | null ?? null,
-        cliente: { nombre: m.cliente.nombre, email: m.cliente.email, company: { name: m.cliente.company.name } },
-        plan: { nombre: m.plan.nombre, precio: m.plan.precio },
-        metodoPago: (m as Record<string, unknown>).metodoPago as { nombre: string } | null ?? null,
-      }))
-    } catch {}
-  }
+      .catch((e) => {
+        console.error('[admin-pagos] pendientes query', e)
+        return null
+      }),
+    prisma.membership
+      .findMany({
+        where: {
+          estado: 'ACTIVA',
+          planIdSolicitado: { not: null },
+          ...(companyId ? { companyId } : {}),
+        },
+        select: {
+          id: true,
+          clienteId: true,
+          updatedAt: true,
+          comprobanteUrl: true,
+          comprobanteNota: true,
+          cliente: {
+            select: { nombre: true, email: true, company: { select: { name: true } } },
+          },
+          plan: { select: { nombre: true } },
+          planSolicitado: { select: { nombre: true, precio: true } },
+        },
+        orderBy: { updatedAt: 'desc' },
+        take: 100,
+      })
+      .catch((e) => {
+        console.error('[admin-pagos] cambios query', e)
+        return null
+      }),
+  ])
 
-  // Cambios de plan solicitados: membresía ACTIVA con planIdSolicitado.
-  let cambios: {
-    id: string
-    clienteId: string
-    updatedAt: Date
-    comprobanteUrl: string | null
-    comprobanteNota: string | null
-    cliente: { nombre: string; email: string; company: { name: string } }
-    plan: { nombre: string }
-    planSolicitado: { nombre: string; precio: unknown } | null
-  }[] = []
-  try {
-    const data = await prisma.membership.findMany({
-      where: {
-        estado: 'ACTIVA',
-        planIdSolicitado: { not: null },
-        ...(companyId ? { cliente: { companyId } } : {}),
-      },
-      include: {
-        cliente: { include: { company: true } },
-        plan: true,
-        planSolicitado: true,
-      },
-      orderBy: { updatedAt: 'desc' },
-    })
-    cambios = data.map((m) => ({
-      id: m.id,
-      clienteId: m.clienteId,
-      updatedAt: m.updatedAt,
-      comprobanteUrl: m.comprobanteUrl,
-      comprobanteNota: m.comprobanteNota,
-      cliente: {
-        nombre: m.cliente.nombre,
-        email: m.cliente.email,
-        company: { name: m.cliente.company.name },
-      },
-      plan: { nombre: m.plan.nombre },
-      planSolicitado: m.planSolicitado
-        ? { nombre: m.planSolicitado.nombre, precio: m.planSolicitado.precio }
-        : null,
-    }))
-  } catch (e) {
-    console.error('[admin-pagos] cambios query', e)
-  }
+  const loadError = pendientesData === null || cambiosData === null
+  const pendientes: PendienteRow[] = pendientesData ?? []
+  const cambios = cambiosData ?? []
 
   return (
     <div className="space-y-6">
+      {loadError && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          No se pudieron cargar los pagos. Es un problema temporal; recarga la
+          página en unos segundos. Si persiste, avisa al equipo técnico.
+        </div>
+      )}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Validación de pagos</h1>

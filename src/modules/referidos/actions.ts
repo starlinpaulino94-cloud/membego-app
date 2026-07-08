@@ -201,6 +201,7 @@ export async function getClienteReferidos(clienteId: string) {
     where: { referenteClienteId: clienteId },
     include: { referidoCliente: { select: { nombre: true } } },
     orderBy: { createdAt: 'desc' },
+    take: 200,
   })
 }
 
@@ -261,6 +262,7 @@ export async function getReferidosDashboard(
       where: { referenteClienteId: clienteId, companyId },
       include: { referidoCliente: { select: { nombre: true } } },
       orderBy: { createdAt: 'desc' },
+      take: 200,
     }),
     prisma.referralEvent.groupBy({
       by: ['clienteId'],
@@ -387,94 +389,110 @@ export async function getEmpresaReferidosDashboard(
 
   const hace30d = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
 
-  const [eventosTipo, referidosTotal, completadosRows, recompensadas, canalRows, topPuntos, porClienteTipo, activosRows] =
-    await Promise.all([
-      prisma.referralEvent.groupBy({
-        by: ['tipo'],
-        where: { ...whereRef, tipo: { in: TIPOS_EMPRESA } },
-        _count: { _all: true },
-      }),
-      prisma.referido.count({ where: whereRef }),
-      prisma.referido.findMany({
-        where: { ...whereRef, estado: 'COMPLETADO' },
-        select: { referidoClienteId: true },
-      }),
-      prisma.referido.count({ where: { ...whereRef, recompensaAplicada: true } }),
-      prisma.referralEvent.groupBy({
-        by: ['tipo', 'canal'],
-        where: { ...whereRef, tipo: { in: ['SHARE', 'CLICK'] } },
-        _count: { _all: true },
-      }),
-      prisma.referralEvent.groupBy({
-        by: ['clienteId'],
-        where: { ...whereRef, tipo: { in: TIPOS_EMPRESA } },
-        _sum: { puntos: true },
-        orderBy: { _sum: { puntos: 'desc' } },
-        take: 5,
-      }),
-      prisma.referralEvent.groupBy({
-        by: ['clienteId', 'tipo'],
-        where: { ...whereRef, tipo: { in: ['CLICK', 'MEMBRESIA'] } },
-        _count: { _all: true },
-      }),
-      prisma.referralEvent.findMany({
-        where: { ...whereRef, createdAt: { gte: hace30d } },
-        select: { clienteId: true },
-        distinct: ['clienteId'],
-      }),
-    ])
+  const hace6m = new Date()
+  hace6m.setMonth(hace6m.getMonth() - 5)
+  hace6m.setDate(1)
+
+  // Ronda 1: agregaciones independientes. Antes esta función ejecutaba ~9
+  // rondas secuenciales, con `distinct` resuelto en memoria (traía todas las
+  // filas) y listas de IDs materializadas para contar.
+  const [
+    eventosTipo,
+    referidosTotal,
+    membresias,
+    recompensadas,
+    canalRows,
+    topPuntos,
+    porClienteTipo,
+    activosCountRows,
+  ] = await Promise.all([
+    prisma.referralEvent.groupBy({
+      by: ['tipo'],
+      where: { ...whereRef, tipo: { in: TIPOS_EMPRESA } },
+      _count: { _all: true },
+    }),
+    prisma.referido.count({ where: whereRef }),
+    prisma.referido.count({ where: { ...whereRef, estado: 'COMPLETADO' } }),
+    prisma.referido.count({ where: { ...whereRef, recompensaAplicada: true } }),
+    prisma.referralEvent.groupBy({
+      by: ['tipo', 'canal'],
+      where: { ...whereRef, tipo: { in: ['SHARE', 'CLICK'] } },
+      _count: { _all: true },
+    }),
+    prisma.referralEvent.groupBy({
+      by: ['clienteId'],
+      where: { ...whereRef, tipo: { in: TIPOS_EMPRESA } },
+      _sum: { puntos: true },
+      orderBy: { _sum: { puntos: 'desc' } },
+      take: 5,
+    }),
+    prisma.referralEvent.groupBy({
+      by: ['clienteId', 'tipo'],
+      where: { ...whereRef, tipo: { in: ['CLICK', 'MEMBRESIA'] } },
+      _count: { _all: true },
+    }),
+    // COUNT(DISTINCT) en la BD; antes se traían todas las filas para contar.
+    prisma.$queryRaw<{ n: bigint }[]>(
+      Prisma.sql`SELECT count(DISTINCT "clienteId")::bigint AS n
+        FROM "referral_events"
+        WHERE ${companySql} AND "createdAt" >= ${hace30d}`
+    ),
+  ])
 
   const countTipo = (t: string) =>
     eventosTipo.find((e) => e.tipo === t)?._count._all ?? 0
   const clicks = countTipo('CLICK')
-  const membresias = completadosRows.length
 
-  // Ingresos atribuibles: membresías pagadas de clientes que llegaron referidos.
-  let ingresosReferidos = 0
-  if (completadosRows.length > 0) {
-    const agg = await prisma.membership.aggregate({
-      where: {
-        clienteId: { in: completadosRows.map((r) => r.referidoClienteId) },
-        pagoConfirmado: true,
-      },
-      _sum: { montoPagado: true },
-    })
-    ingresosReferidos = Number(agg._sum.montoPagado ?? 0)
-  }
+  // Ronda 2: agregados y series (independientes entre sí; antes secuenciales).
+  const [ingresosAgg, sospechososRows, campanaRows, diariosRows, mensualRows, historicosCountRows] =
+    await Promise.all([
+      // Ingresos atribuibles: membresías pagadas de clientes que llegaron
+      // referidos. Filtro por relación (sin materializar la lista de IDs).
+      prisma.membership.aggregate({
+        where: {
+          pagoConfirmado: true,
+          cliente: {
+            referidoComo: {
+              some: { estado: 'COMPLETADO', ...(companyId ? { companyId } : {}) },
+            },
+          },
+        },
+        _sum: { montoPagado: true },
+      }),
+      // Registros marcados sospechosos por el anti-fraude (huella repetida).
+      prisma.$queryRaw<{ n: bigint }[]>(
+        Prisma.sql`SELECT count(*)::bigint AS n FROM "referral_events"
+          WHERE ${companySql} AND (meta->>'sospechoso')::boolean IS TRUE`
+      ),
+      // Clics por campaña (utm_campaign capturado en /r/[code]).
+      prisma.$queryRaw<{ campana: string; n: bigint }[]>(
+        Prisma.sql`SELECT meta->>'campana' AS campana, count(*)::bigint AS n
+          FROM "referral_events"
+          WHERE ${companySql} AND tipo = 'CLICK' AND meta->>'campana' IS NOT NULL
+          GROUP BY 1 ORDER BY 2 DESC LIMIT 10`
+      ),
+      // Registros por día (últimos 30 días).
+      prisma.$queryRaw<{ dia: Date; n: bigint }[]>(
+        Prisma.sql`SELECT date_trunc('day', "createdAt") AS dia, count(*)::bigint AS n
+          FROM "referidos" WHERE ${companySql} AND "createdAt" >= ${hace30d}
+          GROUP BY 1 ORDER BY 1`
+      ),
+      // Evolución mensual (últimos 6 meses).
+      prisma.$queryRaw<{ mes: Date; registros: bigint; membresias: bigint }[]>(
+        Prisma.sql`SELECT date_trunc('month', "createdAt") AS mes,
+            count(*)::bigint AS registros,
+            count(*) FILTER (WHERE estado = 'COMPLETADO')::bigint AS membresias
+          FROM "referidos" WHERE ${companySql} AND "createdAt" >= ${hace6m}
+          GROUP BY 1 ORDER BY 1`
+      ),
+      prisma.$queryRaw<{ n: bigint }[]>(
+        Prisma.sql`SELECT count(DISTINCT "clienteId")::bigint AS n
+          FROM "referral_events" WHERE ${companySql}`
+      ),
+    ])
 
-  // Registros marcados sospechosos por el anti-fraude (huella repetida).
-  const sospechososRows = await prisma.$queryRaw<{ n: bigint }[]>(
-    Prisma.sql`SELECT count(*)::bigint AS n FROM "referral_events"
-      WHERE ${companySql} AND (meta->>'sospechoso')::boolean IS TRUE`
-  )
+  const ingresosReferidos = Number(ingresosAgg._sum.montoPagado ?? 0)
   const sospechosos = Number(sospechososRows[0]?.n ?? 0)
-
-  // Clics por campaña (utm_campaign capturado en /r/[code]).
-  const campanaRows = await prisma.$queryRaw<{ campana: string; n: bigint }[]>(
-    Prisma.sql`SELECT meta->>'campana' AS campana, count(*)::bigint AS n
-      FROM "referral_events"
-      WHERE ${companySql} AND tipo = 'CLICK' AND meta->>'campana' IS NOT NULL
-      GROUP BY 1 ORDER BY 2 DESC LIMIT 10`
-  )
-
-  // Registros por día (últimos 30 días) y evolución mensual (últimos 6 meses).
-  const diariosRows = await prisma.$queryRaw<{ dia: Date; n: bigint }[]>(
-    Prisma.sql`SELECT date_trunc('day', "createdAt") AS dia, count(*)::bigint AS n
-      FROM "referidos" WHERE ${companySql} AND "createdAt" >= ${hace30d}
-      GROUP BY 1 ORDER BY 1`
-  )
-  const hace6m = new Date()
-  hace6m.setMonth(hace6m.getMonth() - 5)
-  hace6m.setDate(1)
-  const mensualRows = await prisma.$queryRaw<
-    { mes: Date; registros: bigint; membresias: bigint }[]
-  >(
-    Prisma.sql`SELECT date_trunc('month', "createdAt") AS mes,
-        count(*)::bigint AS registros,
-        count(*) FILTER (WHERE estado = 'COMPLETADO')::bigint AS membresias
-      FROM "referidos" WHERE ${companySql} AND "createdAt" >= ${hace6m}
-      GROUP BY 1 ORDER BY 1`
-  )
 
   // Nombres + registros/membresías de los tops.
   const clicksPor = new Map<string, number>()
@@ -493,37 +511,38 @@ export async function getEmpresaReferidosDashboard(
   const idsNecesarios = [
     ...new Set([...topPuntos.map((t) => t.clienteId), ...conversionCandidatos.map((c) => c.id)]),
   ]
-  const nombres = await prisma.cliente.findMany({
-    where: { id: { in: idsNecesarios } },
-    select: { id: true, nombre: true },
-  })
-  const nombreDe = new Map(nombres.map((n) => [n.id, n.nombre]))
 
-  const referidosPorReferente = await prisma.referido.groupBy({
-    by: ['referenteClienteId'],
-    where: { ...whereRef, referenteClienteId: { in: topPuntos.map((t) => t.clienteId) } },
-    _count: { _all: true },
-  })
-  const completadosPorReferente = await prisma.referido.groupBy({
-    by: ['referenteClienteId'],
-    where: {
-      ...whereRef,
-      estado: 'COMPLETADO',
-      referenteClienteId: { in: topPuntos.map((t) => t.clienteId) },
-    },
-    _count: { _all: true },
-  })
+  // Ronda 3: dependen de los tops de la ronda 1.
+  const [nombres, referidosPorReferente, completadosPorReferente] = await Promise.all([
+    prisma.cliente.findMany({
+      where: { id: { in: idsNecesarios } },
+      select: { id: true, nombre: true },
+    }),
+    prisma.referido.groupBy({
+      by: ['referenteClienteId'],
+      where: { ...whereRef, referenteClienteId: { in: topPuntos.map((t) => t.clienteId) } },
+      _count: { _all: true },
+    }),
+    prisma.referido.groupBy({
+      by: ['referenteClienteId'],
+      where: {
+        ...whereRef,
+        estado: 'COMPLETADO',
+        referenteClienteId: { in: topPuntos.map((t) => t.clienteId) },
+      },
+      _count: { _all: true },
+    }),
+  ])
+  const nombreDe = new Map(nombres.map((n) => [n.id, n.nombre]))
   const regDe = new Map(referidosPorReferente.map((r) => [r.referenteClienteId, r._count._all]))
   const memDe = new Map(completadosPorReferente.map((r) => [r.referenteClienteId, r._count._all]))
 
   // Embajadores: con actividad histórica vs con actividad en los últimos 30 días.
-  const historicosRows = await prisma.referralEvent.findMany({
-    where: whereRef,
-    select: { clienteId: true },
-    distinct: ['clienteId'],
-  })
-  const embajadoresActivos = activosRows.length
-  const embajadoresInactivos = Math.max(0, historicosRows.length - embajadoresActivos)
+  const embajadoresActivos = Number(activosCountRows[0]?.n ?? 0)
+  const embajadoresInactivos = Math.max(
+    0,
+    Number(historicosCountRows[0]?.n ?? 0) - embajadoresActivos
+  )
 
   const fmtMes = new Intl.DateTimeFormat('es-DO', { month: 'short', year: '2-digit' })
   const fmtDia = new Intl.DateTimeFormat('es-DO', { day: '2-digit', month: 'short' })

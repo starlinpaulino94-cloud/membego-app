@@ -23,18 +23,33 @@ async function mapaUserIds(supabaseIds: string[]): Promise<Map<string, string>> 
   return new Map(users.map((u) => [u.supabaseId, u.id]))
 }
 
-/** Crea la notificación solo si no existe ya una con ese href para el user. */
-async function notificarUnaVez(
-  userId: string,
-  data: { tipo: 'SISTEMA' | 'MEMBRESIA_POR_VENCER'; titulo: string; mensaje: string; href: string }
-): Promise<boolean> {
-  const existente = await prisma.notificacion.findFirst({
-    where: { userId, href: data.href },
-    select: { id: true },
+interface NotifPendiente {
+  userId: string
+  tipo: 'SISTEMA' | 'MEMBRESIA_POR_VENCER'
+  titulo: string
+  mensaje: string
+  href: string
+}
+
+/**
+ * Crea en lote las notificaciones cuyo par (userId, href) no exista aún.
+ * 2 queries por lote (antes: findFirst + create POR USUARIO, es decir,
+ * 2×clientes round-trips que retenían conexiones durante todo el cron).
+ */
+async function notificarLote(items: NotifPendiente[]): Promise<number> {
+  if (items.length === 0) return 0
+  const existentes = await prisma.notificacion.findMany({
+    where: {
+      userId: { in: [...new Set(items.map((i) => i.userId))] },
+      href: { in: [...new Set(items.map((i) => i.href))] },
+    },
+    select: { userId: true, href: true },
   })
-  if (existente) return false
-  await prisma.notificacion.create({ data: { userId, ...data } })
-  return true
+  const ya = new Set(existentes.map((e) => `${e.userId}|${e.href}`))
+  const nuevos = items.filter((i) => !ya.has(`${i.userId}|${i.href}`))
+  if (nuevos.length === 0) return 0
+  const res = await prisma.notificacion.createMany({ data: nuevos })
+  return res.count
 }
 
 /**
@@ -72,17 +87,21 @@ export async function ejecutarAutomatizacionesEmpresa(
   })
   if (cumpleaneros.length > 0) {
     const usuarios = await mapaUserIds(cumpleaneros.map((c) => c.supabaseId))
-    for (const c of cumpleaneros) {
-      const userId = usuarios.get(c.supabaseId)
-      if (!userId) continue
-      const creada = await notificarUnaVez(userId, {
-        tipo: 'SISTEMA',
-        titulo: `¡Feliz cumpleaños! 🎉`,
-        mensaje: `${company.name} te desea un excelente día. Revisa tus promociones: puede haber un detalle para ti.`,
-        href: `/cliente/promociones?auto=cumple-${anio}`,
+    cumpleanos = await notificarLote(
+      cumpleaneros.flatMap((c) => {
+        const userId = usuarios.get(c.supabaseId)
+        if (!userId) return []
+        return [{
+          userId,
+          tipo: 'SISTEMA' as const,
+          titulo: `¡Feliz cumpleaños! 🎉`,
+          mensaje: `${company.name} te desea un excelente día. Revisa tus promociones: puede haber un detalle para ti.`,
+          // companyId en el marcador: un cliente con cuenta en varias empresas
+          // debe recibir la felicitación de CADA una (el dedupe es por userId+href).
+          href: `/cliente/promociones?auto=cumple-${anio}-${companyId}`,
+        }]
       })
-      if (creada) cumpleanos++
-    }
+    )
   }
 
   // ── Regla 2: membresía por vencer (7 días) → recordatorio ─────────────────
@@ -100,21 +119,23 @@ export async function ejecutarAutomatizacionesEmpresa(
   })
   if (proximasAVencer.length > 0) {
     const usuarios = await mapaUserIds(proximasAVencer.map((m) => m.cliente.supabaseId))
-    for (const m of proximasAVencer) {
-      const userId = usuarios.get(m.cliente.supabaseId)
-      if (!userId || !m.fechaVencimiento) continue
-      const fechaStr = new Intl.DateTimeFormat('es-DO', { dateStyle: 'long' }).format(
-        m.fechaVencimiento
-      )
-      const marca = m.fechaVencimiento.toISOString().slice(0, 10)
-      const creada = await notificarUnaVez(userId, {
-        tipo: 'MEMBRESIA_POR_VENCER',
-        titulo: 'Tu membresía está por vencer',
-        mensaje: `Tu membresía en ${company.name} vence el ${fechaStr}. Renuévala para no perder tus beneficios.`,
-        href: `/cliente/pagos?auto=vence-${m.id}-${marca}`,
+    porVencer = await notificarLote(
+      proximasAVencer.flatMap((m) => {
+        const userId = usuarios.get(m.cliente.supabaseId)
+        if (!userId || !m.fechaVencimiento) return []
+        const fechaStr = new Intl.DateTimeFormat('es-DO', { dateStyle: 'long' }).format(
+          m.fechaVencimiento
+        )
+        const marca = m.fechaVencimiento.toISOString().slice(0, 10)
+        return [{
+          userId,
+          tipo: 'MEMBRESIA_POR_VENCER' as const,
+          titulo: 'Tu membresía está por vencer',
+          mensaje: `Tu membresía en ${company.name} vence el ${fechaStr}. Renuévala para no perder tus beneficios.`,
+          href: `/cliente/pagos?auto=vence-${m.id}-${marca}`,
+        }]
       })
-      if (creada) porVencer++
-    }
+    )
   }
 
   // ── Regla 3: sin visitas en 30 días → incentivo (una vez al mes) ──────────
@@ -129,17 +150,20 @@ export async function ejecutarAutomatizacionesEmpresa(
   if (inactivosRows.length > 0) {
     const usuarios = await mapaUserIds(inactivosRows.map((c) => c.supabaseId))
     const mes = String(now.getMonth() + 1).padStart(2, '0')
-    for (const c of inactivosRows) {
-      const userId = usuarios.get(c.supabaseId)
-      if (!userId) continue
-      const creada = await notificarUnaVez(userId, {
-        tipo: 'SISTEMA',
-        titulo: 'Te extrañamos 👋',
-        mensaje: `Hace más de 30 días que no visitas ${company.name}. Tu membresía sigue activa: pásate y aprovecha tus beneficios.`,
-        href: `/cliente/promociones?auto=inactivo-${anio}-${mes}`,
+    inactivos = await notificarLote(
+      inactivosRows.flatMap((c) => {
+        const userId = usuarios.get(c.supabaseId)
+        if (!userId) return []
+        return [{
+          userId,
+          tipo: 'SISTEMA' as const,
+          titulo: 'Te extrañamos 👋',
+          mensaje: `Hace más de 30 días que no visitas ${company.name}. Tu membresía sigue activa: pásate y aprovecha tus beneficios.`,
+          // companyId en el marcador: el incentivo mensual es por empresa.
+          href: `/cliente/promociones?auto=inactivo-${anio}-${mes}-${companyId}`,
+        }]
       })
-      if (creada) inactivos++
-    }
+    )
   }
 
   return { cumpleanos, porVencer, inactivos }
