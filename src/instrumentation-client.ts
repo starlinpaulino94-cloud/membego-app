@@ -53,3 +53,7 @@ Sentry.init({
     'NotAllowedError',
   ],
 })
+
+// Hook de navegación del App Router: marca el inicio de cada transición de
+// ruta para el tracing (recomendado al usar instrumentation-client.ts).
+export const onRouterTransitionStart = Sentry.captureRouterTransitionStart

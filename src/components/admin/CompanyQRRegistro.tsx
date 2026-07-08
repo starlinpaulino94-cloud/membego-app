@@ -18,6 +18,7 @@ export function CompanyQRRegistro({
   companySlug: string
 }) {
   const [dataUrl, setDataUrl] = useState<string | null>(null)
+  const [fallo, setFallo] = useState(false)
 
   useEffect(() => {
     let active = true
@@ -25,7 +26,10 @@ export function CompanyQRRegistro({
       .then((u) => {
         if (active) setDataUrl(u)
       })
-      .catch(() => {})
+      .catch((e) => {
+        console.error('[qr-registro] no se pudo generar el QR:', e)
+        if (active) setFallo(true)
+      })
     return () => {
       active = false
     }
@@ -37,6 +41,10 @@ export function CompanyQRRegistro({
         {dataUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={dataUrl} alt="QR de registro" className="h-full w-full" />
+        ) : fallo ? (
+          <p className="px-2 text-center text-xs text-slate-500">
+            No se pudo generar el QR. Recarga la página para reintentar.
+          </p>
         ) : (
           <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
         )}

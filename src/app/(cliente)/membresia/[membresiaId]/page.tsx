@@ -76,6 +76,14 @@ export default async function MembershipDetail({ params }: { params: Promise<{ m
   const needsPayment = needsInitialPayment || isChangePending
   const planAPagar = isChangePending ? membership.planSolicitado : membership.plan
 
+  // O-13: descuento de bienvenida — solo en el primer pago (membresía nunca
+  // activada), nunca en cambios de plan.
+  const descuentoBienvenida =
+    !isChangePending && membership.fechaInicio == null
+      ? Number(membership.descuentoBienvenida ?? 0)
+      : 0
+  const montoAPagar = Math.max(0, Number(planAPagar?.precio ?? 0) - descuentoBienvenida)
+
   const metodosPago = needsPayment
     ? await prisma.metodoPago.findMany({
         where: { companyId: membership.cliente.companyId, activo: true },
@@ -139,10 +147,23 @@ export default async function MembershipDetail({ params }: { params: Promise<{ m
           </div>
 
           <div className="rounded-lg bg-muted p-4">
+            {descuentoBienvenida > 0 && (
+              <>
+                <div className="flex items-center justify-between text-sm text-muted-foreground">
+                  <span>Plan {planAPagar?.nombre}</span>
+                  <span>{formatMoney(Number(planAPagar?.precio ?? 0), membership.cliente.company)}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm text-emerald-600">
+                  <span>🎁 Descuento de bienvenida</span>
+                  <span>−{formatMoney(descuentoBienvenida, membership.cliente.company)}</span>
+                </div>
+                <div className="my-2 border-t" />
+              </>
+            )}
             <div className="flex items-center justify-between">
               <span className="text-sm text-muted-foreground">Monto a pagar</span>
               <span className="text-xl font-bold">
-                {formatMoney(Number(planAPagar?.precio ?? 0), membership.cliente.company)}
+                {formatMoney(montoAPagar, membership.cliente.company)}
               </span>
             </div>
           </div>

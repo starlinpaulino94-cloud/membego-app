@@ -15,6 +15,9 @@ export const revalidate = 3600
 
 export default async function EmpresasPage({ searchParams }: EmpresasPageProps) {
   const params = await searchParams
+  // Aterrizaje desde el callback de Google sin empresa de contexto (O-16):
+  // guiamos al usuario a registrarse desde la página de una empresa.
+  const desdeGoogle = params.google === 'registro'
 
   const filters = {
     search: typeof params.search === 'string' ? params.search : undefined,
@@ -37,6 +40,12 @@ export default async function EmpresasPage({ searchParams }: EmpresasPageProps) 
 
   return (
     <div className="min-h-screen bg-white">
+      {desdeGoogle && (
+        <div className="border-b border-sky-200 bg-sky-50 px-4 py-3 text-center text-sm text-sky-900">
+          Para crear tu cuenta con Google, entra a la página de la empresa donde
+          quieres registrarte y usa allí <strong>«Continuar con Google»</strong>.
+        </div>
+      )}
       {/* Header */}
       <section className="relative overflow-hidden bg-gradient-to-br from-blue-700 via-sky-600 to-indigo-800 py-14">
         <div className="absolute -top-16 right-10 h-56 w-56 rounded-full bg-sky-400/30 blur-3xl" />
