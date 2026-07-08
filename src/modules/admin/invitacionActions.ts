@@ -20,6 +20,8 @@ export interface InvitacionState {
 
 const DIAS_VALIDEZ = 7
 
+const escapeHtml = (s: string) => s.replace(/[<>&]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]!))
+
 /** Solo los administradores plenos con empresa pueden invitar. */
 async function requireOwner() {
   const user = await getUser()
@@ -28,12 +30,13 @@ async function requireOwner() {
   return user
 }
 
-/** Lista las invitaciones de una empresa (para el panel de equipo). */
-export async function listInvitaciones(companyId: string) {
+/** Invitaciones PENDIENTES de una empresa (para el panel de equipo). */
+export async function listInvitacionesPendientes(companyId: string) {
   return prisma.invitacion.findMany({
-    where: { companyId },
+    where: { companyId, estado: 'PENDIENTE' },
     orderBy: { createdAt: 'desc' },
     take: 100,
+    select: { id: true, email: true, rol: true, expiraEn: true },
   })
 }
 
@@ -91,21 +94,23 @@ export async function invitarMiembro(
     select: { name: true },
   })
 
+  const nombreEmpresa = company?.name ?? 'Una empresa'
+  const nombreSeguro = escapeHtml(nombreEmpresa)
   const url = `${getAppUrl()}/invitacion/${invitacion.token}`
   await sendEmail({
     to: email,
-    subject: `Te invitaron a ${company?.name ?? SITE_NAME}`,
+    subject: `Te invitaron a ${nombreEmpresa}`,
     html: `
       <div style="font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;color:#0f172a">
         <h1 style="font-size:20px;margin:0 0 8px">Únete al equipo</h1>
         <p style="font-size:15px;line-height:1.5;color:#334155;margin:0 0 24px">
-          ${company?.name ?? 'Una empresa'} te invitó a su equipo en ${SITE_NAME}. Crea tu
+          ${nombreSeguro} te invitó a su equipo en ${SITE_NAME}. Crea tu
           cuenta para empezar:
         </p>
         <a href="${url}" style="display:inline-block;background:#0ea5e9;color:#fff;text-decoration:none;font-weight:600;padding:12px 24px;border-radius:10px">Aceptar invitación</a>
         <p style="font-size:12px;color:#94a3b8;margin:24px 0 0">La invitación expira en ${DIAS_VALIDEZ} días. Si no la esperabas, ignora este correo.</p>
       </div>`,
-    text: `${company?.name ?? 'Una empresa'} te invitó a su equipo en ${SITE_NAME}. Acepta aquí: ${url}`,
+    text: `${nombreEmpresa} te invitó a su equipo en ${SITE_NAME}. Acepta aquí: ${url}`,
   })
 
   revalidatePath('/admin/empleados')
@@ -177,6 +182,7 @@ export async function aceptarInvitacion(
 
   const admin = createAdminClient()
   let supabaseId: string | null = null
+  let dbUserId: string | null = null
   try {
     const { data: created, error: createError } = await admin.auth.admin.createUser({
       email,
@@ -205,6 +211,7 @@ export async function aceptarInvitacion(
         termsVersion: TERMS_VERSION,
       },
     })
+    dbUserId = dbUser.id
 
     await admin.auth.admin.updateUserById(supabaseId, {
       app_metadata: {
@@ -220,6 +227,12 @@ export async function aceptarInvitacion(
     })
   } catch (e) {
     console.error('[invitacion] aceptar:', e)
+    // Rollback completo: sin esto quedaría una fila User huérfana (con
+    // supabaseId de un usuario ya borrado) que bloquea para siempre el
+    // reintento (el chequeo de "correo ya registrado" la encontraría).
+    if (dbUserId) {
+      await prisma.user.delete({ where: { id: dbUserId } }).catch(() => {})
+    }
     if (supabaseId) {
       await admin.auth.admin.deleteUser(supabaseId).catch(() => {})
     }

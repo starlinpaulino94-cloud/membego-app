@@ -1,7 +1,7 @@
 'use server'
 
 import { prisma } from '@/lib/prisma'
-import { requireAdminUser } from '@/lib/auth/guards'
+import { requireSection } from '@/lib/auth/guards'
 import { esSegmentoValido, resolverSegmento } from './segmentos'
 
 // F4.5: envío manual de notificaciones a segmentos de clientes.
@@ -17,7 +17,7 @@ export async function enviarNotificacionSegmento(
   _prev: NotifSegmentState,
   formData: FormData
 ): Promise<NotifSegmentState> {
-  const user = await requireAdminUser()
+  const user = await requireSection('notificaciones')
   if (!user) return { error: 'No autorizado.' }
 
   const companyId = user.metadata.companyId

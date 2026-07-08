@@ -1,5 +1,5 @@
 import { requireRole } from '@/lib/auth/guards'
-import { ADMIN_ROLES } from '@/types'
+import { FULL_ADMIN_ROLES } from '@/types'
 
 /**
  * Layout del asistente de onboarding (Fase 2B). Enfocado y sin la barra
@@ -10,7 +10,7 @@ export default async function OnboardingLayout({
 }: {
   children: React.ReactNode
 }) {
-  await requireRole(ADMIN_ROLES)
+  await requireRole(FULL_ADMIN_ROLES)
   return (
     <div className="min-h-screen bg-slate-50">
       <header className="border-b border-slate-200 bg-white">

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { prisma } from '@/lib/prisma'
-import { requireAdminUser } from '@/lib/auth/guards'
+import { requireAdminUser, requireSection } from '@/lib/auth/guards'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getRequestMeta, periodEnd } from '@/lib/server-utils'
 import { crearNotificacion } from '@/modules/notificaciones/service'
@@ -46,7 +46,7 @@ export async function confirmarPago(
   formData: FormData
 ): Promise<AdminActionState> {
   try {
-    const user = await requireAdminUser()
+    const user = await requireSection('pagos')
     if (!user) return { error: 'No autorizado.' }
 
     const adminId = user.metadata.dbUserId || 'anonymous'
@@ -103,7 +103,7 @@ export async function aprobarCambioPlan(
   formData: FormData
 ): Promise<AdminActionState> {
   try {
-    const user = await requireAdminUser()
+    const user = await requireSection('pagos')
     if (!user) return { error: 'No autorizado.' }
 
     const membershipId = String(formData.get('membershipId') ?? '')
@@ -180,7 +180,7 @@ export async function rechazarCambioPlan(
   formData: FormData
 ): Promise<AdminActionState> {
   try {
-    const user = await requireAdminUser()
+    const user = await requireSection('pagos')
     if (!user) return { error: 'No autorizado.' }
 
     const membershipId = String(formData.get('membershipId') ?? '')
@@ -228,7 +228,7 @@ export async function crearMembresia(
   _companyId: string
 ): Promise<AdminActionState> {
   try {
-    const user = await requireAdminUser()
+    const user = await requireSection('pagos')
     if (!user) return { error: 'No autorizado.' }
 
     const cliente = await prisma.cliente.findUnique({
@@ -274,7 +274,7 @@ export async function cancelarMembresia(
   formData: FormData
 ): Promise<AdminActionState> {
   try {
-    const user = await requireAdminUser()
+    const user = await requireSection('pagos')
     if (!user) return { error: 'No autorizado.' }
 
     const membershipId = String(formData.get('membershipId') ?? '')
@@ -321,7 +321,7 @@ export async function rechazarPago(
   formData: FormData
 ): Promise<AdminActionState> {
   try {
-    const user = await requireAdminUser()
+    const user = await requireSection('pagos')
     if (!user) return { error: 'No autorizado.' }
 
     const membershipId = String(formData.get('membershipId') ?? '')
@@ -383,7 +383,7 @@ export async function renovarMembresia(
   formData: FormData
 ): Promise<AdminActionState> {
   try {
-  const user = await requireAdminUser()
+  const user = await requireSection('membresias')
   if (!user) return { error: 'No autorizado.' }
 
   const membershipId = String(formData.get('membershipId') ?? '')
@@ -446,6 +446,7 @@ export async function crearEmpleado(
   formData: FormData
 ): Promise<AdminActionState> {
   try {
+    // Gestión de equipo: solo admin pleno (no Supervisor/Marketing).
     const user = await requireAdminUser()
     if (!user) return { error: 'No autorizado.' }
 
@@ -527,6 +528,7 @@ export async function eliminarEmpleado(
   formData: FormData
 ): Promise<AdminActionState> {
   try {
+    // Gestión de equipo: solo admin pleno.
     const user = await requireAdminUser()
     if (!user) return { error: 'No autorizado.' }
 
@@ -570,7 +572,7 @@ export async function solicitarNuevaEvidencia(
   _prev: AdminActionState,
   formData: FormData
 ): Promise<AdminActionState> {
-  const user = await requireAdminUser()
+  const user = await requireSection('pagos')
   if (!user) return { error: 'No autorizado.' }
 
   const membershipId = String(formData.get('membershipId') ?? '')
@@ -637,7 +639,7 @@ export async function guardarNotaInterna(
   _prev: AdminActionState,
   formData: FormData
 ): Promise<AdminActionState> {
-  const user = await requireAdminUser()
+  const user = await requireSection('clientes')
   if (!user) return { error: 'No autorizado.' }
 
   const membershipId = String(formData.get('membershipId') ?? '')

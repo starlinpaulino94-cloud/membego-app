@@ -20,7 +20,7 @@ import {
 import { requireRole } from '@/lib/auth/guards'
 import { adminMetrics } from '@/modules/admin/queries'
 import { getDashboardEjecutivo, type DashboardEjecutivo } from '@/modules/admin/dashboardQueries'
-import { getOnboardingEmpresa, type OnboardingEmpresa } from '@/modules/empresas/onboarding'
+import { getOnboardingEmpresa } from '@/modules/empresas/onboarding'
 import { OnboardingChecklist } from '@/components/admin/OnboardingChecklist'
 import { prisma } from '@/lib/prisma'
 import { StatCard } from '@/components/ui/stat-card'
@@ -79,31 +79,31 @@ export default async function AdminDashboard() {
     )
   }
 
-  let d: DashboardEjecutivo | null = null
-  let companyName = ''
-  let onboarding: OnboardingEmpresa | null = null
-  try {
-    ;[d, companyName, onboarding] = await Promise.all([
-      getDashboardEjecutivo(companyId),
-      prisma.company
-        .findUnique({ where: { id: companyId }, select: { name: true } })
-        .then((c) => c?.name ?? ''),
-      getOnboardingEmpresa(companyId).catch(() => null),
-    ])
-  } catch (e) {
-    console.error('[admin-dashboard]', e)
-  }
-
-  // Onboarding: mientras la empresa no esté publicada, el asistente es su
-  // "home" (evita caer al panel vacío). Los roles acotados (Marketing/
-  // Supervisor) NO hacen onboarding: no se les redirige. Fuera del try para
-  // no tragar el NEXT_REDIRECT.
+  // Onboarding PRIMERO: mientras la empresa no esté publicada, el asistente es
+  // su "home" (evita caer al panel vacío). Se resuelve antes de cargar el
+  // dashboard pesado (17 queries) para no desperdiciarlas cuando se va a
+  // redirigir igual. Los roles acotados (Marketing/Supervisor) NO hacen
+  // onboarding. El redirect va fuera del try para no tragar el NEXT_REDIRECT.
+  const onboarding = await getOnboardingEmpresa(companyId).catch(() => null)
   if (
     onboarding &&
     !onboarding.publicado &&
     FULL_ADMIN_ROLES.includes(user.metadata.role)
   ) {
     redirect('/onboarding')
+  }
+
+  let d: DashboardEjecutivo | null = null
+  let companyName = ''
+  try {
+    ;[d, companyName] = await Promise.all([
+      getDashboardEjecutivo(companyId),
+      prisma.company
+        .findUnique({ where: { id: companyId }, select: { name: true } })
+        .then((c) => c?.name ?? ''),
+    ])
+  } catch (e) {
+    console.error('[admin-dashboard]', e)
   }
 
   if (!d) {

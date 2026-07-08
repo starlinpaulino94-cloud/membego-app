@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { prisma } from '@/lib/prisma'
-import { requireAdminUser } from '@/lib/auth/guards'
+import { requireAdminUser, requireSection } from '@/lib/auth/guards'
 
 // F4.4: notas internas del CRM. Cada empresa solo ve/edita notas de SUS
 // clientes; nunca se muestran al cliente.
@@ -35,7 +35,7 @@ export async function agregarNotaCliente(
   _prev: CrmState,
   formData: FormData
 ): Promise<CrmState> {
-  const user = await requireAdminUser()
+  const user = await requireSection('clientes')
   if (!user) return { error: 'No autorizado.' }
 
   const clienteId = String(formData.get('clienteId') ?? '').trim()
@@ -68,7 +68,7 @@ export async function eliminarNotaCliente(
   _prev: CrmState,
   formData: FormData
 ): Promise<CrmState> {
-  const user = await requireAdminUser()
+  const user = await requireSection('clientes')
   if (!user) return { error: 'No autorizado.' }
 
   const notaId = String(formData.get('notaId') ?? '').trim()

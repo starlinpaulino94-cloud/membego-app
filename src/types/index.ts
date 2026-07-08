@@ -113,7 +113,9 @@ export const SCANNER_ROLES: AppRole[] = [
 export const ROUTE_PROTECTION: { prefix: string; roles: AppRole[] }[] = [
   { prefix: '/superadmin', roles: ['SUPERADMIN'] },
   { prefix: '/admin', roles: ADMIN_ROLES },
-  { prefix: '/onboarding', roles: ADMIN_ROLES },
+  // El asistente de configuración/publicación es solo del dueño (admin pleno),
+  // no de los roles acotados de equipo.
+  { prefix: '/onboarding', roles: FULL_ADMIN_ROLES },
   { prefix: '/empleado', roles: SCANNER_ROLES },
   { prefix: '/cliente', roles: ['CLIENTE'] },
   // Vistas de cliente fuera del prefijo /cliente (grupo (cliente)).
