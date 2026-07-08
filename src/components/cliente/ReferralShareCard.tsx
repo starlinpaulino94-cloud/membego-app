@@ -45,7 +45,6 @@ export function ReferralShareCard({ url, companyName }: Props) {
   async function copiar() {
     await navigator.clipboard.writeText(url)
     setCopied(true)
-    track('copy')
     toast.success('Enlace copiado.')
     setTimeout(() => setCopied(false), 2000)
   }
