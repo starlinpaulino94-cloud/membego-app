@@ -21,6 +21,7 @@ import {
 } from '@/modules/membresia/actions'
 import { cn } from '@/lib/utils'
 import { formatMoney, type RegionalPrefs } from '@/lib/format'
+import { calcularDescuentoBienvenida } from '@/lib/bienvenida'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -55,6 +56,8 @@ interface Props {
   activeMembershipId: string | null
   currentPlanPrecio: number | null
   prefs?: RegionalPrefs | null
+  /** O-13: beneficio de bienvenida YA validado como elegible por el servidor. */
+  bienvenida?: { tipo: string; valor: number } | null
 }
 
 function SubmitButton({
@@ -83,6 +86,7 @@ export function PlanesGrid({
   activeMembershipId,
   currentPlanPrecio,
   prefs,
+  bienvenida = null,
 }: Props) {
   const router = useRouter()
   const init: SeleccionState = {}
@@ -109,6 +113,19 @@ export function PlanesGrid({
         const isFeatured = !isCurrent && idx === 1
         const isUpgrade = currentPlanPrecio != null && plan.precio > currentPlanPrecio
         const isDowngrade = currentPlanPrecio != null && plan.precio < currentPlanPrecio
+        // O-13: precio con el beneficio de bienvenida (solo primera membresía).
+        const descuento =
+          !hasActive && bienvenida
+            ? calcularDescuentoBienvenida(
+                {
+                  bienvenidaActiva: true,
+                  bienvenidaTipo: bienvenida.tipo,
+                  bienvenidaValor: bienvenida.valor,
+                },
+                plan.precio
+              )
+            : 0
+        const precioFinal = Math.max(0, plan.precio - descuento)
 
         return (
           <Card
@@ -154,10 +171,25 @@ export function PlanesGrid({
 
             <CardContent className="flex flex-1 flex-col space-y-4">
               <div>
-                <p className="text-3xl font-extrabold text-slate-900">
-                  {formatMoney(plan.precio, prefs)}
-                  <span className="text-base font-normal text-slate-400">/mes</span>
-                </p>
+                {descuento > 0 ? (
+                  <>
+                    <p className="text-sm text-slate-400 line-through">
+                      {formatMoney(plan.precio, prefs)}
+                    </p>
+                    <p className="text-3xl font-extrabold text-slate-900">
+                      {formatMoney(precioFinal, prefs)}
+                      <span className="text-base font-normal text-slate-400">/mes</span>
+                    </p>
+                    <Badge className="mt-1 bg-emerald-100 text-emerald-700 hover:bg-emerald-100">
+                      🎁 Bienvenida: −{formatMoney(descuento, prefs)} en tu primer pago
+                    </Badge>
+                  </>
+                ) : (
+                  <p className="text-3xl font-extrabold text-slate-900">
+                    {formatMoney(plan.precio, prefs)}
+                    <span className="text-base font-normal text-slate-400">/mes</span>
+                  </p>
+                )}
                 {plan.descripcion && (
                   <p className="mt-2 text-sm text-slate-500">{plan.descripcion}</p>
                 )}

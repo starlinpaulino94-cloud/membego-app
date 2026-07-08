@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { DeletePlanButton } from '@/components/admin/DeletePlanButton'
+import { BienvenidaConfigForm } from '@/components/admin/BienvenidaConfigForm'
 
 export const dynamic = 'force-dynamic'
 
@@ -25,6 +26,27 @@ export default async function PlanesPage() {
     condiciones: string | null; color: string | null; orden: number;
     company: { name: string }; _count: { memberships: number }
   }[] = []
+
+  // O-13: configuración del beneficio de bienvenida (solo vista por empresa;
+  // el superadmin gestiona empresas desde su propio panel).
+  let bienvenida: { activa: boolean; tipo: string; valor: number | null } | null = null
+  if (companyId) {
+    try {
+      const company = await prisma.company.findUnique({
+        where: { id: companyId },
+        select: { bienvenidaActiva: true, bienvenidaTipo: true, bienvenidaValor: true },
+      })
+      if (company) {
+        bienvenida = {
+          activa: company.bienvenidaActiva,
+          tipo: company.bienvenidaTipo,
+          valor: company.bienvenidaValor == null ? null : Number(company.bienvenidaValor),
+        }
+      }
+    } catch (e) {
+      console.error('[admin-planes] bienvenida', e)
+    }
+  }
 
   try {
     planes = await prisma.plan.findMany({
@@ -59,6 +81,8 @@ export default async function PlanesPage() {
           </Button>
         </Link>
       </div>
+
+      {bienvenida && <BienvenidaConfigForm bienvenida={bienvenida} />}
 
       {planes.length === 0 ? (
         <Card>

@@ -676,3 +676,53 @@ export async function guardarNotaInterna(
     return { error: 'Ocurrió un error. Intenta de nuevo.' }
   }
 }
+
+/**
+ * O-13: guarda la configuración del beneficio de bienvenida de la empresa.
+ * Config de precios → solo admin PLENO de una empresa (no roles acotados,
+ * no superadmin sin empresa).
+ */
+export async function guardarBienvenida(
+  _prev: AdminActionState,
+  formData: FormData
+): Promise<AdminActionState> {
+  try {
+    const user = await requireAdminUser()
+    if (!user) return { error: 'No autorizado.' }
+    const companyId = user.metadata.companyId
+    if (!companyId) return { error: 'Esta configuración es por empresa.' }
+
+    const activa = formData.get('activa') === 'on'
+    const tipo = String(formData.get('tipo') ?? 'PORCENTAJE')
+    const valorRaw = String(formData.get('valor') ?? '').trim()
+    const valor = valorRaw ? Number(valorRaw) : null
+
+    if (!['PORCENTAJE', 'MONTO'].includes(tipo)) {
+      return { error: 'Tipo de beneficio no válido.' }
+    }
+    if (activa) {
+      if (valor == null || !Number.isFinite(valor) || valor <= 0) {
+        return { error: 'Indica un valor mayor que 0 para activar el beneficio.' }
+      }
+      if (tipo === 'PORCENTAJE' && valor > 100) {
+        return { error: 'El porcentaje no puede superar 100.' }
+      }
+    }
+
+    await prisma.company.update({
+      where: { id: companyId },
+      data: {
+        bienvenidaActiva: activa,
+        bienvenidaTipo: tipo,
+        bienvenidaValor: valor,
+      },
+    })
+
+    revalidatePath('/admin/planes')
+    revalidatePath('/cliente/planes')
+    return { success: true }
+  } catch (e) {
+    console.error('[admin] guardarBienvenida error:', e)
+    return { error: 'Ocurrió un error inesperado. Intenta de nuevo.' }
+  }
+}

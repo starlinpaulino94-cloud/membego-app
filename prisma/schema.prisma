@@ -187,6 +187,14 @@ model Company {
   activePromotionsCount Int      @default(0)
   averageRating         Decimal? @db.Decimal(3, 2)
 
+  // O-13: beneficio de bienvenida financiado por la EMPRESA (opt-in). Se
+  // aplica UNA sola vez, en la primera activación de membresía del cliente
+  // en esta empresa. PORCENTAJE = % sobre el precio del plan; MONTO = importe
+  // fijo (nunca supera el precio del plan).
+  bienvenidaActiva Boolean  @default(false)
+  bienvenidaTipo   String   @default("PORCENTAJE") // PORCENTAJE | MONTO
+  bienvenidaValor  Decimal? @db.Decimal(10, 2)
+
   users            User[]
   plans            Plan[]
   clientes         Cliente[]
@@ -587,6 +595,9 @@ model Membership {
   adminNota        String? // nota interna del admin, no visible al cliente
   pagoConfirmado   Boolean          @default(false)
   montoPagado      Decimal?         @db.Decimal(10, 2)
+  // O-13: descuento de bienvenida congelado al solicitar el plan (null = sin
+  // descuento). Solo se aplica si la membresía nunca se activó (fechaInicio null).
+  descuentoBienvenida Decimal?      @db.Decimal(10, 2)
   // Período activo
   fechaInicio      DateTime?
   fechaVencimiento DateTime?
