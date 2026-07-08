@@ -23,10 +23,12 @@ export function RegisterForm({
   companySlug,
   companyName,
   isCarwash,
+  colorPrimario = null,
 }: {
   companySlug: string
   companyName: string
   isCarwash: boolean
+  colorPrimario?: string | null
 }) {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -200,6 +202,7 @@ export function RegisterForm({
               type="submit"
               disabled={pending}
               className="w-full bg-sky-500 hover:bg-sky-400"
+              style={colorPrimario ? { backgroundColor: colorPrimario } : undefined}
             >
               {pending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Crear cuenta
