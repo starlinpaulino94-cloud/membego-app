@@ -59,11 +59,13 @@ export async function switchCompany(companyId: string): Promise<ClienteActionSta
     })
 
     revalidatePath('/', 'layout')
-    redirect('/cliente/dashboard')
   } catch (e) {
     console.error('[cliente] switchCompany error:', e)
     return { error: 'Ocurrió un error inesperado. Intenta de nuevo.' }
   }
+  // Fuera del try: redirect() lanza NEXT_REDIRECT y el catch lo convertía
+  // en "error inesperado" aunque el cambio de empresa ya estaba aplicado.
+  redirect('/mis-membresias')
 }
 
 /** Update the logged-in cliente's nombre and telefono. */
