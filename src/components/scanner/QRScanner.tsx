@@ -7,25 +7,20 @@ import { useEffect, useRef } from 'react'
  */
 export function QRScanner({ onScan }: { onScan: (text: string) => void }) {
   const containerId = 'qr-reader'
-  const scannerRef = useRef<{ stop: () => Promise<void>; clear: () => void } | null>(
-    null
-  )
   const handledRef = useRef(false)
 
   useEffect(() => {
     let cancelled = false
+    let scanner: { stop: () => Promise<void>; clear: () => void } | null = null
 
     async function start() {
       try {
         const { Html5Qrcode } = await import('html5-qrcode')
         if (cancelled) return
-        const scanner = new Html5Qrcode(containerId)
-        scannerRef.current = scanner as unknown as {
-          stop: () => Promise<void>
-          clear: () => void
-        }
+        const s = new Html5Qrcode(containerId)
+        scanner = s as unknown as { stop: () => Promise<void>; clear: () => void }
 
-        await scanner.start(
+        await s.start(
           { facingMode: 'environment' },
           { fps: 10, qrbox: { width: 220, height: 220 } },
           (decoded) => {
@@ -40,15 +35,21 @@ export function QRScanner({ onScan }: { onScan: (text: string) => void }) {
       }
     }
 
-    start()
+    const starting = start()
 
     return () => {
       cancelled = true
-      const s = scannerRef.current
-      if (s) {
-        s.stop().then(() => { try { s.clear() } catch {} }).catch(() => {})
-        scannerRef.current = null
-      }
+      // Esperar a que el arranque termine antes de detener: si se desmonta
+      // durante los 0.5-2 s que tarda start(), un stop() inmediato falla
+      // ("not running") y el MediaStream que start() adquiere después
+      // quedaba encendido (cámara ocupada + memoria en el móvil).
+      starting.finally(() => {
+        const s = scanner
+        scanner = null
+        if (s) {
+          s.stop().then(() => { try { s.clear() } catch {} }).catch(() => {})
+        }
+      })
     }
   }, [onScan])
 

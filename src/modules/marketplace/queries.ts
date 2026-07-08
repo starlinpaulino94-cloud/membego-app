@@ -468,9 +468,8 @@ export async function getCompanyStats(companySlug: string): Promise<CompanyStats
         totalMembersCount: true,
         activePromotionsCount: true,
         averageRating: true,
-        ratings: {
-          select: { id: true },
-        },
+        // Conteo en la BD; antes se traían todas las filas de ratings.
+        _count: { select: { ratings: true } },
       },
     })
 
@@ -480,7 +479,7 @@ export async function getCompanyStats(companySlug: string): Promise<CompanyStats
       totalMembers: company.totalMembersCount,
       activePromotions: company.activePromotionsCount,
       averageRating: company.averageRating ? Number(company.averageRating) : null,
-      totalRatings: company.ratings.length,
+      totalRatings: company._count.ratings,
     }
   } catch (error) {
     console.error('[getCompanyStats] Error:', error)

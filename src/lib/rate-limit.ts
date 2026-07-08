@@ -15,7 +15,14 @@ const DEFAULT_CONFIG: RateLimitConfig = {
   maxRequests: 10,
 }
 
-// Global rate limit store using LRU cache
+// Global rate limit store using LRU cache.
+//
+// LIMITACIÓN CONOCIDA (auditoría P2-6): este store vive en la memoria de CADA
+// instancia serverless. En Vercel con varias lambdas calientes, el límite real
+// es maxRequests × nº de instancias, y se reinicia en cada cold start. Sirve
+// como freno de ráfagas por instancia, NO como límite global exacto. Si se
+// necesita un límite estricto (anti-abuso), migrar a un store compartido
+// (Postgres/Upstash Redis).
 const rateLimitCache = new LRUCache<string, RateLimitEntry>({
   max: 10000, // Max 10k unique identifiers in memory
   ttl: 1000 * 60 * 60, // 1 hour TTL to prevent memory bloat
