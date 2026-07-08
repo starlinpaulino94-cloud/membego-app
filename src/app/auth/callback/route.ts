@@ -1,12 +1,11 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { createServerClient, type CookieOptions } from '@supabase/ssr'
-import { getSupabaseAnonKey, getSupabaseUrl } from '@/lib/env'
-import { getAppUrl } from '@/lib/site'
+import { createRouteClient, redirectWithCookies } from '@/lib/supabase/route-client'
 import { getRequestMeta } from '@/lib/server-utils'
 import { isGoogleAuthEnabled } from '@/lib/auth/googleAuth'
-import { completeGoogleOnboarding } from '@/lib/auth/googleOnboarding'
-
-type CookieToSet = { name: string; value: string; options?: CookieOptions }
+import {
+  completeGoogleOnboarding,
+  type GoogleOnboardingResult,
+} from '@/lib/auth/googleOnboarding'
 
 /**
  * Callback de OAuth (Onboarding Fase 5 · O-16). Google redirige aquí con un
@@ -14,50 +13,59 @@ type CookieToSet = { name: string; value: string; options?: CookieOptions }
  * según el contexto de empresa (`companySlug`, `ref`) que viajó en el
  * redirectTo. Detrás del flag `NEXT_PUBLIC_GOOGLE_AUTH_ENABLED`.
  *
- * Las cookies de sesión se escriben sobre el objeto de respuesta del redirect
- * (patrón del callback de verificación) para no perder el token recién rotado.
+ * Todos los redirects usan el ORIGEN DEL REQUEST (no getAppUrl): el botón
+ * arranca el OAuth desde window.location.origin, así que la sesión se abre en
+ * este host; redirigir a otro host (www vs apex, staging/preview) perdería las
+ * cookies recién puestas.
  */
+
+/** Destino por resultado cuando NO se completa el alta (sin sesión). */
+const DEST_ERROR: Record<Exclude<GoogleOnboardingResult['kind'], 'ok'>, string> = {
+  // Cuenta nueva sin empresa: que elija una; la página muestra el aviso.
+  'need-company': '/empresas?google=registro',
+  'email-exists': '/login?error=google_email',
+  'company-not-found': '/login?error=google_company',
+  'rate-limited': '/login?error=google_rate',
+  failed: '/login?error=google',
+}
+
 export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url)
+  const { searchParams, origin } = request.nextUrl
   const code = searchParams.get('code')
   const companySlug = searchParams.get('companySlug')
   const ref = searchParams.get('ref') ?? ''
 
-  const appUrl = getAppUrl()
-  const errorRedirect = (reason: string) =>
-    NextResponse.redirect(new URL(`/login?error=${reason}`, appUrl))
+  const toLogin = (reason: string) =>
+    NextResponse.redirect(new URL(`/login?error=${reason}`, origin))
 
   // Feature flag apagado o sin código: no procesamos OAuth.
-  if (!isGoogleAuthEnabled()) return errorRedirect('google_off')
-  if (!code) return errorRedirect('google')
+  if (!isGoogleAuthEnabled()) return toLogin('google_off')
+  if (!code) return toLogin('google')
 
-  // Redirect provisional que actúa como portador de las cookies de sesión que
-  // escribe exchangeCodeForSession. El destino real se decide más abajo.
-  const carrier = NextResponse.redirect(new URL('/login', appUrl))
-
-  const supabase = createServerClient(getSupabaseUrl(), getSupabaseAnonKey(), {
-    cookies: {
-      getAll() {
-        return request.cookies.getAll()
-      },
-      setAll(cookiesToSet: CookieToSet[]) {
-        cookiesToSet.forEach(({ name, value, options }) =>
-          carrier.cookies.set(name, value, options)
-        )
-      },
-    },
-  })
+  // Acumulador de las cookies de sesión que escribe exchangeCodeForSession.
+  // Solo se copian al redirect final en la rama 'ok': en las ramas de error el
+  // navegador NUNCA recibe los tokens (solo existieron aquí), así que aunque
+  // el signOut remoto falle no queda una sesión a medias en el cliente.
+  const carrier = NextResponse.next()
+  const supabase = createRouteClient(request, carrier)
 
   const { error } = await supabase.auth.exchangeCodeForSession(code)
   if (error) {
     console.error('[auth/callback] exchangeCodeForSession falló:', error)
-    return errorRedirect('google')
+    return toLogin('google')
   }
 
   const { data, error: userError } = await supabase.auth.getUser()
   if (userError || !data.user || !data.user.email) {
     console.error('[auth/callback] getUser tras OAuth falló:', userError)
-    return errorRedirect('google')
+    return toLogin('google')
+  }
+
+  // Defensa: no aceptar identidades cuyo correo venga explícitamente sin
+  // verificar por el proveedor (Google lo marca en user_metadata).
+  if (data.user.user_metadata?.email_verified === false) {
+    await supabase.auth.signOut().catch(() => {})
+    return toLogin('google')
   }
 
   const { ipAddress } = await getRequestMeta()
@@ -75,42 +83,25 @@ export async function GET(request: NextRequest) {
     ipAddress,
   })
 
-  // Cierra la sesión OAuth cuando no podemos completar el alta, para no dejar
-  // una sesión "a medias" sin cuenta de aplicación. Las supresiones de cookie
-  // se escriben sobre `carrier` y viajan al redirect final.
-  const abortarConSignOut = async (url: URL) => {
-    await supabase.auth.signOut().catch(() => {})
-    const out = NextResponse.redirect(url)
-    carrier.cookies.getAll().forEach((c) => out.cookies.set(c))
-    return out
+  if (result.kind === 'ok') {
+    // El JWT se acuñó en exchangeCodeForSession ANTES de fijar el app_metadata
+    // (role/clienteId/companyId). Refrescamos (con un reintento) para que la
+    // sesión ya lleve esos claims; si no, el middleware vería un rol/empresa
+    // vacíos en la primera navegación tras el alta.
+    const refresh = await supabase.auth.refreshSession()
+    if (refresh.error) {
+      console.error('[auth/callback] refreshSession falló, reintentando:', refresh.error)
+      await supabase.auth.refreshSession().catch((e) =>
+        console.error('[auth/callback] reintento de refreshSession falló:', e)
+      )
+    }
+    return redirectWithCookies(new URL(result.dest, origin), carrier)
   }
 
-  switch (result.kind) {
-    case 'ok': {
-      // El JWT se acuñó en exchangeCodeForSession ANTES de fijar el
-      // app_metadata (role/clienteId/companyId). Refrescamos para que la
-      // sesión ya lleve esos claims; si no, el middleware vería un rol/empresa
-      // vacíos en la primera navegación tras el alta.
-      await supabase.auth.refreshSession().catch((e) =>
-        console.error('[auth/callback] refreshSession falló:', e)
-      )
-      const home = NextResponse.redirect(new URL(result.dest, appUrl))
-      carrier.cookies.getAll().forEach((c) => home.cookies.set(c))
-      return home
-    }
-    case 'need-company':
-      // Sesión válida pero sin empresa: que elija una y vuelva a continuar.
-      return (() => {
-        const pick = NextResponse.redirect(new URL('/empresas?google=1', appUrl))
-        carrier.cookies.getAll().forEach((c) => pick.cookies.set(c))
-        return pick
-      })()
-    case 'email-exists':
-      return abortarConSignOut(new URL('/login?error=google_email', appUrl))
-    case 'company-not-found':
-      return abortarConSignOut(new URL('/login?error=google_company', appUrl))
-    case 'failed':
-    default:
-      return abortarConSignOut(new URL('/login?error=google', appUrl))
-  }
+  // No se completó el alta: invalidamos la sesión server-side (best-effort) y
+  // redirigimos SIN las cookies de sesión — el navegador nunca las recibe.
+  await supabase.auth.signOut().catch((e) =>
+    console.error('[auth/callback] signOut falló:', e)
+  )
+  return NextResponse.redirect(new URL(DEST_ERROR[result.kind], origin))
 }

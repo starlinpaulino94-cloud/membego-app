@@ -102,14 +102,14 @@ export function LoginForm({
   const errorParam = searchParams.get('error')
   const errorVerify = errorParam === 'verify'
   // Avisos del login social con Google (Fase 5 · O-16).
-  const errorGoogle =
-    errorParam === 'google'
-      ? 'No se pudo iniciar sesión con Google. Intenta de nuevo.'
-      : errorParam === 'google_email'
-        ? 'Ya existe una cuenta con ese correo. Inicia sesión con tu contraseña.'
-        : errorParam === 'google_company'
-          ? 'El enlace de registro no es válido. Vuelve a intentarlo desde la empresa.'
-          : null
+  const GOOGLE_ERRORS: Record<string, string> = {
+    google: 'No se pudo iniciar sesión con Google. Intenta de nuevo.',
+    google_email: 'Ya existe una cuenta con ese correo. Inicia sesión con tu contraseña.',
+    google_company: 'El enlace de registro no es válido. Vuelve a intentarlo desde la empresa.',
+    google_off: 'El acceso con Google no está disponible en este momento.',
+    google_rate: 'Demasiados registros desde esta conexión. Intenta de nuevo en unos minutos.',
+  }
+  const errorGoogle = errorParam ? (GOOGLE_ERRORS[errorParam] ?? null) : null
 
   return (
     <Card className="border-white/10 bg-white/5 text-white">
