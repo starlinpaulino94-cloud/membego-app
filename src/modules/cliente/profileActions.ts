@@ -26,6 +26,10 @@ export async function actualizarPerfil(
   const telefono = String(formData.get('telefono') ?? '').trim() || null
   const avatarUrl = String(formData.get('avatarUrl') ?? '').trim() || null
   const fechaRaw = String(formData.get('fechaNacimiento') ?? '').trim()
+  const ciudad = String(formData.get('ciudad') ?? '').trim() || null
+  const genero = String(formData.get('genero') ?? '').trim() || null
+  const notifPromos = formData.getAll('notifPromos').at(-1) === 'on'
+  const notifRecordatorios = formData.getAll('notifRecordatorios').at(-1) === 'on'
 
   if (!nombre) return { error: 'El nombre no puede estar vacío.' }
 
@@ -47,6 +51,10 @@ export async function actualizarPerfil(
         nombre,
         telefono,
         fechaNacimiento,
+        ciudad,
+        genero,
+        notifPromos,
+        notifRecordatorios,
         ...(avatarUrl !== null ? { avatarUrl } : {}),
       },
     })

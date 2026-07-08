@@ -358,6 +358,12 @@ model Cliente {
   email           String
   fechaNacimiento DateTime?
   avatarUrl       String?
+  // F5/Onboarding paso 2 (B2C): perfil ampliado del cliente.
+  ciudad             String?
+  genero             String? // "M" | "F" | "otro" | null (opcional)
+  idioma             String? // locale preferido, ej. "es-DO"
+  notifPromos        Boolean @default(true) // recibir promociones
+  notifRecordatorios Boolean @default(true) // recordatorios (vencimiento, etc.)
   codigoReferido  String    @unique @default(cuid())
   // Código corto legible para el enlace /r/XXXXXX (se genera al visitar el
   // panel de referidos; null hasta entonces).
