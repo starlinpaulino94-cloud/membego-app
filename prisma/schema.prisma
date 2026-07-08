@@ -165,6 +165,16 @@ model Company {
   latitud               Float?
   longitud              Float?
   zonaCobertura         String? // texto libre: barrios/zonas atendidas o radio
+  // F5/Onboarding paso 4: configuración regional y de marca. Preferencia por
+  // empresa aplicada al FORMATEAR (moneda/fecha); no traduce la UI ni convierte
+  // divisas (Decisión 4 del plan de onboarding).
+  moneda                String  @default("DOP") // ISO 4217: DOP, USD, EUR…
+  zonaHoraria           String  @default("America/Santo_Domingo") // IANA
+  idioma                String  @default("es-DO") // locale BCP 47
+  colorPrimario         String? // hex de marca, ej. "#0ea5e9"
+  politicaCancelacion   String?
+  politicaPrivacidad    String?
+  terminosEmpresa       String?
   whatsapp              String?
   instagram             String?
   facebook              String?

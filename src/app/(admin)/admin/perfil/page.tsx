@@ -116,6 +116,13 @@ export default async function PerfilEmpresaPage() {
           facebook: company.facebook,
           tiktok: company.tiktok,
           googleMapsUrl: company.googleMapsUrl,
+          moneda: company.moneda,
+          zonaHoraria: company.zonaHoraria,
+          idioma: company.idioma,
+          colorPrimario: company.colorPrimario,
+          politicaCancelacion: company.politicaCancelacion,
+          politicaPrivacidad: company.politicaPrivacidad,
+          terminosEmpresa: company.terminosEmpresa,
         }}
         categories={categories}
         selectedCategoryIds={selectedCategoryIds}

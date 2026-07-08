@@ -23,6 +23,7 @@ import { getDashboardEjecutivo, type DashboardEjecutivo } from '@/modules/admin/
 import { getOnboardingEmpresa } from '@/modules/empresas/onboarding'
 import { OnboardingChecklist } from '@/components/admin/OnboardingChecklist'
 import { prisma } from '@/lib/prisma'
+import { formatMoney } from '@/lib/format'
 import { StatCard } from '@/components/ui/stat-card'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -94,17 +95,19 @@ export default async function AdminDashboard() {
   }
 
   let d: DashboardEjecutivo | null = null
-  let companyName = ''
+  let company: { name: string; moneda: string; idioma: string } | null = null
   try {
-    ;[d, companyName] = await Promise.all([
+    ;[d, company] = await Promise.all([
       getDashboardEjecutivo(companyId),
-      prisma.company
-        .findUnique({ where: { id: companyId }, select: { name: true } })
-        .then((c) => c?.name ?? ''),
+      prisma.company.findUnique({
+        where: { id: companyId },
+        select: { name: true, moneda: true, idioma: true },
+      }),
     ])
   } catch (e) {
     console.error('[admin-dashboard]', e)
   }
+  const companyName = company?.name ?? ''
 
   if (!d) {
     return (
@@ -157,7 +160,7 @@ export default async function AdminDashboard() {
         />
         <StatCard
           label="Ingresos estimados"
-          value={`RD$${fmt(d.ingresosEstimadosMes)}`}
+          value={formatMoney(d.ingresosEstimadosMes, company)}
           icon={Wallet}
           accent="violet"
           sub="Membresías activas / mes"

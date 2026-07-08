@@ -68,6 +68,15 @@ export async function actualizarPerfilPublico(
           zonaCobertura: val(formData, 'zonaCobertura'),
           latitud: num(formData, 'latitud'),
           longitud: num(formData, 'longitud'),
+          // Paso 4: configuración regional/marca/políticas. moneda/idioma/
+          // zonaHoraria son NOT NULL: si vinieran vacíos se conserva el default.
+          moneda: val(formData, 'moneda') ?? undefined,
+          idioma: val(formData, 'idioma') ?? undefined,
+          zonaHoraria: val(formData, 'zonaHoraria') ?? undefined,
+          colorPrimario: val(formData, 'colorPrimario'),
+          politicaCancelacion: val(formData, 'politicaCancelacion'),
+          politicaPrivacidad: val(formData, 'politicaPrivacidad'),
+          terminosEmpresa: val(formData, 'terminosEmpresa'),
           telefono: val(formData, 'telefono'),
           whatsapp: val(formData, 'whatsapp'),
           email: val(formData, 'email'),
