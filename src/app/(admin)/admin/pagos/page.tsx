@@ -55,6 +55,10 @@ export default async function PagosPage() {
   // directo por memberships.companyId. Antes: 3 findMany secuenciales sin
   // límite, y un "fallback" invertido que además anulaba comprobanteUrl en
   // el caso con pendientes (no se veía el comprobante).
+  // Un rechazo de la query se distingue de "no hay pendientes": si tragáramos
+  // el error como [] el admin dejaría de validar pagos sin darse cuenta.
+  // null = la query falló (se distingue de [] = sin resultados) para poder
+  // mostrar un aviso en vez de fingir "no hay pagos pendientes".
   const [pendientesData, cambiosData] = await Promise.all([
     prisma.membership
       .findMany({
@@ -81,7 +85,7 @@ export default async function PagosPage() {
       })
       .catch((e) => {
         console.error('[admin-pagos] pendientes query', e)
-        return []
+        return null
       }),
     prisma.membership
       .findMany({
@@ -107,15 +111,22 @@ export default async function PagosPage() {
       })
       .catch((e) => {
         console.error('[admin-pagos] cambios query', e)
-        return []
+        return null
       }),
   ])
 
-  const pendientes: PendienteRow[] = pendientesData
-  const cambios = cambiosData
+  const loadError = pendientesData === null || cambiosData === null
+  const pendientes: PendienteRow[] = pendientesData ?? []
+  const cambios = cambiosData ?? []
 
   return (
     <div className="space-y-6">
+      {loadError && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          No se pudieron cargar los pagos. Es un problema temporal; recarga la
+          página en unos segundos. Si persiste, avisa al equipo técnico.
+        </div>
+      )}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Validación de pagos</h1>

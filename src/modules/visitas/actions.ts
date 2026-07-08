@@ -279,7 +279,23 @@ export async function confirmarVisita(
       }
     }
 
-    // ── Núcleo atómico: invalidar QR + descontar saldo + registrar visita ───
+    const descontado = !ilimitado
+
+    // ── Núcleo atómico ──────────────────────────────────────────────────────
+    // Una sola transacción corta con TODAS las invariantes protegidas por
+    // updates guardados (no por las lecturas previas, que sufren TOCTOU):
+    //  - QR de un solo uso: updateMany where activo:true
+    //  - estado ACTIVA + no vencida + saldo: en el where del update de la
+    //    membresía, de modo que una cancelación/vencimiento que ocurra entre
+    //    la lectura y el commit hace count=0 y aborta.
+    // La auditoría va DENTRO (un solo createMany, más barato que 3 creates):
+    // una visita no puede quedar registrada sin su rastro de auditoría.
+    const auditBase = {
+      companyId: membership.companyId,
+      userId: user.metadata.dbUserId ?? null,
+      ...meta,
+    }
+
     const result = await prisma.$transaction(async (tx) => {
       if (qrTokenId) {
         const invalidado = await tx.qrToken.updateMany({
@@ -291,19 +307,40 @@ export async function confirmarVisita(
         }
       }
 
+      // Guard de estado/vencimiento (+ saldo si aplica) atómico con el commit.
+      const guardVigente = {
+        id: membership.id,
+        estado: 'ACTIVA' as const,
+        OR: [{ fechaVencimiento: null }, { fechaVencimiento: { gt: now } }],
+      }
+      const upd = descontado
+        ? await tx.membership.updateMany({
+            where: { ...guardVigente, lavadosRestantes: { gt: 0 } },
+            data: { lavadosRestantes: { decrement: 1 } },
+          })
+        : await tx.membership.updateMany({
+            // Plan ilimitado: no se descuenta saldo, pero se re-valida
+            // estado/vencimiento tocando updatedAt de forma atómica.
+            where: guardVigente,
+            data: { updatedAt: now },
+          })
+      if (upd.count === 0) {
+        throw new TxError(
+          descontado
+            ? 'No se pudo registrar la visita: la membresía ya no está vigente o sin usos disponibles.'
+            : 'No se pudo registrar la visita: la membresía ya no está vigente.'
+        )
+      }
+
+      // Saldo real tras el decremento (no el valor leído, que sería stale
+      // frente a escaneos concurrentes).
       let restantes = membership.lavadosRestantes
-      const descontado = !ilimitado
       if (descontado) {
-        // Decremento guardado: atómico frente a dos escaneos simultáneos
-        // (antes se escribía el valor leído y podía perderse un descuento).
-        const upd = await tx.membership.updateMany({
-          where: { id: membership.id, lavadosRestantes: { gt: 0 } },
-          data: { lavadosRestantes: { decrement: 1 } },
+        const fresco = await tx.membership.findUnique({
+          where: { id: membership.id },
+          select: { lavadosRestantes: true },
         })
-        if (upd.count === 0) {
-          throw new TxError('No quedan usos disponibles en este período.')
-        }
-        restantes = Math.max(0, membership.lavadosRestantes - 1)
+        restantes = fresco?.lavadosRestantes ?? Math.max(0, restantes - 1)
       }
 
       const visit = await tx.visit.create({
@@ -332,62 +369,52 @@ export async function confirmarVisita(
         nuevoQrId = nuevoQr.id
       }
 
-      return { restantes, visitId: visit.id, nuevoQrId, descontado }
-    })
-
-    // ── Auditoría fuera de la transacción, en un solo createMany ────────────
-    // No retiene la conexión del pooler; su fallo no revierte una visita ya
-    // confirmada (se registra en logs para diagnóstico).
-    const auditBase = {
-      companyId: membership.companyId,
-      userId: user.metadata.dbUserId ?? null,
-      ...meta,
-    }
-    const auditRows = [
-      {
-        ...auditBase,
-        accion: 'VISITA_CONFIRMADA' as const,
-        entidadTipo: 'Visit',
-        entidadId: result.visitId,
-        payload: {
-          clienteId: membership.clienteId,
-          membershipId: membership.id,
-          servicio,
-          descontado: result.descontado,
-          restantes: result.restantes,
-          sucursalId,
+      const auditRows = [
+        {
+          ...auditBase,
+          accion: 'VISITA_CONFIRMADA' as const,
+          entidadTipo: 'Visit',
+          entidadId: visit.id,
+          payload: {
+            clienteId: membership.clienteId,
+            membershipId: membership.id,
+            servicio,
+            descontado,
+            restantes,
+            sucursalId,
+          },
         },
-      },
-      ...(qrTokenId && result.nuevoQrId
-        ? [
-            {
-              ...auditBase,
-              accion: 'QR_USADO' as const,
-              entidadTipo: 'QrToken',
-              entidadId: qrTokenId,
-              payload: {
-                clienteId: membership.clienteId,
-                membresiaId: membership.id,
-                visitId: result.visitId,
+        ...(qrTokenId && nuevoQrId
+          ? [
+              {
+                ...auditBase,
+                accion: 'QR_USADO' as const,
+                entidadTipo: 'QrToken',
+                entidadId: qrTokenId,
+                payload: {
+                  clienteId: membership.clienteId,
+                  membresiaId: membership.id,
+                  visitId: visit.id,
+                },
               },
-            },
-            {
-              ...auditBase,
-              accion: 'QR_GENERADO' as const,
-              entidadTipo: 'QrToken',
-              entidadId: result.nuevoQrId,
-              payload: {
-                clienteId: membership.clienteId,
-                membresiaId: membership.id,
-                motivo: 'regeneracion_post_uso',
+              {
+                ...auditBase,
+                accion: 'QR_GENERADO' as const,
+                entidadTipo: 'QrToken',
+                entidadId: nuevoQrId,
+                payload: {
+                  clienteId: membership.clienteId,
+                  membresiaId: membership.id,
+                  motivo: 'regeneracion_post_uso',
+                },
               },
-            },
-          ]
-        : []),
-    ]
-    await prisma.auditLog
-      .createMany({ data: auditRows })
-      .catch((e) => console.error('[visitas] auditoría de visita:', e))
+            ]
+          : []),
+      ]
+      await tx.auditLog.createMany({ data: auditRows })
+
+      return { restantes, visitId: visit.id }
+    })
 
     return { success: true, restantes: result.restantes, visitId: result.visitId, servicio }
   } catch (e) {

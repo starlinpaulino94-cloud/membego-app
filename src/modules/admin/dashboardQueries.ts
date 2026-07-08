@@ -103,14 +103,18 @@ export async function getDashboardEjecutivo(
       },
     }),
     // Agrupación por día en la BD: antes se traían todas las visitas de 14
-    // días (filas crudas, sin límite) para agruparlas en JS.
-    prisma.$queryRaw<{ dia: Date; total: number }[]>`
-      SELECT date_trunc('day', v."fechaVisita") AS dia, COUNT(*)::int AS total
+    // días (filas crudas, sin límite) para agruparlas en JS. Formateamos el
+    // día como texto 'YYYY-MM-DD' en Postgres (fechaVisita es timestamp sin
+    // zona, guarda UTC) para evitar el round-trip a Date y que las claves
+    // coincidan exactamente con las de relleno (toISOString), sin depender
+    // del timezone del proceso Node ni de la sesión de la BD.
+    prisma.$queryRaw<{ dia: string; total: number }[]>`
+      SELECT to_char(v."fechaVisita", 'YYYY-MM-DD') AS dia, COUNT(*)::int AS total
       FROM "visits" v
       JOIN "clientes" c ON c."id" = v."clienteId"
       WHERE c."companyId" = ${companyId} AND v."fechaVisita" >= ${hace14dias}
       GROUP BY 1
-    `.catch(() => [] as { dia: Date; total: number }[]),
+    `.catch(() => [] as { dia: string; total: number }[]),
     prisma.promocion.findMany({
       where: { companyId, archivada: false },
       select: {
@@ -157,8 +161,7 @@ export async function getDashboardEjecutivo(
     porDia.set(d.toISOString().slice(0, 10), 0)
   }
   for (const row of visitasPorDiaRaw) {
-    const key = new Date(row.dia).toISOString().slice(0, 10)
-    if (porDia.has(key)) porDia.set(key, (porDia.get(key) ?? 0) + row.total)
+    if (porDia.has(row.dia)) porDia.set(row.dia, (porDia.get(row.dia) ?? 0) + row.total)
   }
   const visitasPorDia = [...porDia.entries()].map(([fecha, total]) => ({
     fecha,

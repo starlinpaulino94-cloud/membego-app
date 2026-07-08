@@ -19,6 +19,8 @@ function toSessionUser(user: User): SessionUser {
   }
 }
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+
 /**
  * Usuario de la sesión actual, validado contra el servidor de Supabase.
  *
@@ -26,21 +28,20 @@ function toSessionUser(user: User): SessionUser {
  * page + guards) la validación de red se ejecuta UNA sola vez, en lugar
  * de una por cada guard/consulta que necesite el usuario.
  *
- * Un fallo transitorio de Supabase Auth (429/5xx/red) NO se interpreta
- * como "sin sesión": en ese caso se usa la sesión de la cookie (emitida y
- * firmada por Supabase, ya verificada por el middleware en este request)
- * para no expulsar al usuario por un problema de infraestructura.
+ * Un fallo transitorio de Supabase Auth (429/5xx/red) se REINTENTA una vez
+ * (con la verificación de firma intacta), en lugar de tratarse como "sin
+ * sesión" y expulsar al usuario. NO caemos a getSession(): decodifica el
+ * JWT de la cookie SIN verificar la firma, y usarlo para autorización
+ * permitiría un rol falsificado durante un 429/outage.
  */
 export const getUser = cache(async (): Promise<SessionUser | null> => {
   const supabase = await createClient()
-  const { data, error } = await supabase.auth.getUser()
 
-  if (data.user) return toSessionUser(data.user)
-
-  if (isTransientAuthError(error)) {
-    const { data: sessionData } = await supabase.auth.getSession()
-    if (sessionData.session?.user) return toSessionUser(sessionData.session.user)
+  let { data, error } = await supabase.auth.getUser()
+  if (!data.user && isTransientAuthError(error)) {
+    await sleep(250)
+    ;({ data, error } = await supabase.auth.getUser())
   }
 
-  return null
+  return data.user ? toSessionUser(data.user) : null
 })

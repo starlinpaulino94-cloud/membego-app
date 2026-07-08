@@ -96,7 +96,9 @@ export async function ejecutarAutomatizacionesEmpresa(
           tipo: 'SISTEMA' as const,
           titulo: `¡Feliz cumpleaños! 🎉`,
           mensaje: `${company.name} te desea un excelente día. Revisa tus promociones: puede haber un detalle para ti.`,
-          href: `/cliente/promociones?auto=cumple-${anio}`,
+          // companyId en el marcador: un cliente con cuenta en varias empresas
+          // debe recibir la felicitación de CADA una (el dedupe es por userId+href).
+          href: `/cliente/promociones?auto=cumple-${anio}-${companyId}`,
         }]
       })
     )
@@ -157,7 +159,8 @@ export async function ejecutarAutomatizacionesEmpresa(
           tipo: 'SISTEMA' as const,
           titulo: 'Te extrañamos 👋',
           mensaje: `Hace más de 30 días que no visitas ${company.name}. Tu membresía sigue activa: pásate y aprovecha tus beneficios.`,
-          href: `/cliente/promociones?auto=inactivo-${anio}-${mes}`,
+          // companyId en el marcador: el incentivo mensual es por empresa.
+          href: `/cliente/promociones?auto=inactivo-${anio}-${mes}-${companyId}`,
         }]
       })
     )

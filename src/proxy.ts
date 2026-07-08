@@ -1,7 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { getSupabaseAnonKey, getSupabaseUrl } from '@/lib/env'
-import { isTransientAuthError } from '@/lib/auth/transient'
 import { ROLE_HOME, ROUTE_PROTECTION, type AppMetadata } from '@/types'
 
 type CookieToSet = { name: string; value: string; options?: CookieOptions }
@@ -26,16 +25,28 @@ function redirectWithCookies(url: URL, from: NextResponse) {
   return redirect
 }
 
+/** ¿El request trae una cookie de sesión de Supabase? (sb-<ref>-auth-token). */
+function hasSupabaseAuthCookie(request: NextRequest) {
+  return request.cookies
+    .getAll()
+    .some((c) => c.name.startsWith('sb-') && c.name.includes('auth-token'))
+}
+
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request })
   const path = request.nextUrl.pathname
   const matched = matchProtected(path)
   const isLoginPage = path === '/login' || path === '/acceso'
 
-  // Rutas públicas: continuar sin verificación de auth. Evita una llamada
-  // de red a Supabase por cada request público, prefetch o telemetría, que
-  // bajo carga agota el rate limit de Auth y provoca fallos intermitentes.
-  if (!matched && !isLoginPage) return response
+  // Rutas públicas SIN sesión: continuar sin tocar Supabase. Evita una llamada
+  // de red por cada request anónimo, prefetch o telemetría (el grueso del
+  // tráfico) que bajo carga agotaba el rate limit de Auth. Si el request SÍ
+  // trae cookie de sesión, seguimos adelante aunque la ruta sea pública: hay
+  // que refrescar/rotar el token (getUser lo hace) para no dejar la sesión sin
+  // renovar mientras el usuario navega páginas públicas.
+  if (!matched && !isLoginPage && !hasSupabaseAuthCookie(request)) {
+    return response
+  }
 
   try {
     const supabase = createServerClient(
@@ -59,16 +70,13 @@ export async function proxy(request: NextRequest) {
       }
     )
 
-    const { data, error } = await supabase.auth.getUser()
-    let user = data.user
-
-    // Fallo transitorio de Supabase Auth (429/5xx/red): NO tratar como
-    // sesión inexistente. Usamos la sesión de la cookie para que un
-    // problema puntual de infraestructura no expulse a usuarios válidos.
-    if (!user && isTransientAuthError(error)) {
-      const { data: sessionData } = await supabase.auth.getSession()
-      user = sessionData.session?.user ?? null
-    }
+    // getUser() valida el token contra el servidor de Supabase (verifica la
+    // firma). NO usamos getSession() como fallback: decodifica el JWT de la
+    // cookie SIN verificar la firma, y usarlo para autorización permitiría un
+    // rol falsificado durante un 429/outage. Si getUser falla, fail-closed.
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
 
     if (matched) {
       if (!user) {
