@@ -78,7 +78,8 @@ export function ReferralShareCard({ url, companyName }: Props) {
       id: 'telegram',
       nombre: 'Telegram',
       icon: Send,
-      href: `https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(mensaje)}`,
+      // Telegram añade la URL por su cuenta: el texto va sin enlace para no duplicarlo.
+      href: `https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(mensajeSinUrl)}`,
     },
     {
       id: 'facebook',
