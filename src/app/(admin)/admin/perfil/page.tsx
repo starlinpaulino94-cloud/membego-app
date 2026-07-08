@@ -8,8 +8,10 @@ import {
   getCompanyCategoryIds,
 } from '@/modules/empresas/queries'
 import { PerfilPublicoForm } from '@/components/admin/PerfilPublicoForm'
-import { Card, CardContent } from '@/components/ui/card'
+import { CompanyQRRegistro } from '@/components/admin/CompanyQRRegistro'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { getAppUrl } from '@/lib/site'
 
 export const dynamic = 'force-dynamic'
 
@@ -127,6 +129,23 @@ export default async function PerfilEmpresaPage() {
         categories={categories}
         selectedCategoryIds={selectedCategoryIds}
       />
+
+      {/* O-14: QR de registro para imprimir/compartir en el local */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">QR de registro</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="mb-4 text-sm text-slate-500">
+            Imprime este código y colócalo en tu local. Tus clientes lo escanean
+            y se registran directamente en tu empresa.
+          </p>
+          <CompanyQRRegistro
+            url={`${getAppUrl()}/registro/${company.slug}`}
+            companySlug={company.slug}
+          />
+        </CardContent>
+      </Card>
     </div>
   )
 }
