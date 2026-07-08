@@ -36,11 +36,18 @@ export function RegistroEmpresaForm() {
   const [state, action, pending] = useActionState(registrarEmpresa, init)
 
   useEffect(() => {
+    if (state.pendingVerification) {
+      toast.success(
+        'Te enviamos un enlace de confirmación a tu correo. Ábrelo para activar tu empresa.'
+      )
+      router.push('/login?verifica=1')
+      return
+    }
     if (state.success) {
       toast.success('¡Empresa registrada! Inicia sesión para configurar tu perfil.')
       router.push('/login?registered=empresa')
     }
-  }, [state.success, router])
+  }, [state.success, state.pendingVerification, router])
 
   return (
     <form action={action} className="space-y-5">
@@ -129,6 +136,14 @@ export function RegistroEmpresaForm() {
           </Link>
           .
         </span>
+      </label>
+
+      {/* Consentimiento de marketing (opcional). El hidden "off" va primero;
+          si se marca, "on" queda al final. */}
+      <label className="flex items-start gap-2 text-sm text-slate-600">
+        <input type="hidden" name="marketingConsent" value="off" />
+        <input type="checkbox" name="marketingConsent" value="on" className="mt-0.5 h-4 w-4 rounded border-slate-300" />
+        <span>Quiero recibir novedades y consejos de MembeGo por correo (opcional).</span>
       </label>
 
       <Button type="submit" disabled={pending} size="lg" className="w-full bg-blue-600 hover:bg-blue-700">

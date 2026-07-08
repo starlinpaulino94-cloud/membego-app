@@ -7,10 +7,14 @@ import { cookies } from 'next/headers'
 import { registerLimiter } from '@/lib/rate-limit'
 import { getRequestMeta } from '@/lib/server-utils'
 import { logReferralEvent, hashIp, REF_COOKIE } from '@/lib/referidos'
+import { TERMS_VERSION } from '@/lib/legal'
+import { isEmailVerificationEnabled, sendVerificationEmail } from '@/lib/auth/emailVerification'
 
 export interface RegistroState {
   error?: string
   success?: boolean
+  /** Cuenta creada pero pendiente de confirmar el correo (flag O-1). */
+  pendingVerification?: boolean
 }
 
 /**
@@ -133,6 +137,9 @@ export async function registrarCliente(
   // F5.2: auto-seguir con opción de desmarcar. El hidden "off" va primero;
   // si el checkbox está marcado, el último valor es "on".
   const seguirEmpresa = formData.getAll('seguirEmpresa').at(-1) !== 'off'
+  // Consentimiento (Fase 1): términos obligatorio, marketing opcional.
+  const aceptaTerminos = formData.get('terminos') === 'on'
+  const marketingConsent = formData.getAll('marketingConsent').at(-1) === 'on'
 
   // Vehiculo (optional, for carwash)
   const marca = String(formData.get('marca') ?? '').trim()
@@ -146,6 +153,9 @@ export async function registrarCliente(
   }
   if (password.length < 6) {
     return { error: 'La contraseña debe tener al menos 6 caracteres.' }
+  }
+  if (!aceptaTerminos) {
+    return { error: 'Debes aceptar los términos y la política de privacidad.' }
   }
 
   // La empresa debe existir realmente en la BD: su id se usa como FK al crear
@@ -236,11 +246,14 @@ export async function registrarCliente(
   }
 
   // 1. Create Supabase auth user
+  const verificarCorreo = isEmailVerificationEnabled()
   const { data: created, error: createError } =
     await admin.auth.admin.createUser({
       email,
       password,
-      email_confirm: true,
+      // Con verificación activada la cuenta nace SIN confirmar; el usuario la
+      // activa desde el enlace del correo. Sin el flag, se confirma al vuelo.
+      email_confirm: !verificarCorreo,
       user_metadata: { name: nombre },
     })
 
@@ -258,6 +271,7 @@ export async function registrarCliente(
 
   try {
     const result = await prisma.$transaction(async (tx) => {
+      const now = new Date()
       const dbUser = await tx.user.create({
         data: {
           supabaseId,
@@ -265,6 +279,10 @@ export async function registrarCliente(
           name: nombre,
           role: 'CLIENTE',
           companyId: company.id,
+          termsAcceptedAt: now,
+          termsVersion: TERMS_VERSION,
+          marketingConsent,
+          marketingConsentAt: marketingConsent ? now : null,
         },
       })
 
@@ -319,6 +337,10 @@ export async function registrarCliente(
 
     await vincularReferido(refCode, company.id, result.cliente.id, ipAddress)
 
+    if (verificarCorreo) {
+      await sendVerificationEmail(admin, email, nombre)
+      return { pendingVerification: true }
+    }
     return { success: true }
   } catch (e) {
     // Roll back the Supabase user if DB write failed

@@ -5,6 +5,8 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { ensureEmailIdentity } from '@/lib/supabase/identity'
 import { registerLimiter } from '@/lib/rate-limit'
 import { getRequestMeta } from '@/lib/server-utils'
+import { TERMS_VERSION } from '@/lib/legal'
+import { isEmailVerificationEnabled, sendVerificationEmail } from '@/lib/auth/emailVerification'
 
 // F5.1: registro self-service de empresas (B2B). La empresa se crea
 // DESPUBLICADA (isPublished: false): no aparece en el marketplace hasta
@@ -13,6 +15,8 @@ import { getRequestMeta } from '@/lib/server-utils'
 export interface RegistroEmpresaState {
   error?: string
   success?: boolean
+  /** Cuenta creada pero pendiente de confirmar el correo (flag O-1). */
+  pendingVerification?: boolean
 }
 
 function slugify(input: string): string {
@@ -52,6 +56,7 @@ export async function registrarEmpresa(
   const nombreComercial = String(formData.get('nombreComercial') ?? '').trim()
   const tipo = String(formData.get('tipo') ?? 'otro').trim() || 'otro'
   const aceptaTerminos = formData.get('terminos') === 'on'
+  const marketingConsent = formData.getAll('marketingConsent').at(-1) === 'on'
 
   if (!nombrePropietario || !email || !password || !nombreComercial) {
     return { error: 'Completa todos los campos obligatorios.' }
@@ -89,11 +94,13 @@ export async function registrarEmpresa(
     })
     companyId = company.id
 
+    const verificarCorreo = isEmailVerificationEnabled()
     const { data: created, error: createError } =
       await supabase.auth.admin.createUser({
         email,
         password,
-        email_confirm: true,
+        // Con verificación activada la cuenta nace SIN confirmar.
+        email_confirm: !verificarCorreo,
         user_metadata: { name: nombrePropietario },
       })
     if (createError || !created.user) {
@@ -103,6 +110,7 @@ export async function registrarEmpresa(
 
     await ensureEmailIdentity(supabaseId, email)
 
+    const now = new Date()
     const dbUser = await prisma.user.create({
       data: {
         supabaseId,
@@ -110,6 +118,10 @@ export async function registrarEmpresa(
         name: nombrePropietario,
         role: 'ADMINISTRADOR',
         companyId,
+        termsAcceptedAt: now,
+        termsVersion: TERMS_VERSION,
+        marketingConsent,
+        marketingConsentAt: marketingConsent ? now : null,
       },
     })
 
@@ -121,6 +133,10 @@ export async function registrarEmpresa(
       },
     })
 
+    if (verificarCorreo) {
+      await sendVerificationEmail(supabase, email, nombrePropietario)
+      return { pendingVerification: true }
+    }
     return { success: true }
   } catch (e) {
     console.error('[registro-empresa]', e)

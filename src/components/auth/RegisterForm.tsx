@@ -47,11 +47,18 @@ export function RegisterForm({
   const [state, formAction, pending] = useActionState(registrarCliente, initial)
 
   useEffect(() => {
+    if (state.pendingVerification) {
+      toast.success(
+        'Te enviamos un enlace de confirmación a tu correo. Ábrelo para activar tu cuenta.'
+      )
+      router.replace('/login?verifica=1')
+      return
+    }
     if (state.success) {
       toast.success('Cuenta creada. Inicia sesión para continuar.')
       router.replace('/login?redirect=/cliente/membresia')
     }
-  }, [state.success, router])
+  }, [state.success, state.pendingVerification, router])
 
   return (
     <div className="space-y-6">
@@ -205,6 +212,43 @@ export function RegisterForm({
               />
               <span>
                 Seguir a {companyName} para recibir sus promociones y novedades.
+              </span>
+            </label>
+
+            {/* Aceptación de términos (obligatoria) — se persiste con versión. */}
+            <label className="flex items-start gap-2 text-sm text-slate-300">
+              <input
+                type="checkbox"
+                name="terminos"
+                value="on"
+                required
+                className="mt-0.5 h-4 w-4 rounded border-slate-500"
+              />
+              <span>
+                Acepto los{' '}
+                <a href="/terms" target="_blank" className="text-sky-400 hover:underline">
+                  términos y condiciones
+                </a>{' '}
+                y la{' '}
+                <a href="/privacy" target="_blank" className="text-sky-400 hover:underline">
+                  política de privacidad
+                </a>
+                .
+              </span>
+            </label>
+
+            {/* Consentimiento de marketing (opcional). El hidden "off" va
+                primero; si se marca, "on" queda al final. */}
+            <label className="flex items-start gap-2 text-sm text-slate-300">
+              <input type="hidden" name="marketingConsent" value="off" />
+              <input
+                type="checkbox"
+                name="marketingConsent"
+                value="on"
+                className="mt-0.5 h-4 w-4 rounded border-slate-500"
+              />
+              <span>
+                Quiero recibir novedades y ofertas de MembeGo por correo (opcional).
               </span>
             </label>
 
