@@ -1,3 +1,4 @@
+import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { CreditCard, Compass, AlertCircle, Sparkles } from 'lucide-react'
@@ -6,7 +7,7 @@ import { getClienteAllMemberships } from '@/modules/cliente/queries'
 import { getNovedadesInicio, getOnboardingCliente } from '@/modules/social/queries'
 import { MembershipCard } from '@/components/cliente/MembershipCard'
 import { FeedNovedades } from '@/components/cliente/FeedNovedades'
-import { OnboardingClienteCard } from '@/components/cliente/OnboardingClienteCard'
+import { OnboardingClienteFirstVisit } from '@/components/cliente/OnboardingClienteFirstVisit'
 import { Button } from '@/components/ui/button'
 
 export const metadata = {
@@ -32,13 +33,18 @@ export default async function MisMembresias() {
     )
   }
 
+  const cookieStore = await cookies()
+  const onboardingSeen = cookieStore.has('membego_onboarding_seen')
+
   // Feed de novedades y onboarding (fallan en silencio: son secundarios).
   const [novedades, onboarding] = user.metadata.dbUserId
     ? await Promise.all([
         getNovedadesInicio(user.metadata.dbUserId),
-        getOnboardingCliente(user.metadata.dbUserId, user.supabaseId).catch(
-          () => null
-        ),
+        onboardingSeen
+          ? Promise.resolve(null)
+          : getOnboardingCliente(user.metadata.dbUserId, user.supabaseId).catch(
+              () => null
+            ),
       ])
     : [[], null]
 
@@ -60,10 +66,10 @@ export default async function MisMembresias() {
         </Button>
       </div>
 
-      {/* Onboarding B2C (F5.2) */}
+      {/* Onboarding B2C: solo la primera visita */}
       {onboarding && (
         <div className="mb-6">
-          <OnboardingClienteCard onboarding={onboarding} />
+          <OnboardingClienteFirstVisit onboarding={onboarding} />
         </div>
       )}
 
