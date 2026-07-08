@@ -17,11 +17,26 @@ interface Props {
   telefono: string | null
   avatarUrl: string | null
   fechaNacimiento: string | null // YYYY-MM-DD
+  ciudad: string | null
+  genero: string | null
+  notifPromos: boolean
+  notifRecordatorios: boolean
 }
 
 const init: ProfileState = {}
 
-export function ProfileForm({ clienteId, nombre, email, telefono, avatarUrl, fechaNacimiento }: Props) {
+export function ProfileForm({
+  clienteId,
+  nombre,
+  email,
+  telefono,
+  avatarUrl,
+  fechaNacimiento,
+  ciudad,
+  genero,
+  notifPromos,
+  notifRecordatorios,
+}: Props) {
   const [state, formAction, pending] = useActionState(actualizarPerfil, init)
   const [uploadedAvatarUrl, setUploadedAvatarUrl] = useState<string | null>(null)
 
@@ -93,6 +108,58 @@ export function ProfileForm({ clienteId, nombre, email, telefono, avatarUrl, fec
             max={new Date().toISOString().slice(0, 10)}
           />
         </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="ciudad">Ciudad</Label>
+          <Input
+            id="ciudad"
+            name="ciudad"
+            defaultValue={ciudad ?? ''}
+            placeholder="Tu ciudad"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="genero">Género (opcional)</Label>
+          <select
+            id="genero"
+            name="genero"
+            defaultValue={genero ?? ''}
+            className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-sm"
+          >
+            <option value="">Prefiero no decir</option>
+            <option value="M">Masculino</option>
+            <option value="F">Femenino</option>
+            <option value="otro">Otro</option>
+          </select>
+        </div>
+      </div>
+
+      {/* Preferencias de notificaciones */}
+      <div className="space-y-2">
+        <Label>Preferencias de notificaciones</Label>
+        <label className="flex items-center gap-2 text-sm text-slate-600">
+          <input type="hidden" name="notifPromos" value="off" />
+          <input
+            type="checkbox"
+            name="notifPromos"
+            value="on"
+            defaultChecked={notifPromos}
+            className="h-4 w-4 rounded border-slate-300"
+          />
+          Recibir promociones y novedades
+        </label>
+        <label className="flex items-center gap-2 text-sm text-slate-600">
+          <input type="hidden" name="notifRecordatorios" value="off" />
+          <input
+            type="checkbox"
+            name="notifRecordatorios"
+            value="on"
+            defaultChecked={notifRecordatorios}
+            className="h-4 w-4 rounded border-slate-300"
+          />
+          Recibir recordatorios (vencimiento de membresía, etc.)
+        </label>
       </div>
 
       <div className="space-y-2">

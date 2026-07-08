@@ -128,6 +128,10 @@ export async function getClientePerfil(clienteId: string) {
         telefono: true,
         avatarUrl: true,
         fechaNacimiento: true,
+        ciudad: true,
+        genero: true,
+        notifPromos: true,
+        notifRecordatorios: true,
         companyId: true,
         company: {
           select: { id: true, name: true, slug: true, type: true, logoUrl: true },

@@ -21,6 +21,7 @@ import {
 import { MediaUpload } from './MediaUpload'
 import { GalleryManager } from './GalleryManager'
 import { MapaUbicacion } from './MapaUbicacion'
+import { MONEDAS, IDIOMAS } from '@/lib/format'
 
 export interface PerfilCompanyData {
   id: string
@@ -47,6 +48,13 @@ export interface PerfilCompanyData {
   facebook: string | null
   tiktok: string | null
   googleMapsUrl: string | null
+  moneda: string
+  zonaHoraria: string
+  idioma: string
+  colorPrimario: string | null
+  politicaCancelacion: string | null
+  politicaPrivacidad: string | null
+  terminosEmpresa: string | null
 }
 
 const init: PerfilState = {}
@@ -322,6 +330,86 @@ export function PerfilPublicoForm({
               type="url"
               defaultValue={company.tiktok ?? ''}
               placeholder="https://tiktok.com/@…"
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Paso 4: configuración regional, marca y políticas */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Configuración</CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-5 sm:grid-cols-2">
+          <div className="space-y-1.5">
+            <Label htmlFor="moneda">Moneda</Label>
+            <select
+              id="moneda"
+              name="moneda"
+              defaultValue={company.moneda}
+              className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-sm"
+            >
+              {MONEDAS.map((m) => (
+                <option key={m.code} value={m.code}>{m.label}</option>
+              ))}
+            </select>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="idioma">Idioma / formato</Label>
+            <select
+              id="idioma"
+              name="idioma"
+              defaultValue={company.idioma}
+              className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-sm"
+            >
+              {IDIOMAS.map((i) => (
+                <option key={i.code} value={i.code}>{i.label}</option>
+              ))}
+            </select>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="zonaHoraria">Zona horaria</Label>
+            <Input
+              id="zonaHoraria"
+              name="zonaHoraria"
+              defaultValue={company.zonaHoraria}
+              placeholder="America/Santo_Domingo"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="colorPrimario">Color de marca</Label>
+            <Input
+              id="colorPrimario"
+              name="colorPrimario"
+              defaultValue={company.colorPrimario ?? ''}
+              placeholder="#0ea5e9"
+            />
+          </div>
+          <div className="space-y-1.5 sm:col-span-2">
+            <Label htmlFor="politicaCancelacion">Política de cancelación</Label>
+            <Textarea
+              id="politicaCancelacion"
+              name="politicaCancelacion"
+              defaultValue={company.politicaCancelacion ?? ''}
+              rows={3}
+            />
+          </div>
+          <div className="space-y-1.5 sm:col-span-2">
+            <Label htmlFor="politicaPrivacidad">Política de privacidad</Label>
+            <Textarea
+              id="politicaPrivacidad"
+              name="politicaPrivacidad"
+              defaultValue={company.politicaPrivacidad ?? ''}
+              rows={3}
+            />
+          </div>
+          <div className="space-y-1.5 sm:col-span-2">
+            <Label htmlFor="terminosEmpresa">Términos de la empresa</Label>
+            <Textarea
+              id="terminosEmpresa"
+              name="terminosEmpresa"
+              defaultValue={company.terminosEmpresa ?? ''}
+              rows={3}
             />
           </div>
         </CardContent>

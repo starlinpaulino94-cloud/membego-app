@@ -80,6 +80,10 @@ export default async function PerfilPage() {
                 ? cliente.fechaNacimiento.toISOString().slice(0, 10)
                 : null
             }
+            ciudad={cliente.ciudad ?? null}
+            genero={cliente.genero ?? null}
+            notifPromos={cliente.notifPromos}
+            notifRecordatorios={cliente.notifRecordatorios}
           />
         </CardContent>
       </Card>

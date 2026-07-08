@@ -55,6 +55,15 @@ export function OnboardingClienteCard({ onboarding }: { onboarding: OnboardingCl
             )}
           </div>
         ))}
+
+        <div className="pt-1 text-right">
+          <Link
+            href="/cliente/bienvenida"
+            className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:underline"
+          >
+            Ver guía paso a paso <ArrowRight className="h-3 w-3" />
+          </Link>
+        </div>
       </CardContent>
     </Card>
   )
