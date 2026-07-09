@@ -128,8 +128,8 @@ export default async function MisMembresias() {
           <div className="flex flex-col items-center gap-3 rounded-xl border bg-gradient-to-br from-sky-50 to-blue-50 p-6 text-center">
             <Sparkles className="h-6 w-6 text-blue-600" />
             <div>
-              <h3 className="font-semibold text-neutral-900">¿Quieres más beneficios?</h3>
-              <p className="mt-1 text-sm text-neutral-600">
+              <h3 className="font-semibold text-slate-900">¿Quieres más beneficios?</h3>
+              <p className="mt-1 text-sm text-slate-600">
                 Descubre otras empresas y sus promociones exclusivas.
               </p>
             </div>

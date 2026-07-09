@@ -8,6 +8,7 @@ import { toast } from 'sonner'
 import {
   Check,
   Crown,
+  Gift,
   Sparkles,
   Star,
   ArrowUpCircle,
@@ -180,8 +181,9 @@ export function PlanesGrid({
                       {formatMoney(precioFinal, prefs)}
                       <span className="text-base font-normal text-slate-400">/mes</span>
                     </p>
-                    <Badge className="mt-1 bg-emerald-100 text-emerald-700 hover:bg-emerald-100">
-                      🎁 Bienvenida: −{formatMoney(descuento, prefs)} en tu primer pago
+                    <Badge variant="success" className="mt-1 gap-1">
+                      <Gift className="h-3 w-3" />
+                      Bienvenida: −{formatMoney(descuento, prefs)} en tu primer pago
                     </Badge>
                   </>
                 ) : (
