@@ -128,10 +128,27 @@ model User {
   promosGuardadas PromocionGuardada[]
   notasCliente    ClienteNota[]
   intereses       UserInteres[]
+  empresasAcceso  UserCompanyAccess[]
 
   // Listados de empleados por empresa (/admin/empleados) y conteos por empresa.
   @@index([companyId])
   @@map("users")
+}
+
+/// Acceso multi-empresa para usuarios de staff: un mismo administrador puede
+/// gestionar VARIAS empresas. `User.companyId` sigue siendo la empresa ACTIVA
+/// (la que ve en su panel); esta tabla define a cuáles puede cambiar.
+model UserCompanyAccess {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  companyId String
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, companyId])
+  @@index([companyId])
+  @@map("user_company_access")
 }
 
 model Company {
@@ -216,6 +233,7 @@ model Company {
   posts            CompanyPost[]
   campanas         Campana[]
   invitaciones     Invitacion[]
+  accesosStaff     UserCompanyAccess[]
   // Motor Universal de Reglas (Fase 1). Relaciones inversas; no cambian el
   // comportamiento actual: ninguna función existente las consulta todavía.
   ruleGroups       RuleGroup[]
