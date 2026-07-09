@@ -56,8 +56,16 @@ cambios de esquema, ejecuta desde tu máquina apuntando `.env` a producción:
 ```bash
 bun run db:migrate:deploy   # aplica las migraciones pendientes en prisma/migrations
 ```
-Actualmente la pendiente relevante es `20260707_sync_app_roles`, que agrega los
-roles `ADMINISTRADOR`, `GERENTE`, `CAJERO`, `RECEPCION` al enum `AppRole`.
+Migraciones pendientes relevantes:
+- `20260707_sync_app_roles`: agrega los roles `ADMINISTRADOR`, `GERENTE`,
+  `CAJERO`, `RECEPCION` al enum `AppRole`.
+- `20260725_add_rule_engine_core`: crea la infraestructura del Motor Universal
+  de Reglas (`rule_groups`, `rules`, `rule_conditions`, `rule_actions`,
+  `rule_execution_logs`). Solo AÑADE tablas/enums nuevos; no altera nada previo.
+- `20260726_add_rule_condition_groups`: Fase 2 del Rule Engine. Añade el enum
+  `RuleLogicalOperator`, la tabla `rule_condition_groups` (árbol booleano
+  auto-anidable) y las columnas `groupId`/`conditionType`/`dataType` (con DEFAULT)
+  en `rule_conditions`. Additivo y seguro sobre filas existentes.
 
 > Si prefieres `db:push`, también sincroniza el enum, pero `migrate:deploy` deja
 > registro en `_prisma_migrations` y es lo recomendado para producción.

@@ -2,7 +2,7 @@
 CREATE SCHEMA IF NOT EXISTS "public";
 
 -- CreateEnum
-CREATE TYPE "AppRole" AS ENUM ('SUPERADMIN', 'ADMIN_EMPRESA', 'EMPLEADO', 'CLIENTE', 'ADMINISTRADOR', 'GERENTE', 'CAJERO', 'RECEPCION');
+CREATE TYPE "AppRole" AS ENUM ('SUPERADMIN', 'ADMIN_EMPRESA', 'EMPLEADO', 'CLIENTE', 'ADMINISTRADOR', 'GERENTE', 'CAJERO', 'RECEPCION', 'MARKETING', 'SUPERVISOR');
 
 -- CreateEnum
 CREATE TYPE "NotifTipo" AS ENUM ('PAGO_APROBADO', 'PAGO_RECHAZADO', 'NUEVO_COMPROBANTE', 'MEMBRESIA_POR_VENCER', 'MEMBRESIA_ACTIVADA', 'PROMOCION_NUEVA', 'RECOMPENSA_REFERIDO', 'SISTEMA', 'TICKET_NUEVO', 'TICKET_RESPUESTA', 'TICKET_ACTUALIZADO');
@@ -23,6 +23,9 @@ CREATE TYPE "MembershipEstado" AS ENUM ('PENDIENTE', 'PENDIENTE_PAGO', 'RECHAZAD
 CREATE TYPE "MetodoPagoTipo" AS ENUM ('TRANSFERENCIA', 'PRESENCIAL');
 
 -- CreateEnum
+CREATE TYPE "InvitacionEstado" AS ENUM ('PENDIENTE', 'ACEPTADA', 'CANCELADA', 'EXPIRADA');
+
+-- CreateEnum
 CREATE TYPE "AuditAccion" AS ENUM ('VISITA_CONFIRMADA', 'PAGO_APROBADO', 'PAGO_RECHAZADO', 'MEMBRESIA_CANCELADA', 'MEMBRESIA_RENOVADA', 'QR_GENERADO', 'QR_USADO', 'COMPROBANTE_IMPRESO', 'REFERIDO_COMPLETADO', 'RECOMPENSA_OTORGADA', 'NOTA_INTERNA');
 
 -- CreateEnum
@@ -34,6 +37,21 @@ CREATE TYPE "CondicionRecompensa" AS ENUM ('N_REFERIDOS_COMPLETADOS');
 -- CreateEnum
 CREATE TYPE "TipoRecompensa" AS ENUM ('LAVADOS_GRATIS', 'DESCUENTO_PORCENTAJE', 'DESCUENTO_MONTO');
 
+-- CreateEnum
+CREATE TYPE "ReferralEventTipo" AS ENUM ('SHARE', 'CLICK', 'REGISTRO', 'MEMBRESIA', 'REGISTRO_GLOBAL', 'MEMBRESIA_GLOBAL');
+
+-- CreateEnum
+CREATE TYPE "PostTipo" AS ENUM ('EVENTO', 'NOTICIA', 'BENEFICIO');
+
+-- CreateEnum
+CREATE TYPE "RuleStatus" AS ENUM ('DRAFT', 'PUBLISHED', 'ARCHIVED');
+
+-- CreateEnum
+CREATE TYPE "RuleMatchType" AS ENUM ('ALL', 'ANY');
+
+-- CreateEnum
+CREATE TYPE "RuleLogicalOperator" AS ENUM ('AND', 'OR', 'NOT', 'XOR');
+
 -- CreateTable
 CREATE TABLE "users" (
     "id" TEXT NOT NULL,
@@ -42,6 +60,10 @@ CREATE TABLE "users" (
     "name" TEXT NOT NULL,
     "role" "AppRole" NOT NULL DEFAULT 'CLIENTE',
     "companyId" TEXT,
+    "termsAcceptedAt" TIMESTAMP(3),
+    "termsVersion" TEXT,
+    "marketingConsent" BOOLEAN NOT NULL DEFAULT false,
+    "marketingConsentAt" TIMESTAMP(3),
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -72,14 +94,30 @@ CREATE TABLE "companies" (
     "galleryImages" TEXT[] DEFAULT ARRAY[]::TEXT[],
     "provincia" TEXT,
     "pais" TEXT,
+    "razonSocial" TEXT,
+    "codigoPostal" TEXT,
+    "latitud" DOUBLE PRECISION,
+    "longitud" DOUBLE PRECISION,
+    "zonaCobertura" TEXT,
+    "moneda" TEXT NOT NULL DEFAULT 'DOP',
+    "zonaHoraria" TEXT NOT NULL DEFAULT 'America/Santo_Domingo',
+    "idioma" TEXT NOT NULL DEFAULT 'es-DO',
+    "colorPrimario" TEXT,
+    "politicaCancelacion" TEXT,
+    "politicaPrivacidad" TEXT,
+    "terminosEmpresa" TEXT,
     "whatsapp" TEXT,
     "instagram" TEXT,
     "facebook" TEXT,
     "tiktok" TEXT,
     "googleMapsUrl" TEXT,
+    "horario" TEXT,
     "totalMembersCount" INTEGER NOT NULL DEFAULT 0,
     "activePromotionsCount" INTEGER NOT NULL DEFAULT 0,
     "averageRating" DECIMAL(3,2),
+    "bienvenidaActiva" BOOLEAN NOT NULL DEFAULT false,
+    "bienvenidaTipo" TEXT NOT NULL DEFAULT 'PORCENTAJE',
+    "bienvenidaValor" DECIMAL(10,2),
 
     CONSTRAINT "companies_pkey" PRIMARY KEY ("id")
 );
@@ -136,6 +174,12 @@ CREATE TABLE "promociones" (
     "viewCount" INTEGER NOT NULL DEFAULT 0,
     "shareCount" INTEGER NOT NULL DEFAULT 0,
     "tags" TEXT[] DEFAULT ARRAY[]::TEXT[],
+    "visibilidad" TEXT NOT NULL DEFAULT 'publica',
+    "maxCanjes" INTEGER,
+    "campanaId" TEXT,
+    "canjes" INTEGER NOT NULL DEFAULT 0,
+    "prioridad" INTEGER NOT NULL DEFAULT 0,
+    "archivada" BOOLEAN NOT NULL DEFAULT false,
 
     CONSTRAINT "promociones_pkey" PRIMARY KEY ("id")
 );
@@ -153,10 +197,28 @@ CREATE TABLE "plans" (
     "vigenciaDias" INTEGER NOT NULL DEFAULT 30,
     "condiciones" TEXT,
     "activo" BOOLEAN NOT NULL DEFAULT true,
+    "color" TEXT,
+    "orden" INTEGER NOT NULL DEFAULT 0,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "plans_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "invitaciones" (
+    "id" TEXT NOT NULL,
+    "companyId" TEXT NOT NULL,
+    "email" TEXT NOT NULL,
+    "rol" "AppRole" NOT NULL,
+    "token" TEXT NOT NULL,
+    "estado" "InvitacionEstado" NOT NULL DEFAULT 'PENDIENTE',
+    "invitadoPor" TEXT,
+    "expiraEn" TIMESTAMP(3) NOT NULL,
+    "aceptadaEn" TIMESTAMP(3),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "invitaciones_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -169,11 +231,31 @@ CREATE TABLE "clientes" (
     "email" TEXT NOT NULL,
     "fechaNacimiento" TIMESTAMP(3),
     "avatarUrl" TEXT,
+    "ciudad" TEXT,
+    "genero" TEXT,
+    "idioma" TEXT,
+    "notifPromos" BOOLEAN NOT NULL DEFAULT true,
+    "notifRecordatorios" BOOLEAN NOT NULL DEFAULT true,
     "codigoReferido" TEXT NOT NULL,
+    "codigoCorto" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "clientes_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "referral_events" (
+    "id" TEXT NOT NULL,
+    "companyId" TEXT NOT NULL,
+    "clienteId" TEXT NOT NULL,
+    "tipo" "ReferralEventTipo" NOT NULL,
+    "puntos" INTEGER NOT NULL DEFAULT 0,
+    "canal" TEXT,
+    "meta" JSONB NOT NULL DEFAULT '{}',
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "referral_events_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -286,6 +368,7 @@ CREATE TABLE "memberships" (
     "clienteId" TEXT NOT NULL,
     "companyId" TEXT NOT NULL,
     "planId" TEXT NOT NULL,
+    "planIdSolicitado" TEXT,
     "userId" TEXT,
     "metodoPagoId" TEXT,
     "estado" "MembershipEstado" NOT NULL DEFAULT 'PENDIENTE',
@@ -295,6 +378,7 @@ CREATE TABLE "memberships" (
     "adminNota" TEXT,
     "pagoConfirmado" BOOLEAN NOT NULL DEFAULT false,
     "montoPagado" DECIMAL(10,2),
+    "descuentoBienvenida" DECIMAL(10,2),
     "fechaInicio" TIMESTAMP(3),
     "fechaVencimiento" TIMESTAMP(3),
     "lavadosRestantes" INTEGER NOT NULL DEFAULT 0,
@@ -418,6 +502,173 @@ CREATE TABLE "company_ratings" (
     CONSTRAINT "company_ratings_pkey" PRIMARY KEY ("id")
 );
 
+-- CreateTable
+CREATE TABLE "company_follows" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "companyId" TEXT NOT NULL,
+    "esFavorita" BOOLEAN NOT NULL DEFAULT false,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "company_follows_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "promociones_guardadas" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "promocionId" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "promociones_guardadas_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "company_posts" (
+    "id" TEXT NOT NULL,
+    "companyId" TEXT NOT NULL,
+    "tipo" "PostTipo" NOT NULL,
+    "titulo" TEXT NOT NULL,
+    "contenido" TEXT NOT NULL,
+    "imagenUrl" TEXT,
+    "fechaEvento" TIMESTAMP(3),
+    "lugar" TEXT,
+    "campanaId" TEXT,
+    "activo" BOOLEAN NOT NULL DEFAULT true,
+    "publicadaEn" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "company_posts_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "cliente_notas" (
+    "id" TEXT NOT NULL,
+    "clienteId" TEXT NOT NULL,
+    "autorId" TEXT,
+    "texto" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "cliente_notas_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "campanas" (
+    "id" TEXT NOT NULL,
+    "companyId" TEXT NOT NULL,
+    "nombre" TEXT NOT NULL,
+    "descripcion" TEXT,
+    "fechaInicio" TIMESTAMP(3),
+    "fechaFin" TIMESTAMP(3),
+    "activo" BOOLEAN NOT NULL DEFAULT true,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "campanas_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "user_intereses" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "categoryId" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "user_intereses_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "rule_groups" (
+    "id" TEXT NOT NULL,
+    "companyId" TEXT NOT NULL,
+    "key" TEXT NOT NULL,
+    "nombre" TEXT NOT NULL,
+    "descripcion" TEXT,
+    "orden" INTEGER NOT NULL DEFAULT 0,
+    "activo" BOOLEAN NOT NULL DEFAULT true,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "rule_groups_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "rules" (
+    "id" TEXT NOT NULL,
+    "companyId" TEXT NOT NULL,
+    "groupId" TEXT,
+    "nombre" TEXT NOT NULL,
+    "descripcion" TEXT,
+    "status" "RuleStatus" NOT NULL DEFAULT 'DRAFT',
+    "activo" BOOLEAN NOT NULL DEFAULT true,
+    "prioridad" INTEGER NOT NULL DEFAULT 0,
+    "version" INTEGER NOT NULL DEFAULT 1,
+    "matchType" "RuleMatchType" NOT NULL DEFAULT 'ALL',
+    "validoDesde" TIMESTAMP(3),
+    "validoHasta" TIMESTAMP(3),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "rules_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "rule_conditions" (
+    "id" TEXT NOT NULL,
+    "ruleId" TEXT NOT NULL,
+    "groupId" TEXT,
+    "campo" TEXT NOT NULL,
+    "operador" TEXT NOT NULL,
+    "valor" JSONB NOT NULL DEFAULT 'null',
+    "tipoValor" TEXT NOT NULL DEFAULT 'STRING',
+    "conditionType" TEXT NOT NULL DEFAULT 'field',
+    "dataType" TEXT NOT NULL DEFAULT 'TEXT',
+    "orden" INTEGER NOT NULL DEFAULT 0,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "rule_conditions_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "rule_condition_groups" (
+    "id" TEXT NOT NULL,
+    "ruleId" TEXT NOT NULL,
+    "parentId" TEXT,
+    "operator" "RuleLogicalOperator" NOT NULL DEFAULT 'AND',
+    "orden" INTEGER NOT NULL DEFAULT 0,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "rule_condition_groups_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "rule_actions" (
+    "id" TEXT NOT NULL,
+    "ruleId" TEXT NOT NULL,
+    "tipo" TEXT NOT NULL,
+    "params" JSONB NOT NULL DEFAULT '{}',
+    "orden" INTEGER NOT NULL DEFAULT 0,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "rule_actions_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "rule_execution_logs" (
+    "id" TEXT NOT NULL,
+    "ruleId" TEXT,
+    "companyId" TEXT NOT NULL,
+    "matched" BOOLEAN NOT NULL,
+    "resultado" JSONB NOT NULL DEFAULT '{}',
+    "contexto" JSONB NOT NULL DEFAULT '{}',
+    "duracionMs" INTEGER NOT NULL DEFAULT 0,
+    "error" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "rule_execution_logs_pkey" PRIMARY KEY ("id")
+);
+
 -- CreateIndex
 CREATE UNIQUE INDEX "users_supabaseId_key" ON "users"("supabaseId");
 
@@ -443,6 +694,12 @@ CREATE INDEX "companies_type_idx" ON "companies"("type");
 CREATE INDEX "companies_createdAt_idx" ON "companies"("createdAt");
 
 -- CreateIndex
+CREATE INDEX "sucursales_companyId_idx" ON "sucursales"("companyId");
+
+-- CreateIndex
+CREATE INDEX "metodos_pago_companyId_idx" ON "metodos_pago"("companyId");
+
+-- CreateIndex
 CREATE INDEX "promociones_companyId_activo_idx" ON "promociones"("companyId", "activo");
 
 -- CreateIndex
@@ -455,13 +712,37 @@ CREATE INDEX "promociones_tipo_idx" ON "promociones"("tipo");
 CREATE INDEX "promociones_createdAt_idx" ON "promociones"("createdAt");
 
 -- CreateIndex
+CREATE INDEX "promociones_activo_archivada_visibilidad_publicadaEn_idx" ON "promociones"("activo", "archivada", "visibilidad", "publicadaEn");
+
+-- CreateIndex
+CREATE INDEX "plans_companyId_idx" ON "plans"("companyId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "invitaciones_token_key" ON "invitaciones"("token");
+
+-- CreateIndex
+CREATE INDEX "invitaciones_companyId_estado_idx" ON "invitaciones"("companyId", "estado");
+
+-- CreateIndex
+CREATE INDEX "invitaciones_email_idx" ON "invitaciones"("email");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "clientes_codigoReferido_key" ON "clientes"("codigoReferido");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "clientes_codigoCorto_key" ON "clientes"("codigoCorto");
 
 -- CreateIndex
 CREATE INDEX "clientes_companyId_idx" ON "clientes"("companyId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "clientes_supabaseId_companyId_key" ON "clientes"("supabaseId", "companyId");
+
+-- CreateIndex
+CREATE INDEX "referral_events_clienteId_companyId_idx" ON "referral_events"("clienteId", "companyId");
+
+-- CreateIndex
+CREATE INDEX "referral_events_companyId_tipo_createdAt_idx" ON "referral_events"("companyId", "tipo", "createdAt");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "referidos_referidoClienteId_key" ON "referidos"("referidoClienteId");
@@ -500,6 +781,12 @@ CREATE INDEX "memberships_clienteId_idx" ON "memberships"("clienteId");
 CREATE INDEX "memberships_companyId_idx" ON "memberships"("companyId");
 
 -- CreateIndex
+CREATE INDEX "memberships_planId_idx" ON "memberships"("planId");
+
+-- CreateIndex
+CREATE INDEX "memberships_companyId_estado_fechaVencimiento_idx" ON "memberships"("companyId", "estado", "fechaVencimiento");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "memberships_clienteId_companyId_key" ON "memberships"("clienteId", "companyId");
 
 -- CreateIndex
@@ -521,10 +808,19 @@ CREATE INDEX "visits_membershipId_idx" ON "visits"("membershipId");
 CREATE INDEX "visits_fechaVisita_idx" ON "visits"("fechaVisita");
 
 -- CreateIndex
+CREATE INDEX "visits_vehiculoId_idx" ON "visits"("vehiculoId");
+
+-- CreateIndex
+CREATE INDEX "visits_sucursalId_idx" ON "visits"("sucursalId");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "comprobantes_visitId_key" ON "comprobantes"("visitId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "comprobantes_numero_key" ON "comprobantes"("numero");
+
+-- CreateIndex
+CREATE INDEX "comprobantes_membershipId_idx" ON "comprobantes"("membershipId");
 
 -- CreateIndex
 CREATE INDEX "audit_logs_companyId_idx" ON "audit_logs"("companyId");
@@ -574,6 +870,78 @@ CREATE INDEX "company_ratings_rating_idx" ON "company_ratings"("rating");
 -- CreateIndex
 CREATE UNIQUE INDEX "company_ratings_companyId_clienteId_key" ON "company_ratings"("companyId", "clienteId");
 
+-- CreateIndex
+CREATE INDEX "company_follows_companyId_idx" ON "company_follows"("companyId");
+
+-- CreateIndex
+CREATE INDEX "company_follows_userId_esFavorita_idx" ON "company_follows"("userId", "esFavorita");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "company_follows_userId_companyId_key" ON "company_follows"("userId", "companyId");
+
+-- CreateIndex
+CREATE INDEX "promociones_guardadas_userId_createdAt_idx" ON "promociones_guardadas"("userId", "createdAt");
+
+-- CreateIndex
+CREATE INDEX "promociones_guardadas_promocionId_idx" ON "promociones_guardadas"("promocionId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "promociones_guardadas_userId_promocionId_key" ON "promociones_guardadas"("userId", "promocionId");
+
+-- CreateIndex
+CREATE INDEX "company_posts_companyId_tipo_activo_idx" ON "company_posts"("companyId", "tipo", "activo");
+
+-- CreateIndex
+CREATE INDEX "company_posts_tipo_fechaEvento_idx" ON "company_posts"("tipo", "fechaEvento");
+
+-- CreateIndex
+CREATE INDEX "cliente_notas_clienteId_createdAt_idx" ON "cliente_notas"("clienteId", "createdAt");
+
+-- CreateIndex
+CREATE INDEX "campanas_companyId_activo_idx" ON "campanas"("companyId", "activo");
+
+-- CreateIndex
+CREATE INDEX "user_intereses_categoryId_idx" ON "user_intereses"("categoryId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "user_intereses_userId_categoryId_key" ON "user_intereses"("userId", "categoryId");
+
+-- CreateIndex
+CREATE INDEX "rule_groups_companyId_activo_idx" ON "rule_groups"("companyId", "activo");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "rule_groups_companyId_key_key" ON "rule_groups"("companyId", "key");
+
+-- CreateIndex
+CREATE INDEX "rules_companyId_status_activo_idx" ON "rules"("companyId", "status", "activo");
+
+-- CreateIndex
+CREATE INDEX "rules_groupId_idx" ON "rules"("groupId");
+
+-- CreateIndex
+CREATE INDEX "rules_companyId_prioridad_idx" ON "rules"("companyId", "prioridad");
+
+-- CreateIndex
+CREATE INDEX "rule_conditions_ruleId_orden_idx" ON "rule_conditions"("ruleId", "orden");
+
+-- CreateIndex
+CREATE INDEX "rule_conditions_groupId_idx" ON "rule_conditions"("groupId");
+
+-- CreateIndex
+CREATE INDEX "rule_condition_groups_ruleId_idx" ON "rule_condition_groups"("ruleId");
+
+-- CreateIndex
+CREATE INDEX "rule_condition_groups_parentId_idx" ON "rule_condition_groups"("parentId");
+
+-- CreateIndex
+CREATE INDEX "rule_actions_ruleId_orden_idx" ON "rule_actions"("ruleId", "orden");
+
+-- CreateIndex
+CREATE INDEX "rule_execution_logs_companyId_createdAt_idx" ON "rule_execution_logs"("companyId", "createdAt");
+
+-- CreateIndex
+CREATE INDEX "rule_execution_logs_ruleId_idx" ON "rule_execution_logs"("ruleId");
+
 -- AddForeignKey
 ALTER TABLE "users" ADD CONSTRAINT "users_companyId_fkey" FOREIGN KEY ("companyId") REFERENCES "companies"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
@@ -587,10 +955,22 @@ ALTER TABLE "metodos_pago" ADD CONSTRAINT "metodos_pago_companyId_fkey" FOREIGN 
 ALTER TABLE "promociones" ADD CONSTRAINT "promociones_companyId_fkey" FOREIGN KEY ("companyId") REFERENCES "companies"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "promociones" ADD CONSTRAINT "promociones_campanaId_fkey" FOREIGN KEY ("campanaId") REFERENCES "campanas"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "plans" ADD CONSTRAINT "plans_companyId_fkey" FOREIGN KEY ("companyId") REFERENCES "companies"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "invitaciones" ADD CONSTRAINT "invitaciones_companyId_fkey" FOREIGN KEY ("companyId") REFERENCES "companies"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "clientes" ADD CONSTRAINT "clientes_companyId_fkey" FOREIGN KEY ("companyId") REFERENCES "companies"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "referral_events" ADD CONSTRAINT "referral_events_companyId_fkey" FOREIGN KEY ("companyId") REFERENCES "companies"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "referral_events" ADD CONSTRAINT "referral_events_clienteId_fkey" FOREIGN KEY ("clienteId") REFERENCES "clientes"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "referidos" ADD CONSTRAINT "referidos_companyId_fkey" FOREIGN KEY ("companyId") REFERENCES "companies"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
@@ -630,6 +1010,9 @@ ALTER TABLE "memberships" ADD CONSTRAINT "memberships_companyId_fkey" FOREIGN KE
 
 -- AddForeignKey
 ALTER TABLE "memberships" ADD CONSTRAINT "memberships_planId_fkey" FOREIGN KEY ("planId") REFERENCES "plans"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "memberships" ADD CONSTRAINT "memberships_planIdSolicitado_fkey" FOREIGN KEY ("planIdSolicitado") REFERENCES "plans"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "memberships" ADD CONSTRAINT "memberships_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
@@ -687,4 +1070,67 @@ ALTER TABLE "company_ratings" ADD CONSTRAINT "company_ratings_companyId_fkey" FO
 
 -- AddForeignKey
 ALTER TABLE "company_ratings" ADD CONSTRAINT "company_ratings_clienteId_fkey" FOREIGN KEY ("clienteId") REFERENCES "clientes"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "company_follows" ADD CONSTRAINT "company_follows_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "company_follows" ADD CONSTRAINT "company_follows_companyId_fkey" FOREIGN KEY ("companyId") REFERENCES "companies"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "promociones_guardadas" ADD CONSTRAINT "promociones_guardadas_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "promociones_guardadas" ADD CONSTRAINT "promociones_guardadas_promocionId_fkey" FOREIGN KEY ("promocionId") REFERENCES "promociones"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "company_posts" ADD CONSTRAINT "company_posts_companyId_fkey" FOREIGN KEY ("companyId") REFERENCES "companies"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "company_posts" ADD CONSTRAINT "company_posts_campanaId_fkey" FOREIGN KEY ("campanaId") REFERENCES "campanas"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "cliente_notas" ADD CONSTRAINT "cliente_notas_clienteId_fkey" FOREIGN KEY ("clienteId") REFERENCES "clientes"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "cliente_notas" ADD CONSTRAINT "cliente_notas_autorId_fkey" FOREIGN KEY ("autorId") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "campanas" ADD CONSTRAINT "campanas_companyId_fkey" FOREIGN KEY ("companyId") REFERENCES "companies"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "user_intereses" ADD CONSTRAINT "user_intereses_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "user_intereses" ADD CONSTRAINT "user_intereses_categoryId_fkey" FOREIGN KEY ("categoryId") REFERENCES "business_categories"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "rule_groups" ADD CONSTRAINT "rule_groups_companyId_fkey" FOREIGN KEY ("companyId") REFERENCES "companies"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "rules" ADD CONSTRAINT "rules_companyId_fkey" FOREIGN KEY ("companyId") REFERENCES "companies"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "rules" ADD CONSTRAINT "rules_groupId_fkey" FOREIGN KEY ("groupId") REFERENCES "rule_groups"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "rule_conditions" ADD CONSTRAINT "rule_conditions_ruleId_fkey" FOREIGN KEY ("ruleId") REFERENCES "rules"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "rule_conditions" ADD CONSTRAINT "rule_conditions_groupId_fkey" FOREIGN KEY ("groupId") REFERENCES "rule_condition_groups"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "rule_condition_groups" ADD CONSTRAINT "rule_condition_groups_ruleId_fkey" FOREIGN KEY ("ruleId") REFERENCES "rules"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "rule_condition_groups" ADD CONSTRAINT "rule_condition_groups_parentId_fkey" FOREIGN KEY ("parentId") REFERENCES "rule_condition_groups"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "rule_actions" ADD CONSTRAINT "rule_actions_ruleId_fkey" FOREIGN KEY ("ruleId") REFERENCES "rules"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "rule_execution_logs" ADD CONSTRAINT "rule_execution_logs_ruleId_fkey" FOREIGN KEY ("ruleId") REFERENCES "rules"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "rule_execution_logs" ADD CONSTRAINT "rule_execution_logs_companyId_fkey" FOREIGN KEY ("companyId") REFERENCES "companies"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
