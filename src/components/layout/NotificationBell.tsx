@@ -65,6 +65,8 @@ export function NotificationBell({ initialCount }: { initialCount: number }) {
       await marcarTodasLeidas()
       setNotifs((prev) => prev?.map((n) => ({ ...n, leida: true })) ?? null)
       setCount(0)
+      // Sincroniza el resto de la app (contadores/listas) sin recargar.
+      router.refresh()
     })
   }
 
@@ -76,6 +78,7 @@ export function NotificationBell({ initialCount }: { initialCount: number }) {
           prev?.map((n) => (n.id === notif.id ? { ...n, leida: true } : n)) ?? null
         )
         setCount((c) => Math.max(0, c - 1))
+        router.refresh()
       })
     }
     setOpen(false)

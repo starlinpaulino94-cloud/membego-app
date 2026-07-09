@@ -91,6 +91,7 @@ enum AuditAccion {
   MEMBRESIA_RENOVADA
   QR_GENERADO
   QR_USADO
+  QR_COMPARTIDO
   COMPROBANTE_IMPRESO
   REFERIDO_COMPLETADO
   RECOMPENSA_OTORGADA
@@ -469,10 +470,15 @@ model Referido {
   referidoCliente    Cliente        @relation("Referido", fields: [referidoClienteId], references: [id])
   estado             ReferidoEstado @default(PENDIENTE)
   recompensaAplicada Boolean        @default(false)
+  // Anti-fraude: registro atribuido pero con huella repetida (misma red/
+  // dispositivo del referente o de otro referido reciente). Se conserva el
+  // vínculo para auditoría, pero NO cuenta en el embudo ni otorga puntos.
+  sospechoso         Boolean        @default(false)
   createdAt          DateTime       @default(now())
   completadoEn       DateTime?
 
   @@index([companyId, referenteClienteId])
+  @@index([companyId, sospechoso])
   @@map("referidos")
 }
 
@@ -645,6 +651,10 @@ model QrToken {
   membership  Membership @relation(fields: [membresiaId], references: [id], onDelete: Cascade)
   token       String     @unique @default(cuid())
   activo      Boolean    @default(true)
+  // Compartir el QR (p. ej. por WhatsApp) no consume el token —sigue siendo de
+  // un solo uso— pero sí queda registrado: cuántas veces y cuándo la última.
+  compartidoCount  Int       @default(0)
+  ultimoCompartido DateTime?
   createdAt   DateTime   @default(now())
 
   @@index([clienteId, activo])

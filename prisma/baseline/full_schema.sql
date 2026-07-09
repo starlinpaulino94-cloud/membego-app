@@ -26,7 +26,7 @@ CREATE TYPE "MetodoPagoTipo" AS ENUM ('TRANSFERENCIA', 'PRESENCIAL');
 CREATE TYPE "InvitacionEstado" AS ENUM ('PENDIENTE', 'ACEPTADA', 'CANCELADA', 'EXPIRADA');
 
 -- CreateEnum
-CREATE TYPE "AuditAccion" AS ENUM ('VISITA_CONFIRMADA', 'PAGO_APROBADO', 'PAGO_RECHAZADO', 'MEMBRESIA_CANCELADA', 'MEMBRESIA_RENOVADA', 'QR_GENERADO', 'QR_USADO', 'COMPROBANTE_IMPRESO', 'REFERIDO_COMPLETADO', 'RECOMPENSA_OTORGADA', 'NOTA_INTERNA');
+CREATE TYPE "AuditAccion" AS ENUM ('VISITA_CONFIRMADA', 'PAGO_APROBADO', 'PAGO_RECHAZADO', 'MEMBRESIA_CANCELADA', 'MEMBRESIA_RENOVADA', 'QR_GENERADO', 'QR_USADO', 'QR_COMPARTIDO', 'COMPROBANTE_IMPRESO', 'REFERIDO_COMPLETADO', 'RECOMPENSA_OTORGADA', 'NOTA_INTERNA');
 
 -- CreateEnum
 CREATE TYPE "ReferidoEstado" AS ENUM ('PENDIENTE', 'COMPLETADO');
@@ -281,6 +281,7 @@ CREATE TABLE "referidos" (
     "referidoClienteId" TEXT NOT NULL,
     "estado" "ReferidoEstado" NOT NULL DEFAULT 'PENDIENTE',
     "recompensaAplicada" BOOLEAN NOT NULL DEFAULT false,
+    "sospechoso" BOOLEAN NOT NULL DEFAULT false,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "completadoEn" TIMESTAMP(3),
 
@@ -410,6 +411,8 @@ CREATE TABLE "qr_tokens" (
     "membresiaId" TEXT NOT NULL,
     "token" TEXT NOT NULL,
     "activo" BOOLEAN NOT NULL DEFAULT true,
+    "compartidoCount" INTEGER NOT NULL DEFAULT 0,
+    "ultimoCompartido" TIMESTAMP(3),
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "qr_tokens_pkey" PRIMARY KEY ("id")
@@ -957,6 +960,9 @@ CREATE UNIQUE INDEX "referidos_referidoClienteId_key" ON "referidos"("referidoCl
 
 -- CreateIndex
 CREATE INDEX "referidos_companyId_referenteClienteId_idx" ON "referidos"("companyId", "referenteClienteId");
+
+-- CreateIndex
+CREATE INDEX "referidos_companyId_sospechoso_idx" ON "referidos"("companyId", "sospechoso");
 
 -- CreateIndex
 CREATE INDEX "reglas_recompensa_companyId_activo_idx" ON "reglas_recompensa"("companyId", "activo");
