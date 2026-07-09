@@ -74,6 +74,10 @@ Migraciones pendientes relevantes:
   `promotion_rules`, `promotion_actions`, `promotion_restrictions`,
   `promotion_versions`, `promotion_audits`. Solo AÑADE; el modelo `Promocion`
   (marketplace) queda intacto.
+- `20260729_add_data_dictionary`: Fase 6 (Business Data Dictionary). Añade el
+  enum `DictionaryVariableStatus` y las tablas `data_dictionary_variables` y
+  `data_dictionary_variable_versions` (variables custom/por-empresa; el catálogo
+  estándar vive en código). Solo AÑADE.
 
 > Si prefieres `db:push`, también sincroniza el enum, pero `migrate:deploy` deja
 > registro en `_prisma_migrations` y es lo recomendado para producción.
