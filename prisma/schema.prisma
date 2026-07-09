@@ -224,6 +224,8 @@ model Company {
   // flujo existente las consulta.
   promotions       Promotion[]
   promotionAudits  PromotionAudit[]
+  // Business Data Dictionary (Fase 6). Variables específicas de empresa.
+  dictionaryVariables DataDictionaryVariable[]
 
   @@index([isPublished, isFeatured])
   @@index([ciudad, provincia])
@@ -1219,4 +1221,70 @@ model PromotionAudit {
   @@index([promotionId, createdAt])
   @@index([companyId, createdAt])
   @@map("promotion_audits")
+}
+
+// ─────────────────────────────────────────────
+// FASE 6: BUSINESS DATA DICTIONARY (DICCIONARIO UNIVERSAL DE DATOS)
+// ─────────────────────────────────────────────
+// Fuente OFICIAL de todas las variables de negocio que pueden usar reglas,
+// promociones, membresías, QR, etc. El catálogo ESTÁNDAR vive en código
+// (src/lib/dictionary/domain/catalog.ts); estas tablas persisten las variables
+// CUSTOM/por-empresa registradas en runtime. Sin lógica de negocio. Ningún flujo
+// de la app las consume todavía.
+
+/// Estado de una variable del diccionario.
+enum DictionaryVariableStatus {
+  ACTIVE // disponible para usarse
+  DEPRECATED // en desuso; se resuelve pero no debería usarse en variables nuevas
+  DISABLED // desactivada; no se resuelve
+}
+
+/// Definición centralizada de una variable de negocio. NUNCA depende de nombres
+/// de columnas del ORM: `contextPath` apunta al Modelo Universal de Contexto.
+model DataDictionaryVariable {
+  id          String                   @id @default(cuid())
+  companyId   String? // null = variable GLOBAL/estándar; con valor = específica de empresa
+  company     Company?                 @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  key         String // nombre técnico, ej. "cliente.puntos"
+  displayName String // nombre visible
+  description String?
+  semanticType String // tipo semántico (TEXT|INTEGER|MONEY|PERCENT|…) → mapea a DataType del Rule Engine
+  category    String // categoría (Cliente, Empresa, Sistema…)
+  subcategory String?
+  ownerModule String? // módulo propietario
+  source      String                   @default("CONTEXT") // CONTEXT | CALCULATED | CONSTANT | EXTERNAL
+  contextPath String? // ruta en el Context Model, ej. "cliente.puntos"
+  format      String?
+  unit        String?
+  aliases     String[]                 @default([]) // nombres alternativos que resuelven a esta variable
+  status      DictionaryVariableStatus @default(ACTIVE)
+  version     Int                      @default(1)
+  validation  Json                     @default("{}") // reglas de validación (rango, patrón, valores…)
+  i18n        Json                     @default("{}") // { es: {name,description,help}, en: {...} }
+  calculated  Json? // descriptor de variable calculada (kind + inputs); null si no lo es
+  metadata    Json                     @default("{}")
+  createdAt   DateTime                 @default(now())
+  updatedAt   DateTime                 @updatedAt
+
+  versions DataDictionaryVariableVersion[]
+
+  @@unique([companyId, key]) // única por empresa (y una global por key con companyId null)
+  @@index([companyId, category])
+  @@index([category])
+  @@index([status])
+  @@map("data_dictionary_variables")
+}
+
+/// Instantánea de versión de una variable (historial inmutable).
+model DataDictionaryVariableVersion {
+  id         String                 @id @default(cuid())
+  variableId String
+  variable   DataDictionaryVariable @relation(fields: [variableId], references: [id], onDelete: Cascade)
+  version    Int
+  snapshot   Json
+  createdAt  DateTime               @default(now())
+
+  @@unique([variableId, version])
+  @@index([variableId])
+  @@map("data_dictionary_variable_versions")
 }
