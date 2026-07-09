@@ -215,6 +215,11 @@ model Company {
   posts            CompanyPost[]
   campanas         Campana[]
   invitaciones     Invitacion[]
+  // Motor Universal de Reglas (Fase 1). Relaciones inversas; no cambian el
+  // comportamiento actual: ninguna función existente las consulta todavía.
+  ruleGroups       RuleGroup[]
+  rules            Rule[]
+  ruleExecLogs     RuleExecutionLog[]
 
   @@index([isPublished, isFeatured])
   @@index([ciudad, provincia])
@@ -892,4 +897,132 @@ model UserInteres {
   @@unique([userId, categoryId])
   @@index([categoryId])
   @@map("user_intereses")
+}
+
+// ─────────────────────────────────────────────
+// FASE 1 (REDISEÑO DEL NÚCLEO): MOTOR UNIVERSAL DE REGLAS
+// ─────────────────────────────────────────────
+// Infraestructura genérica y multi-tenant para el futuro Rule Engine. NO
+// contiene lógica de promociones, membresías, QR ni cupones: solo el modelo
+// de datos de reglas configurables. Ningún flujo actual lee estas tablas.
+
+/// Ciclo de vida de una regla (independiente del interruptor `activo`).
+enum RuleStatus {
+  DRAFT // en edición, nunca se evalúa
+  PUBLISHED // publicada; se evalúa si además `activo` = true y está en ventana de vigencia
+  ARCHIVED // retirada; se conserva como historial, nunca se evalúa
+}
+
+/// Cómo se combinan las condiciones de una regla.
+enum RuleMatchType {
+  ALL // AND: todas las condiciones deben cumplirse
+  ANY // OR: basta con que se cumpla una condición
+}
+
+/// Agrupa reglas por dominio funcional (ej. "Validación QR", "Membresías",
+/// "Beneficios"). Puramente organizativo; el motor puede filtrar por `key`.
+model RuleGroup {
+  id          String   @id @default(cuid())
+  companyId   String
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  key         String // identificador estable legible por máquina, ej. "qr_validation"
+  nombre      String
+  descripcion String?
+  orden       Int      @default(0)
+  activo      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  rules Rule[]
+
+  @@unique([companyId, key])
+  @@index([companyId, activo])
+  @@map("rule_groups")
+}
+
+/// Regla configurable. El motor la evalúa contra un RuleContext y, si se
+/// cumple, dispara sus acciones. No conoce el negocio: campos y valores son
+/// genéricos (dot-paths + JSON).
+model Rule {
+  id          String        @id @default(cuid())
+  companyId   String
+  company     Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  groupId     String?
+  group       RuleGroup?    @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  nombre      String
+  descripcion String?
+  status      RuleStatus    @default(DRAFT)
+  activo      Boolean       @default(true) // interruptor de encendido, independiente del ciclo de vida
+  prioridad   Int           @default(0) // mayor = se evalúa primero
+  version     Int           @default(1) // se incrementa en cada cambio (base para versionado)
+  matchType   RuleMatchType @default(ALL)
+  validoDesde DateTime? // ventana de vigencia opcional (null = sin límite inferior)
+  validoHasta DateTime? // null = sin límite superior
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  conditions RuleCondition[]
+  actions    RuleAction[]
+  logs       RuleExecutionLog[]
+
+  // Consulta caliente del motor: reglas de una empresa evaluables por estado.
+  @@index([companyId, status, activo])
+  @@index([groupId])
+  @@index([companyId, prioridad])
+  @@map("rules")
+}
+
+/// Condición atómica de una regla. `campo` es un dot-path dentro del contexto
+/// (ej. "cliente.puntos"), `operador` es la clave de un operador del registro
+/// extensible (ej. "gte") y `valor` es el valor esperado en JSON.
+model RuleCondition {
+  id        String   @id @default(cuid())
+  ruleId    String
+  rule      Rule     @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  campo     String // dot-path dentro del RuleContext, ej. "cliente.membresiaActiva"
+  operador  String // id del operador en el registro, ej. "eq", "gte", "in"
+  valor     Json     @default("null") // valor esperado (comparación)
+  tipoValor String   @default("STRING") // STRING | NUMBER | BOOLEAN | DATE | ARRAY | NULL (coerción)
+  orden     Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([ruleId, orden])
+  @@map("rule_conditions")
+}
+
+/// Acción a ejecutar cuando la regla se cumple. En esta fase SOLO se almacena
+/// la estructura: no hay handlers reales registrados. `tipo` es la clave de un
+/// handler del registro extensible; `params` su configuración en JSON.
+model RuleAction {
+  id        String   @id @default(cuid())
+  ruleId    String
+  rule      Rule     @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  tipo      String // clave del handler en el registro, ej. "grant_benefit" (aún sin implementar)
+  params    Json     @default("{}")
+  orden     Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([ruleId, orden])
+  @@map("rule_actions")
+}
+
+/// Registro de auditoría de cada evaluación del motor. Estructura preparada
+/// para observabilidad; el motor la persiste solo si se le inyecta un sink
+/// Prisma (por defecto usa un sink no-op).
+model RuleExecutionLog {
+  id         String   @id @default(cuid())
+  ruleId     String?
+  rule       Rule?    @relation(fields: [ruleId], references: [id], onDelete: SetNull)
+  companyId  String
+  company    Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  matched    Boolean // si la regla se cumplió
+  resultado  Json     @default("{}") // resumen de acciones/resultado
+  contexto   Json     @default("{}") // snapshot (posiblemente saneado) del contexto
+  duracionMs Int      @default(0)
+  error      String? // mensaje si la evaluación/ejecución falló
+  createdAt  DateTime @default(now())
+
+  @@index([companyId, createdAt])
+  @@index([ruleId])
+  @@map("rule_execution_logs")
 }

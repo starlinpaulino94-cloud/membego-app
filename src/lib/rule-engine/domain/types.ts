@@ -1,0 +1,92 @@
+/**
+ * Tipos de dominio del Motor Universal de Reglas.
+ *
+ * Estos tipos son la representación PURA de una regla y sus partes, sin ninguna
+ * dependencia de Prisma, Next.js ni del negocio. La capa de infraestructura
+ * (mappers) traduce las filas de la BD a estos tipos y viceversa, de modo que
+ * el núcleo nunca conoce el detalle de persistencia (Clean Architecture).
+ */
+
+/** Ciclo de vida de una regla. Espeja el enum `RuleStatus` de Prisma. */
+export type RuleStatus = 'DRAFT' | 'PUBLISHED' | 'ARCHIVED'
+
+/** Combinación lógica de las condiciones. Espeja `RuleMatchType` de Prisma. */
+export type RuleMatchType = 'ALL' | 'ANY'
+
+/**
+ * Tipo declarado del valor esperado de una condición. Sirve para coerción al
+ * comparar (ej. tratar "2024-01-01" como Date). Se mantiene como unión de
+ * strings —no enum de Prisma— para poder añadir tipos sin migrar la BD.
+ */
+export type ConditionValueType = 'STRING' | 'NUMBER' | 'BOOLEAN' | 'DATE' | 'ARRAY' | 'NULL'
+
+/**
+ * Condición atómica. `field` es un dot-path dentro del RuleContext y `operator`
+ * la clave de un operador del registro extensible. El motor NO interpreta el
+ * significado de negocio de `field`: solo resuelve la ruta y compara.
+ */
+export interface RuleCondition {
+  readonly id: string
+  /** Ruta dentro del contexto, ej. "cliente.puntos" o "$now". */
+  readonly field: string
+  /** Id del operador en el OperatorRegistry, ej. "gte". */
+  readonly operator: string
+  /** Valor esperado ya deserializado desde JSON. */
+  readonly value: unknown
+  readonly valueType: ConditionValueType
+  readonly order: number
+}
+
+/**
+ * Acción declarada de una regla. En Fase 1 solo se transporta la estructura:
+ * `type` es la clave de un handler del ActionRegistry (aún sin implementar).
+ */
+export interface RuleAction {
+  readonly id: string
+  readonly type: string
+  readonly params: Readonly<Record<string, unknown>>
+  readonly order: number
+}
+
+/** Agrupación funcional de reglas (ej. "Validación QR"). Puramente organizativa. */
+export interface RuleGroupRef {
+  readonly id: string
+  readonly key: string
+  readonly name: string
+}
+
+/**
+ * Regla completa lista para evaluar. Es un agregado (DDD): incluye sus
+ * condiciones y acciones ya ordenadas.
+ */
+export interface Rule {
+  readonly id: string
+  readonly companyId: string
+  readonly group: RuleGroupRef | null
+  readonly name: string
+  readonly description: string | null
+  readonly status: RuleStatus
+  readonly isActive: boolean
+  readonly priority: number
+  readonly version: number
+  readonly matchType: RuleMatchType
+  readonly validFrom: Date | null
+  readonly validUntil: Date | null
+  readonly conditions: readonly RuleCondition[]
+  readonly actions: readonly RuleAction[]
+  readonly createdAt: Date
+  readonly updatedAt: Date
+}
+
+/**
+ * ¿Es la regla evaluable AHORA? Combina interruptor, ciclo de vida y ventana de
+ * vigencia. Función pura reutilizada por el repositorio y el motor para no
+ * duplicar la definición de "regla activa".
+ */
+export function isRuleEvaluable(rule: Rule, at: Date): boolean {
+  if (!rule.isActive) return false
+  if (rule.status !== 'PUBLISHED') return false
+  if (rule.validFrom && at < rule.validFrom) return false
+  if (rule.validUntil && at > rule.validUntil) return false
+  return true
+}
