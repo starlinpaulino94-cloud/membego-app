@@ -78,6 +78,10 @@ Migraciones pendientes relevantes:
   enum `DictionaryVariableStatus` y las tablas `data_dictionary_variables` y
   `data_dictionary_variable_versions` (variables custom/por-empresa; el catálogo
   estándar vive en código). Solo AÑADE.
+- `20260730_add_membership_engine`: Fase A (Membership Engine universal). Añade
+  los enums `MembershipPlanType`/`MembershipPeriodicity`/`MembershipInstanceStatus`
+  y las tablas `membership_plans`, `membership_instances`, `membership_usage`.
+  Solo AÑADE; el modelo `Membership` (Car Wash) queda intacto.
 
 > Si prefieres `db:push`, también sincroniza el enum, pero `migrate:deploy` deja
 > registro en `_prisma_migrations` y es lo recomendado para producción.

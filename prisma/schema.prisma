@@ -226,6 +226,10 @@ model Company {
   promotionAudits  PromotionAudit[]
   // Business Data Dictionary (Fase 6). Variables específicas de empresa.
   dictionaryVariables DataDictionaryVariable[]
+  // Membership Engine universal (Fase A). Independiente del modelo Membership
+  // legacy (Car Wash). Ningún flujo existente lo consulta.
+  membershipPlans     MembershipPlan[]
+  membershipInstances MembershipInstance[]
 
   @@index([isPublished, isFeatured])
   @@index([ciudad, provincia])
@@ -1287,4 +1291,138 @@ model DataDictionaryVariableVersion {
   @@unique([variableId, version])
   @@index([variableId])
   @@map("data_dictionary_variable_versions")
+}
+
+// ─────────────────────────────────────────────
+// FASE A: MEMBERSHIP ENGINE UNIVERSAL
+// ─────────────────────────────────────────────
+// Motor universal de membresías: modela CUALQUIER modelo comercial (los 20 de la
+// Membership Strategy Library) por CONFIGURACIÓN, no por código. Independiente de
+// la industria y del modelo `Membership` (Car Wash) existente, que NO se toca.
+// Reutiliza Rule/Action/Context/Dictionary/BEL para reglas de uso y automatización.
+
+/// Modelo comercial de la membresía (los 20 de la biblioteca de estrategias).
+enum MembershipPlanType {
+  UNLIMITED
+  CREDITS
+  HYBRID
+  TIER
+  FAMILY
+  FLEET
+  CORPORATE
+  SEASONAL
+  PREMIUM
+  MAINTENANCE
+  PAY_PER_VISIT
+  LOYALTY
+  PREPAID
+  VIP
+  REWARDS
+  TRIAL
+  STUDENT
+  DRIVER
+  SUBSCRIPTION_BOX
+  CUSTOM
+}
+
+/// Periodicidad de cobro/renovación.
+enum MembershipPeriodicity {
+  NONE
+  ONE_TIME
+  WEEKLY
+  MONTHLY
+  QUARTERLY
+  SEMIANNUAL
+  ANNUAL
+  SEASONAL
+}
+
+/// Estado de una membresía de un suscriptor concreto.
+enum MembershipInstanceStatus {
+  PENDING
+  ACTIVE
+  PAUSED
+  SUSPENDED
+  EXPIRED
+  CANCELLED
+}
+
+/// Definición (plantilla instanciada) de un plan de membresía de una empresa.
+/// Toda la configuración específica vive en `config` (JSON): servicios incluidos,
+/// límites, beneficios, reglas de uso, renovación, segmentos, restricciones,
+/// métricas y automatizaciones. Nunca columnas por caso.
+model MembershipPlan {
+  id           String                @id @default(cuid())
+  companyId    String
+  company      Company               @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  nombre       String
+  descripcion  String?
+  tipo         MembershipPlanType
+  precio       Decimal               @db.Decimal(10, 2)
+  moneda       String                @default("DOP")
+  periodicidad MembershipPeriodicity @default(MONTHLY)
+  duracionDias Int? // null = ligado a periodicidad
+  creditos     Int? // para CREDITS/HYBRID (null = no aplica)
+  ilimitado    Boolean               @default(false) // para UNLIMITED/tiers unlimited
+  templateKey  String? // plantilla de industria de la que nació (ej. "carwash.unlimited")
+  config       Json                  @default("{}") // configuración flexible (ver dominio)
+  status       String                @default("DRAFT") // DRAFT | PUBLISHED | ARCHIVED
+  version      Int                   @default(1)
+  metadata     Json                  @default("{}")
+  createdAt    DateTime              @default(now())
+  updatedAt    DateTime              @updatedAt
+
+  instances MembershipInstance[]
+
+  @@index([companyId, tipo])
+  @@index([companyId, status])
+  @@map("membership_plans")
+}
+
+/// Membresía de un suscriptor (cliente, familia, empresa/flota…). El suscriptor
+/// se referencia de forma genérica (`subscriberId`/`subscriberKind`) para no
+/// acoplar el motor a una entidad concreta.
+model MembershipInstance {
+  id                String                   @id @default(cuid())
+  companyId         String
+  company           Company                  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  planId            String
+  plan              MembershipPlan           @relation(fields: [planId], references: [id], onDelete: Cascade)
+  subscriberId      String // ref. genérica al titular
+  subscriberKind    String                   @default("CLIENT") // CLIENT | COMPANY | USER
+  status            MembershipInstanceStatus @default(PENDING)
+  inicioEn          DateTime?
+  finEn             DateTime?
+  renuevaEn         DateTime?
+  autoRenovar       Boolean                  @default(false)
+  creditosRestantes Int?
+  vehiculos         Json                     @default("[]") // family/fleet: lista de vehículos
+  config            Json                     @default("{}") // overrides/snapshot
+  metadata          Json                     @default("{}")
+  createdAt         DateTime                 @default(now())
+  updatedAt         DateTime                 @updatedAt
+
+  usage MembershipUsage[]
+
+  @@index([companyId, status])
+  @@index([planId])
+  @@index([subscriberId])
+  @@map("membership_instances")
+}
+
+/// Registro de uso (Usage Tracking): cada consumo de un servicio/beneficio.
+model MembershipUsage {
+  id         String             @id @default(cuid())
+  companyId  String // scalar (sin relación) para filtrar por empresa
+  instanceId String
+  instance   MembershipInstance @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+  servicio   String // ej. "lavado_exterior", "detailing"
+  cantidad   Int                @default(1)
+  vehiculo   String? // placa/id de vehículo cuando aplica
+  usadoEn    DateTime           @default(now())
+  meta       Json               @default("{}")
+
+  @@index([instanceId, usadoEn])
+  @@index([companyId, usadoEn])
+  @@map("membership_usage")
 }
