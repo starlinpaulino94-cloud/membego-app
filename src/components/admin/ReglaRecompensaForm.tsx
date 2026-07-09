@@ -72,7 +72,7 @@ export function ReglaRecompensaForm({ companies }: { companies?: EmpresaOpcion[]
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
           <Label htmlFor="nombre">Nombre de la regla *</Label>
-          <Input id="nombre" name="nombre" placeholder="Ej: 3 referidos = 1 lavado gratis" required />
+          <Input id="nombre" name="nombre" placeholder="Ej: 3 referidos = 1 uso gratis" required />
         </div>
         <div className="space-y-2">
           <Label htmlFor="valorCondicion">Referidos completados necesarios *</Label>
@@ -85,7 +85,7 @@ export function ReglaRecompensaForm({ companies }: { companies?: EmpresaOpcion[]
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="LAVADOS_GRATIS">Usos/lavados gratis</SelectItem>
+              <SelectItem value="LAVADOS_GRATIS">Usos gratis</SelectItem>
               <SelectItem value="DESCUENTO_PORCENTAJE">Descuento %</SelectItem>
               <SelectItem value="DESCUENTO_MONTO">Descuento monto fijo</SelectItem>
             </SelectContent>
