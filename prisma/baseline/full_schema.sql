@@ -281,6 +281,7 @@ CREATE TABLE "referidos" (
     "referidoClienteId" TEXT NOT NULL,
     "estado" "ReferidoEstado" NOT NULL DEFAULT 'PENDIENTE',
     "recompensaAplicada" BOOLEAN NOT NULL DEFAULT false,
+    "sospechoso" BOOLEAN NOT NULL DEFAULT false,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "completadoEn" TIMESTAMP(3),
 
@@ -959,6 +960,9 @@ CREATE UNIQUE INDEX "referidos_referidoClienteId_key" ON "referidos"("referidoCl
 
 -- CreateIndex
 CREATE INDEX "referidos_companyId_referenteClienteId_idx" ON "referidos"("companyId", "referenteClienteId");
+
+-- CreateIndex
+CREATE INDEX "referidos_companyId_sospechoso_idx" ON "referidos"("companyId", "sospechoso");
 
 -- CreateIndex
 CREATE INDEX "reglas_recompensa_companyId_activo_idx" ON "reglas_recompensa"("companyId", "activo");

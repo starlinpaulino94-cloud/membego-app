@@ -29,7 +29,10 @@ async function esRegistroSospechoso(
         meta: { path: ['ipHash'], equals: ipHashValor },
       },
     })
-    return repetidos >= 2
+    // Un segundo registro desde la MISMA huella de red en 7 días ya es
+    // sospechoso: es el patrón típico de autoreferido (el mismo dispositivo
+    // creando varias cuentas con el propio enlace).
+    return repetidos >= 1
   } catch {
     return false
   }
@@ -73,6 +76,9 @@ export async function vincularReferido(
           companyId,
           referenteClienteId: referente.id,
           referidoClienteId,
+          // El vínculo se guarda para auditoría, pero marcado: no cuenta en el
+          // embudo ni otorga puntos si la huella es sospechosa.
+          sospechoso,
         },
       })
       await logReferralEvent({

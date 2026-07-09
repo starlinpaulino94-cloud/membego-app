@@ -470,10 +470,15 @@ model Referido {
   referidoCliente    Cliente        @relation("Referido", fields: [referidoClienteId], references: [id])
   estado             ReferidoEstado @default(PENDIENTE)
   recompensaAplicada Boolean        @default(false)
+  // Anti-fraude: registro atribuido pero con huella repetida (misma red/
+  // dispositivo del referente o de otro referido reciente). Se conserva el
+  // vínculo para auditoría, pero NO cuenta en el embudo ni otorga puntos.
+  sospechoso         Boolean        @default(false)
   createdAt          DateTime       @default(now())
   completadoEn       DateTime?
 
   @@index([companyId, referenteClienteId])
+  @@index([companyId, sospechoso])
   @@map("referidos")
 }
 
