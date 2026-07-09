@@ -284,8 +284,16 @@ export default async function ReferidosPage() {
               <ul className="space-y-2">
                 {dash.topEmbajadores.map((t, i) => (
                   <li key={t.nombre + i} className="flex items-center justify-between text-sm">
-                    <span className="text-slate-700">
-                      {['🥇', '🥈', '🥉'][i] ?? `${i + 1}.`} {t.nombre}
+                    <span className="flex items-center gap-2 text-slate-700">
+                      <span
+                        className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-bold tabular-nums ${
+                          ['bg-amber-400 text-amber-950', 'bg-slate-300 text-slate-700', 'bg-orange-300 text-orange-900'][i] ??
+                          'bg-slate-100 text-slate-500'
+                        }`}
+                      >
+                        {i + 1}
+                      </span>
+                      {t.nombre}
                     </span>
                     <span className="text-xs text-slate-500">
                       {t.puntos} pts · {t.registros} reg · {t.membresias} memb
