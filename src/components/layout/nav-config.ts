@@ -133,6 +133,7 @@ const SUPERADMIN_NAV: NavGroup[] = [
     label: 'Plataforma',
     items: [
       { href: '/superadmin/empresas', label: 'Empresas', icon: Building2 },
+      { href: '/superadmin/usuarios', label: 'Usuarios', icon: UserCog },
       { href: '/superadmin/planes', label: 'Planes globales', icon: Package },
       { href: '/superadmin/membresias', label: 'Membresías globales', icon: CreditCard },
       { href: '/superadmin/operaciones', label: 'Operaciones', icon: ClipboardList },
