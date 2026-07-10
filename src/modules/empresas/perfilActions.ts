@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { prisma } from '@/lib/prisma'
 import { requireAdminUser } from '@/lib/auth/guards'
+import { resolveCompanyId } from '@/lib/auth/company-context'
 
 // F4.1: la empresa administra su propio perfil público del marketplace.
 // Solo puede tocar campos de presentación — nunca isActive/isPublished/
@@ -30,21 +31,11 @@ export async function actualizarPerfilPublico(
   const user = await requireAdminUser()
   if (!user) return { error: 'No autorizado.' }
 
-  // El superadmin no depende de la empresa de su sesión (puede no tener o
-  // apuntar a una borrada): edita la empresa elegida en el formulario.
-  const esSuper = user.metadata.role === 'SUPERADMIN'
-  const companyId = esSuper
-    ? String(formData.get('companyId') ?? '').trim()
-    : user.metadata.companyId
+  // Superadmin: empresa del formulario o, si no viene, la ACTIVA del
+  // selector del panel (verificada). Staff: siempre la de su sesión.
+  const companyId = await resolveCompanyId(user, formData)
   if (!companyId) {
     return { error: 'Empresa requerida.' }
-  }
-  if (esSuper) {
-    const existe = await prisma.company.findUnique({
-      where: { id: companyId },
-      select: { id: true },
-    })
-    if (!existe) return { error: 'Empresa no encontrada.' }
   }
 
   const galleryImages = formData
