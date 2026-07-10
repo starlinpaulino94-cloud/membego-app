@@ -61,7 +61,23 @@ Definida en [`types.ts`](./types.ts) — `AutomationPlaybook`:
 | E1.1 | `captacion` (adquisición) | [`acquisition.ts`](./acquisition.ts) | `ACQ-001`…`ACQ-020` (20) |
 | E1.2 | `onboarding` (activación) | [`onboarding.ts`](./onboarding.ts) | `ONB-001`…`ONB-018` (18) |
 | E1.3 | `primera_compra` (conversión) | [`first-purchase.ts`](./first-purchase.ts) | `FP-001`…`FP-012` (12) |
-| E1.4–E1.10 | frecuencia, recuperación, membresías, referidos, campañas, gamificación, IA | _(próximas)_ | — |
+| E1.4 | `frecuencia` (hábito/LTV) | [`frequency.ts`](./frequency.ts) | `FREQ-001`…`FREQ-016` (16) |
+| E1.5–E1.10 | recuperación, membresías, referidos, campañas, gamificación, IA | _(próximas)_ | — |
+
+### E1.4 — Frecuencia
+
+Aumenta la frecuencia de compra/visita/consumo, crea hábitos y eleva el LTV.
+No son automatizaciones simples por tiempo: reaccionan al **comportamiento**
+(frecuencia en descenso/ascenso, rachas, alta actividad, cambios de horario/
+sucursal/gasto, uso de beneficios, estacionalidad) e incluyen un gancho de IA
+predictiva (`FREQ-015`) integrable vía `INVOKE_MODULE` sin alterar la lógica.
+
+Amplió el catálogo de eventos con eventos **universales** de comportamiento
+(aditivos): `cliente.bajo_frecuencia`, `cliente.subio_frecuencia`,
+`cliente.alcanzo_meta_frecuencia`, `cliente.alta_actividad`,
+`cliente.cambio_comportamiento`, `cliente.no_usa_beneficios`,
+`cliente.riesgo_abandono`. Añadió `sensibilidadDeteccion` a las opciones
+editables.
 
 ### E1.3 — Primera compra
 

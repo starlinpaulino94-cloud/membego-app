@@ -30,6 +30,14 @@ export const AUTOMATION_EVENTS = {
   CLIENT_PROCESS_ABANDONED: 'cliente.proceso_abandonado',
   CLIENT_FEEDBACK_GIVEN: 'cliente.dio_feedback',
   CLIENT_LOYALTY_ENROLLED: 'cliente.inscrito_fidelizacion',
+  // Frecuencia / comportamiento — universales, ninguna industria.
+  CLIENT_FREQUENCY_DROP: 'cliente.bajo_frecuencia',
+  CLIENT_FREQUENCY_UP: 'cliente.subio_frecuencia',
+  CLIENT_FREQUENCY_GOAL: 'cliente.alcanzo_meta_frecuencia',
+  CLIENT_HIGH_ACTIVITY: 'cliente.alta_actividad',
+  CLIENT_BEHAVIOR_CHANGED: 'cliente.cambio_comportamiento',
+  CLIENT_BENEFIT_UNDERUSED: 'cliente.no_usa_beneficios',
+  CLIENT_CHURN_RISK: 'cliente.riesgo_abandono',
   // Emitidos por el propio motor.
   AUTOMATION_STARTED: 'automatizacion.iniciada',
   AUTOMATION_FINISHED: 'automatizacion.finalizada',
@@ -68,6 +76,13 @@ export const AUTOMATION_EVENT_CATALOG: readonly AutomationEventDef[] = [
   { id: AUTOMATION_EVENTS.CLIENT_PROCESS_ABANDONED, name: 'Cliente abandonó un proceso', description: 'El cliente inició un proceso de compra/membresía y no lo completó.' },
   { id: AUTOMATION_EVENTS.CLIENT_FEEDBACK_GIVEN, name: 'Cliente dejó retroalimentación', description: 'El cliente respondió una encuesta o dejó feedback.' },
   { id: AUTOMATION_EVENTS.CLIENT_LOYALTY_ENROLLED, name: 'Cliente inscrito en fidelización', description: 'El cliente entró a un programa de fidelización.' },
+  { id: AUTOMATION_EVENTS.CLIENT_FREQUENCY_DROP, name: 'Cliente bajó su frecuencia', description: 'El tiempo entre visitas/compras del cliente aumentó.' },
+  { id: AUTOMATION_EVENTS.CLIENT_FREQUENCY_UP, name: 'Cliente subió su frecuencia', description: 'El cliente superó su frecuencia habitual.' },
+  { id: AUTOMATION_EVENTS.CLIENT_FREQUENCY_GOAL, name: 'Cliente alcanzó meta de frecuencia', description: 'El cliente llegó a un objetivo de visitas/compras.' },
+  { id: AUTOMATION_EVENTS.CLIENT_HIGH_ACTIVITY, name: 'Cliente con alta actividad', description: 'El cliente concentró varias visitas en poco tiempo.' },
+  { id: AUTOMATION_EVENTS.CLIENT_BEHAVIOR_CHANGED, name: 'Cliente cambió su comportamiento', description: 'Cambió el patrón de horario, sucursal o gasto del cliente.' },
+  { id: AUTOMATION_EVENTS.CLIENT_BENEFIT_UNDERUSED, name: 'Cliente no aprovecha beneficios', description: 'El cliente usa poco los beneficios disponibles.' },
+  { id: AUTOMATION_EVENTS.CLIENT_CHURN_RISK, name: 'Cliente en riesgo de abandono', description: 'El comportamiento del cliente sugiere riesgo de abandono.' },
   { id: AUTOMATION_EVENTS.AUTOMATION_STARTED, name: 'Automatización iniciada', description: 'Comenzó una ejecución.' },
   { id: AUTOMATION_EVENTS.AUTOMATION_FINISHED, name: 'Automatización finalizada', description: 'Terminó una ejecución.' },
 ]

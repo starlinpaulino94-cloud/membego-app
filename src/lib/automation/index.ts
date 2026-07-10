@@ -133,6 +133,9 @@ export {
   FIRST_PURCHASE_PLAYBOOKS, firstPurchasePlaybooks, getFirstPurchasePlaybook,
 } from './playbooks/first-purchase'
 export {
+  FREQUENCY_PLAYBOOKS, frequencyPlaybooks, getFrequencyPlaybook,
+} from './playbooks/frequency'
+export {
   ALL_PLAYBOOKS, getPlaybook, playbooksByCategory, playbooksForIndustry,
 } from './playbooks'
 
