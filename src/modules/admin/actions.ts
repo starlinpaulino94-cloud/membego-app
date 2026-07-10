@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { prisma } from '@/lib/prisma'
 import { requireAdminUser, requireSection } from '@/lib/auth/guards'
+import { resolveCompanyId } from '@/lib/auth/company-context'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getRequestMeta, periodEnd } from '@/lib/server-utils'
 import { crearNotificacion } from '@/modules/notificaciones/service'
@@ -702,7 +703,7 @@ export async function guardarBienvenida(
   try {
     const user = await requireAdminUser()
     if (!user) return { error: 'No autorizado.' }
-    const companyId = user.metadata.companyId
+    const companyId = await resolveCompanyId(user, formData)
     if (!companyId) return { error: 'Esta configuración es por empresa.' }
 
     const activa = formData.get('activa') === 'on'
