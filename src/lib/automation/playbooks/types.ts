@@ -29,6 +29,37 @@ export const INDUSTRIES = {
 
 export type IndustryKey = (typeof INDUSTRIES)[keyof typeof INDUSTRIES]
 
+/**
+ * Modelos de membresía compatibles (espeja los 20 tipos del Membership Engine +
+ * `ANY` para "cualquier modelo"). Un nuevo modelo futuro se integra por
+ * configuración, sin cambiar código: los playbooks universales usan `ANY`.
+ */
+export const MEMBERSHIP_MODELS = {
+  ANY: 'any',
+  UNLIMITED: 'UNLIMITED',
+  CREDITS: 'CREDITS',
+  HYBRID: 'HYBRID',
+  TIER: 'TIER',
+  FAMILY: 'FAMILY',
+  FLEET: 'FLEET',
+  CORPORATE: 'CORPORATE',
+  SEASONAL: 'SEASONAL',
+  PREMIUM: 'PREMIUM',
+  MAINTENANCE: 'MAINTENANCE',
+  PAY_PER_VISIT: 'PAY_PER_VISIT',
+  LOYALTY: 'LOYALTY',
+  PREPAID: 'PREPAID',
+  VIP: 'VIP',
+  REWARDS: 'REWARDS',
+  TRIAL: 'TRIAL',
+  STUDENT: 'STUDENT',
+  DRIVER: 'DRIVER',
+  SUBSCRIPTION_BOX: 'SUBSCRIPTION_BOX',
+  CUSTOM: 'CUSTOM',
+} as const
+
+export type MembershipModelKey = (typeof MEMBERSHIP_MODELS)[keyof typeof MEMBERSHIP_MODELS]
+
 /** Motores de la Strategy Library que un Playbook puede reutilizar. */
 export type EngineRef =
   | 'rule'
@@ -96,6 +127,8 @@ export interface AutomationPlaybook {
   readonly exceptions: readonly string[]
   /** Configuraciones editables por la empresa. */
   readonly editable: readonly string[]
+  /** Modelos de membresía compatibles (E1.6+; `['any']` = cualquier modelo). */
+  readonly compatibleMembershipModels?: readonly MembershipModelKey[]
   /** Beneficios compatibles (códigos del Benefit Engine). */
   readonly compatibleBenefits: readonly string[]
   /** Promociones compatibles (códigos/objetivos del Promotion Engine). */

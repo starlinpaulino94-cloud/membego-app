@@ -63,7 +63,26 @@ Definida en [`types.ts`](./types.ts) — `AutomationPlaybook`:
 | E1.3 | `primera_compra` (conversión) | [`first-purchase.ts`](./first-purchase.ts) | `FP-001`…`FP-012` (12) |
 | E1.4 | `frecuencia` (hábito/LTV) | [`frequency.ts`](./frequency.ts) | `FREQ-001`…`FREQ-016` (16) |
 | E1.5 | `recuperacion` (churn/win-back) | [`recovery.ts`](./recovery.ts) | `REC-001`…`REC-016` (16) |
-| E1.6–E1.10 | membresías, referidos, campañas, gamificación, IA | _(próximas)_ | — |
+| E1.6 | `membresias` (ciclo de vida) | [`membership.ts`](./membership.ts) | `MEM-001`…`MEM-020` (20) |
+| E1.7–E1.10 | referidos, campañas, gamificación, IA | _(próximas)_ | — |
+
+### E1.6 — Membresías (ciclo de vida)
+
+Automatiza el ciclo de vida COMPLETO de **cualquier** membresía (creación →
+activación → primer uso → uso recurrente → cambios → renovación → upgrade/
+downgrade → suspensión → reactivación → cancelación → expiración → historial).
+No hay lógica atada a un plan concreto: funciona con cualquier modelo del
+Membership Engine (Unlimited, Créditos, Family, Fleet, Corporate, Seasonal,
+Hybrid, Subscription, Prepaid/Wallet, por niveles, por consumo, personalizada…).
+Un modelo futuro se integra por configuración, sin código.
+
+Estos playbooks incluyen un apartado extra del Documento Maestro,
+**`compatibleMembershipModels`** (25 apartados en total), con el vocabulario
+`MEMBERSHIP_MODELS` (`any` + los 20 tipos del Membership Engine). Amplió el
+catálogo de eventos con el ciclo de vida (aditivos): `membresia.creada`,
+`membresia.activada`, `membresia.primer_uso`, `membresia.renovada`,
+`membresia.upgrade`, `membresia.downgrade`, `membresia.suspendida`,
+`membresia.reactivada`, `membresia.cancelada`, `membresia.por_vencer`.
 
 ### E1.5 — Recuperación
 
