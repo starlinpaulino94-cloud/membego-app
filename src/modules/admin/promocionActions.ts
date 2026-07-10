@@ -6,6 +6,10 @@ import { requireAdminUser, requireSection } from '@/lib/auth/guards'
 import { resolveCompanyId } from '@/lib/auth/company-context'
 import { notificarSeguidoresEmpresa } from '@/modules/notificaciones/service'
 import { esTipoValido, esVisibilidadValida } from '@/lib/promociones'
+import {
+  syncCreate, syncUpdate, syncStatusChange, syncDelete, syncDuplicate,
+  type LegacyPromoData,
+} from '@/modules/promociones/bridge'
 
 export interface PromocionState {
   error?: string
@@ -84,6 +88,28 @@ function parsePromocion(formData: FormData): { error: string } | {
   }
 }
 
+function toBridgeData(d: {
+  titulo: string; descripcion: string; imagenUrl?: string | null;
+  tipo: string; descuento?: number | null; codigo?: string | null;
+  visibilidad: string; vigenciaDesde: Date; vigenciaHasta?: Date | null;
+  maxCanjes?: number | null; prioridad: number; campanaId?: string | null;
+}): LegacyPromoData {
+  return {
+    titulo: d.titulo,
+    descripcion: d.descripcion,
+    imagenUrl: d.imagenUrl ?? null,
+    tipo: d.tipo,
+    descuento: d.descuento ?? null,
+    codigo: d.codigo ?? null,
+    visibilidad: d.visibilidad,
+    vigenciaDesde: d.vigenciaDesde,
+    vigenciaHasta: d.vigenciaHasta ?? null,
+    maxCanjes: d.maxCanjes ?? null,
+    prioridad: d.prioridad,
+    campanaId: d.campanaId ?? null,
+  }
+}
+
 /** Valida que la campaña exista y pertenezca a la empresa. */
 async function validarCampana(
   campanaId: string | null,
@@ -142,9 +168,14 @@ export async function crearPromocion(
   if (campanaError) return { error: campanaError }
 
   try {
-    await prisma.promocion.create({ data: { companyId, ...parsed.data } })
+    const legacy = await prisma.promocion.create({ data: { companyId, ...parsed.data } })
 
-    // Solo los seguidores de la empresa reciben la notificación.
+    await syncCreate(
+      legacy.id, companyId,
+      toBridgeData(parsed.data),
+      user.metadata.dbUserId,
+    )
+
     await notificarSeguidoresEmpresa(companyId, {
       tipo: 'PROMOCION_NUEVA',
       titulo: '¡Nueva promoción disponible!',
@@ -187,6 +218,11 @@ export async function actualizarPromocion(
       data: { ...parsed.data, activo },
     })
 
+    await syncUpdate(id, promo.companyId, toBridgeData(parsed.data), user.metadata.dbUserId)
+    if (activo !== promo.activo) {
+      await syncStatusChange(id, promo.companyId, activo, promo.archivada ?? false, parsed.data.titulo, user.metadata.dbUserId)
+    }
+
     revalidatePromos()
     return { success: true }
   } catch (e) {
@@ -209,6 +245,7 @@ export async function eliminarPromocion(
     const promo = await promoDeMiEmpresa(id, user)
     if (!promo) return { error: 'Promoción no encontrada.' }
 
+    await syncDelete(promo.id, promo.companyId, promo.titulo)
     await prisma.promocion.delete({ where: { id } })
 
     revalidatePromos()
@@ -234,10 +271,13 @@ export async function alternarPausaPromocion(
     const promo = await promoDeMiEmpresa(id, user)
     if (!promo) return { error: 'Promoción no encontrada.' }
 
+    const newActivo = !promo.activo
     await prisma.promocion.update({
       where: { id },
-      data: { activo: !promo.activo },
+      data: { activo: newActivo },
     })
+
+    await syncStatusChange(id, promo.companyId, newActivo, promo.archivada ?? false, promo.titulo, user.metadata.dbUserId)
 
     revalidatePromos()
     return { success: true }
@@ -263,7 +303,7 @@ export async function duplicarPromocion(
     if (!promo) return { error: 'Promoción no encontrada.' }
 
     const original = await prisma.promocion.findUniqueOrThrow({ where: { id } })
-    await prisma.promocion.create({
+    const copy = await prisma.promocion.create({
       data: {
         companyId: original.companyId,
         titulo: `${original.titulo} (Copia)`,
@@ -279,10 +319,28 @@ export async function duplicarPromocion(
         prioridad: original.prioridad,
         campanaId: original.campanaId,
         tags: original.tags,
-        // La copia nace pausada para editarla antes de publicar.
         activo: false,
       },
     })
+
+    await syncDuplicate(
+      id, copy.id, original.companyId,
+      toBridgeData({
+        titulo: copy.titulo,
+        descripcion: copy.descripcion,
+        imagenUrl: copy.imagenUrl,
+        tipo: copy.tipo,
+        descuento: copy.descuento,
+        codigo: copy.codigo,
+        visibilidad: copy.visibilidad,
+        vigenciaDesde: copy.vigenciaDesde,
+        vigenciaHasta: copy.vigenciaHasta,
+        maxCanjes: copy.maxCanjes,
+        prioridad: copy.prioridad,
+        campanaId: copy.campanaId,
+      }),
+      user.metadata.dbUserId,
+    )
 
     revalidatePromos()
     return { success: true }
@@ -307,10 +365,14 @@ export async function alternarArchivoPromocion(
     const promo = await promoDeMiEmpresa(id, user)
     if (!promo) return { error: 'Promoción no encontrada.' }
 
+    const newArchivada = !promo.archivada
+    const newActivo = newArchivada ? false : promo.activo
     await prisma.promocion.update({
       where: { id },
-      data: { archivada: !promo.archivada, ...(promo.archivada ? {} : { activo: false }) },
+      data: { archivada: newArchivada, ...(promo.archivada ? {} : { activo: false }) },
     })
+
+    await syncStatusChange(id, promo.companyId, newActivo, newArchivada, promo.titulo, user.metadata.dbUserId)
 
     revalidatePromos()
     return { success: true }
