@@ -64,7 +64,50 @@ Definida en [`types.ts`](./types.ts) — `AutomationPlaybook`:
 | E1.4 | `frecuencia` (hábito/LTV) | [`frequency.ts`](./frequency.ts) | `FREQ-001`…`FREQ-016` (16) |
 | E1.5 | `recuperacion` (churn/win-back) | [`recovery.ts`](./recovery.ts) | `REC-001`…`REC-016` (16) |
 | E1.6 | `membresias` (ciclo de vida) | [`membership.ts`](./membership.ts) | `MEM-001`…`MEM-020` (20) |
-| E1.7–E1.10 | referidos, campañas, gamificación, IA | _(próximas)_ | — |
+| E1.7 | `referidos` (journey) | [`referral.ts`](./referral.ts) | `REF-001`…`REF-020` (20) |
+| E1.8 | `campanas` (orquestación) | [`campaign.ts`](./campaign.ts) | `CAMP-001`…`CAMP-020` (20) |
+| E1.9–E1.10 | gamificación, IA | _(próximas)_ | — |
+
+### E1.8 — Campañas (orquestación)
+
+No es un sistema de notificaciones: es un **Campaign Orchestration Framework**.
+Cada campaña coordina **varios motores** (Promotion, Membership, Benefit, Reward,
+Referral, Gamification, Automation, Analytics) para ejecutar una estrategia
+completa: evento → Rule Engine → segmentación → selección de estrategia →
+ejecución multi-motor → notificaciones → medición → optimización. La coordinación
+se hace siempre por eventos/reglas/acciones reutilizables (`INVOKE_MODULE`,
+`RUN_WORKFLOW`, `CREATE_EVENT`), nunca con lógica aislada. Incluye el ciclo de
+vida (crear/programar/segmentar/ejecutar/seguir/**optimizar**: pausar/reanudar/
+clonar), y campañas de bienvenida, estacional, cumpleaños, aniversario, clima,
+ubicación, comportamiento, inactividad, membresías, upgrades, referidos, puntos,
+objetivos, lanzamiento, flash, happy hour, fechas comerciales (Black Friday/
+Navidad/Verano), fidelización, optimización e IA.
+
+Estos playbooks incluyen los apartados **`compatibleMembershipModels`** y
+**`compatibleGamification`** (25 apartados). Amplió el catálogo de eventos con la
+orquestación (aditivos): `campana.lanzada`, `campana.participacion`,
+`campana.conversion`, `campana.pausada`, `campana.reanudada`,
+`campana.finalizada`, `campana.hija_iniciada`. Se añadió `automation` como
+`EngineRef` (una campaña puede orquestar el Automation Engine).
+
+### E1.7 — Referidos (journey)
+
+Automatiza el journey COMPLETO de un programa de referidos (código generado →
+compartido → invitado registrado → primera conversión → validación antifraude →
+liberación de recompensa → ranking → escalamiento → embajadores/influencers). No
+reimplementa el Referral Engine: lo **opera** y lo coordina con el resto de
+motores (la recompensa por un referido puede activar Benefit/Reward/Membership/
+Promotion/Campaign/Gamification). Funciona con cualquier modelo (clásico, ambos
+ganan, solo invitado/solo quien invita, progresivo, embajadores, influencers,
+corporativo, empleados, equipos, afiliados/alianzas).
+
+Estos playbooks incluyen el apartado **`compatibleReferralModels`** (25
+apartados), con el vocabulario `REFERRAL_MODELS` (`any` + los 10 modelos del
+Referral Engine). Amplió el catálogo de eventos con el journey (aditivos):
+`referido.codigo_generado`, `referido.invitacion_compartida`,
+`referido.invitado_registrado`, `referido.convirtio`,
+`referido.recompensa_pendiente/liberada/vencida`, `referido.fraude_detectado`,
+`referido.rechazado`, `referido.embajador_detectado`.
 
 ### E1.6 — Membresías (ciclo de vida)
 

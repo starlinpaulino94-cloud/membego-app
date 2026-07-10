@@ -60,6 +60,27 @@ export const MEMBERSHIP_MODELS = {
 
 export type MembershipModelKey = (typeof MEMBERSHIP_MODELS)[keyof typeof MEMBERSHIP_MODELS]
 
+/**
+ * Modelos de programa de referido compatibles (espeja los 10 modelos del
+ * Referral Engine + `ANY` para "cualquier programa"). Un nuevo modelo futuro se
+ * integra por configuración y reutilización del Referral Engine, sin código.
+ */
+export const REFERRAL_MODELS = {
+  ANY: 'any',
+  CLASSIC: 'CLASSIC',
+  REFERRER_ONLY: 'REFERRER_ONLY',
+  REFERRED_ONLY: 'REFERRED_ONLY',
+  BOTH: 'BOTH',
+  PROGRESSIVE: 'PROGRESSIVE',
+  AMBASSADOR: 'AMBASSADOR',
+  INFLUENCER: 'INFLUENCER',
+  CORPORATE: 'CORPORATE',
+  EMPLOYEE: 'EMPLOYEE',
+  TEAM: 'TEAM',
+} as const
+
+export type ReferralModelKey = (typeof REFERRAL_MODELS)[keyof typeof REFERRAL_MODELS]
+
 /** Motores de la Strategy Library que un Playbook puede reutilizar. */
 export type EngineRef =
   | 'rule'
@@ -72,6 +93,7 @@ export type EngineRef =
   | 'campaign'
   | 'gamification'
   | 'analytics'
+  | 'automation'
   | 'template'
 
 export type PlaybookComplexity = 'basic' | 'intermediate' | 'advanced'
@@ -129,6 +151,10 @@ export interface AutomationPlaybook {
   readonly editable: readonly string[]
   /** Modelos de membresía compatibles (E1.6+; `['any']` = cualquier modelo). */
   readonly compatibleMembershipModels?: readonly MembershipModelKey[]
+  /** Modelos de programa de referido compatibles (E1.7+; `['any']` = cualquiera). */
+  readonly compatibleReferralModels?: readonly ReferralModelKey[]
+  /** Mecánicas de gamificación compatibles (E1.8+; puntos, XP, niveles, misiones, rachas…). */
+  readonly compatibleGamification?: readonly string[]
   /** Beneficios compatibles (códigos del Benefit Engine). */
   readonly compatibleBenefits: readonly string[]
   /** Promociones compatibles (códigos/objetivos del Promotion Engine). */
