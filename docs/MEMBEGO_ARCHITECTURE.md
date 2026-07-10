@@ -62,7 +62,7 @@ vive en los motores, nunca en los módulos de UI.
 | **Membership Engine** | ✅ Construido (FA) | `src/lib/membership` — 20 modelos por configuración (unlimited, créditos, familiar, flota, VIP…) + plantillas Car Wash. |
 | **Benefit Engine** | ✅ Construido (FC) | `src/lib/benefits` — beneficios **separados** como entidad reutilizable; 10 tipos, valor percibido vs costo real, ROI, 50 plantillas Car Wash. |
 | **Reward Engine** | ⛔ Pendiente | Puntos, créditos, servicios, regalos, beneficios digitales. |
-| **Referral Engine (universal)** | ⛔ Pendiente | Embudo Invitado→Registrado→1ª compra→Activo→Recompensa; niveles escalables. |
+| **Referral Engine (universal)** | ✅ Construido (FD) | `src/lib/referral` — 10 modelos por configuración, flujo de estados editable, escalado, límites, antifraude toggleable; reutiliza el Benefit Engine para recompensas. 15 plantillas Car Wash. |
 | **Automation Engine** | ⛔ Pendiente | Triggers + condiciones + acciones + esperas + métricas. |
 | **Campaign Engine** | ⛔ Pendiente | Objetivo + segmento + oferta + reglas + duración + métricas. |
 | **Gamification Engine** | ⛔ Pendiente | Niveles, XP, insignias, misiones, rachas, rankings. **XP ≠ puntos.** |
