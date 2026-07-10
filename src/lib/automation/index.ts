@@ -119,10 +119,10 @@ export type { AutomationTemplate, InstantiateAutomationOverrides } from './templ
 export { UNIVERSAL_AUTOMATION_TEMPLATES, getUniversalAutomation } from './templates/universal'
 
 // Automation Playbooks (E1.1+) — estrategias comerciales instalables.
-export { playbookToCreateData, isCompatibleWith, INDUSTRIES, MEMBERSHIP_MODELS } from './playbooks/types'
+export { playbookToCreateData, isCompatibleWith, INDUSTRIES, MEMBERSHIP_MODELS, REFERRAL_MODELS } from './playbooks/types'
 export type {
   AutomationPlaybook, IndustryKey, EngineRef, PlaybookComplexity, PlaybookCategory,
-  MembershipModelKey,
+  MembershipModelKey, ReferralModelKey,
 } from './playbooks/types'
 export {
   ACQUISITION_PLAYBOOKS, acquisitionPlaybooks, getAcquisitionPlaybook,
@@ -143,6 +143,9 @@ export type { RecoveryState } from './playbooks/recovery'
 export {
   MEMBERSHIP_PLAYBOOKS, membershipPlaybooks, getMembershipPlaybook,
 } from './playbooks/membership'
+export {
+  REFERRAL_PLAYBOOKS, referralPlaybooks, getReferralPlaybook,
+} from './playbooks/referral'
 export {
   ALL_PLAYBOOKS, getPlaybook, playbooksByCategory, playbooksForIndustry,
 } from './playbooks'

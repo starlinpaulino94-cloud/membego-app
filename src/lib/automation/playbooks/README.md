@@ -64,7 +64,27 @@ Definida en [`types.ts`](./types.ts) — `AutomationPlaybook`:
 | E1.4 | `frecuencia` (hábito/LTV) | [`frequency.ts`](./frequency.ts) | `FREQ-001`…`FREQ-016` (16) |
 | E1.5 | `recuperacion` (churn/win-back) | [`recovery.ts`](./recovery.ts) | `REC-001`…`REC-016` (16) |
 | E1.6 | `membresias` (ciclo de vida) | [`membership.ts`](./membership.ts) | `MEM-001`…`MEM-020` (20) |
-| E1.7–E1.10 | referidos, campañas, gamificación, IA | _(próximas)_ | — |
+| E1.7 | `referidos` (journey) | [`referral.ts`](./referral.ts) | `REF-001`…`REF-020` (20) |
+| E1.8–E1.10 | campañas, gamificación, IA | _(próximas)_ | — |
+
+### E1.7 — Referidos (journey)
+
+Automatiza el journey COMPLETO de un programa de referidos (código generado →
+compartido → invitado registrado → primera conversión → validación antifraude →
+liberación de recompensa → ranking → escalamiento → embajadores/influencers). No
+reimplementa el Referral Engine: lo **opera** y lo coordina con el resto de
+motores (la recompensa por un referido puede activar Benefit/Reward/Membership/
+Promotion/Campaign/Gamification). Funciona con cualquier modelo (clásico, ambos
+ganan, solo invitado/solo quien invita, progresivo, embajadores, influencers,
+corporativo, empleados, equipos, afiliados/alianzas).
+
+Estos playbooks incluyen el apartado **`compatibleReferralModels`** (25
+apartados), con el vocabulario `REFERRAL_MODELS` (`any` + los 10 modelos del
+Referral Engine). Amplió el catálogo de eventos con el journey (aditivos):
+`referido.codigo_generado`, `referido.invitacion_compartida`,
+`referido.invitado_registrado`, `referido.convirtio`,
+`referido.recompensa_pendiente/liberada/vencida`, `referido.fraude_detectado`,
+`referido.rechazado`, `referido.embajador_detectado`.
 
 ### E1.6 — Membresías (ciclo de vida)
 
