@@ -118,6 +118,18 @@ export { instantiateAutomationTemplate } from './templates/types'
 export type { AutomationTemplate, InstantiateAutomationOverrides } from './templates/types'
 export { UNIVERSAL_AUTOMATION_TEMPLATES, getUniversalAutomation } from './templates/universal'
 
+// Automation Playbooks (E1.1+) — estrategias comerciales instalables.
+export { playbookToCreateData, isCompatibleWith, INDUSTRIES } from './playbooks/types'
+export type {
+  AutomationPlaybook, IndustryKey, EngineRef, PlaybookComplexity, PlaybookCategory,
+} from './playbooks/types'
+export {
+  ACQUISITION_PLAYBOOKS, acquisitionPlaybooks, getAcquisitionPlaybook,
+} from './playbooks/acquisition'
+export {
+  ALL_PLAYBOOKS, getPlaybook, playbooksByCategory, playbooksForIndustry,
+} from './playbooks'
+
 export { PrismaAutomationRepository } from './infrastructure/prisma-automation-repository'
 export { PrismaEventStore } from './infrastructure/prisma-event-store'
 export { mapAutomation, mapRun, mapEvent } from './infrastructure/mappers'
