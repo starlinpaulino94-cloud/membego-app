@@ -118,6 +118,35 @@ export { instantiateAutomationTemplate } from './templates/types'
 export type { AutomationTemplate, InstantiateAutomationOverrides } from './templates/types'
 export { UNIVERSAL_AUTOMATION_TEMPLATES, getUniversalAutomation } from './templates/universal'
 
+// Automation Playbooks (E1.1+) — estrategias comerciales instalables.
+export { playbookToCreateData, isCompatibleWith, INDUSTRIES, MEMBERSHIP_MODELS } from './playbooks/types'
+export type {
+  AutomationPlaybook, IndustryKey, EngineRef, PlaybookComplexity, PlaybookCategory,
+  MembershipModelKey,
+} from './playbooks/types'
+export {
+  ACQUISITION_PLAYBOOKS, acquisitionPlaybooks, getAcquisitionPlaybook,
+} from './playbooks/acquisition'
+export {
+  ONBOARDING_PLAYBOOKS, onboardingPlaybooks, getOnboardingPlaybook,
+} from './playbooks/onboarding'
+export {
+  FIRST_PURCHASE_PLAYBOOKS, firstPurchasePlaybooks, getFirstPurchasePlaybook,
+} from './playbooks/first-purchase'
+export {
+  FREQUENCY_PLAYBOOKS, frequencyPlaybooks, getFrequencyPlaybook,
+} from './playbooks/frequency'
+export {
+  RECOVERY_PLAYBOOKS, recoveryPlaybooks, getRecoveryPlaybook, RECOVERY_STATES,
+} from './playbooks/recovery'
+export type { RecoveryState } from './playbooks/recovery'
+export {
+  MEMBERSHIP_PLAYBOOKS, membershipPlaybooks, getMembershipPlaybook,
+} from './playbooks/membership'
+export {
+  ALL_PLAYBOOKS, getPlaybook, playbooksByCategory, playbooksForIndustry,
+} from './playbooks'
+
 export { PrismaAutomationRepository } from './infrastructure/prisma-automation-repository'
 export { PrismaEventStore } from './infrastructure/prisma-event-store'
 export { mapAutomation, mapRun, mapEvent } from './infrastructure/mappers'
