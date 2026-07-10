@@ -94,6 +94,32 @@ Descubrimiento: `carwashMembershipByType(type)`, `carwashMembershipByTier(tier)`
 `CARWASH_MEMBERSHIP_BY_TYPE` (mapa por modelo; su `satisfies Record<MembershipPlanType,…>`
 garantiza en compilación que ningún modelo quede sin plantilla).
 
+### 6.1 Strategy Library (Fase F1.1)
+
+Encima de las variantes vive la **capa de estrategia**: cada uno de los 20 modelos
+está documentado profesionalmente en `templates/carwash-strategies.ts` como
+`MembershipStrategy`, con los 24 campos del estándar F1.1 (problema que resuelve,
+cuándo usar/no, ventajas, desventajas, riesgos, complejidad, servicios y vehículos
+compatibles, motores usados, playbooks, beneficios/promociones/campañas/gamificación
+compatibles, KPIs, buenas prácticas, errores comunes, variantes y versión).
+
+- **Taxonomía** (`templates/taxonomy.ts`): objetivo comercial (`MembershipObjective`)
+  y público objetivo (`MembershipAudience`), más complejidad y tipos de vehículo.
+- **Estrategia → variantes**: cada estrategia apunta por `variantKeys` a las
+  `MembershipTemplate` instalables; `strategyVariants(strategy)` las resuelve.
+- **Descubrimiento**: `membershipStrategyForModel(model)`,
+  `membershipStrategiesByObjective(obj)`, `membershipStrategiesByAudience(aud)`,
+  `getMembershipStrategy(id)`.
+- **Config editable**: `MembershipConfig` cubre los ~22 campos configurables de F1.1
+  (servicios incluidos/excluidos, beneficios incluidos/opcionales, límites, días y
+  horarios, sucursales, tipos de vehículo, renovación, reglas de ciclo de vida
+  —upgrade/downgrade/suspensión/cancelación—, recompensas, segmentos, variables,
+  prioridad). Nada hardcodeado.
+
+Las estrategias declaran integración con Reward/Campaign/Gamification/Analytics/
+Decision Engines (pendientes): son referencias de metadato, listas para cuando esos
+motores existan (F1.5, F1.8, F1.9, F1.13).
+
 ```ts
 import { createMembershipService, CARWASH_MEMBERSHIP_TEMPLATES, instantiateTemplate } from '@/lib/membership'
 const memberships = createMembershipService()

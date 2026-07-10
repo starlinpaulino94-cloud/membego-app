@@ -74,5 +74,19 @@ export {
   carwashMembershipByType, carwashMembershipByTier,
 } from './templates/carwash'
 
+// ── Membership Strategy Library (Fase F1.1) ──
+export type { MembershipStrategy } from './templates/strategy-types'
+export type {
+  MembershipObjective, MembershipAudience, StrategyComplexity, EngineId,
+  CarwashVehicleType, TaxonomyEntry,
+} from './templates/taxonomy'
+export {
+  MEMBERSHIP_OBJECTIVES, MEMBERSHIP_AUDIENCES, CARWASH_VEHICLE_TYPES, STRATEGY_COMPLEXITY,
+} from './templates/taxonomy'
+export {
+  CARWASH_MEMBERSHIP_STRATEGIES, getMembershipStrategy, membershipStrategyForModel,
+  strategyVariants, membershipStrategiesByObjective, membershipStrategiesByAudience,
+} from './templates/carwash-strategies'
+
 export { PrismaMembershipRepository } from './infrastructure/prisma-membership-repository'
 export { mapPlan, mapInstance, mapUsage } from './infrastructure/mappers'
