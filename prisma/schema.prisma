@@ -238,6 +238,8 @@ model Company {
   benefits            Benefit[]
   // Referral Engine (Fase D). Relaciones inversas; ningún flujo las consume aún.
   referralPrograms    ReferralProgram[]
+  // Automation Engine (Fase E1). Relaciones inversas; ningún flujo las consume aún.
+  automations         Automation[]
   // Motor Universal de Reglas (Fase 1). Relaciones inversas; no cambian el
   // comportamiento actual: ninguna función existente las consulta todavía.
   ruleGroups          RuleGroup[]
@@ -1649,4 +1651,98 @@ model ReferralReferral {
   @@index([participantId, state])
   @@index([referredId])
   @@map("referral_referrals")
+}
+
+// ─────────────────────────────────────────────
+// FASE E1 · AUTOMATION ENGINE (Automation Strategy Library)
+// Motor UNIVERSAL de automatizaciones. Una automatización nunca contiene lógica
+// fija: se compone de piezas reutilizables (trigger + condiciones + acciones +
+// esperas + variables + eventos). Reutiliza OBLIGATORIAMENTE el Rule Engine
+// (decisiones) y el Action Engine (acciones); no ejecuta nada por su cuenta.
+// Toda la estrategia vive en `config` (JSON). Multi-tenant por companyId.
+// Ningún flujo de la app consume estas tablas todavía.
+// ─────────────────────────────────────────────
+
+/// Estado de una ejecución (run) de automatización.
+enum AutomationRunStatus {
+  RUNNING
+  WAITING // pausada en una espera (se reanuda luego)
+  SUCCESS
+  FAILED
+  SKIPPED // no aplicaba (horario/límite/condición inicial)
+}
+
+/// Una automatización configurable de una empresa. Trigger + pasos (condiciones
+/// + acciones + esperas) + límites/horarios/canales viven en `config`. Puede
+/// nacer de una plantilla (`templateKey`) y encadenar otras automatizaciones.
+model Automation {
+  id           String   @id @default(cuid())
+  companyId    String
+  company      Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  nombre       String
+  descripcion  String?
+  objetivo     String? // captación, onboarding, frecuencia, recuperación…
+  templateKey  String? // plantilla universal de la que nació
+  /// Tipo de disparador (EVENT | SCHEDULE | SEGMENT_ENTER | DATE | MANUAL…).
+  triggerType  String
+  /// Para EVENT: tipo de evento que la dispara (ej. "cliente.visita").
+  triggerEvent String?
+  config       Json     @default("{}") // trigger, pasos, variables, límites, horarios, días, canales, encadenado, prioridad
+  status       String   @default("DRAFT") // DRAFT | PUBLISHED | PAUSED | ARCHIVED
+  metadata     Json     @default("{}")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  runs AutomationRun[]
+
+  @@index([companyId, status])
+  @@index([companyId, triggerType])
+  @@index([companyId, triggerEvent])
+  @@map("automations")
+}
+
+/// Registro/auditoría de una ejecución: hora, trigger, reglas evaluadas,
+/// acciones ejecutadas, resultado, errores y tiempo. Toda ejecución auditable.
+model AutomationRun {
+  id             String              @id @default(cuid())
+  companyId      String
+  automationId   String
+  automation     Automation          @relation(fields: [automationId], references: [id], onDelete: Cascade)
+  status         AutomationRunStatus @default(RUNNING)
+  /// Sujeto impactado (cliente/usuario/empresa), ref. genérica.
+  subjectId      String?
+  subjectKind    String?
+  triggeredBy    String? // trigger/evento que la originó
+  rulesEvaluated Json                @default("[]") // [{expr, passed}]
+  actionsRun     Json                @default("[]") // [{type, ok, detail}]
+  result         Json                @default("{}")
+  error          String?
+  durationMs     Int?
+  startedAt      DateTime            @default(now())
+  finishedAt     DateTime?
+  meta           Json                @default("{}")
+
+  @@index([companyId, automationId, status])
+  @@index([companyId, startedAt])
+  @@index([subjectId])
+  @@map("automation_runs")
+}
+
+/// Bus de eventos: toda acción importante genera un evento que otras
+/// automatizaciones pueden consumir (encadenado). `processed` evita reprocesar.
+model AutomationEvent {
+  id          String   @id @default(cuid())
+  companyId   String
+  type        String // ej. "cliente.registrado", "cliente.visita", "cliente.subio_nivel"
+  subjectId   String?
+  subjectKind String?  @default("CLIENT")
+  payload     Json     @default("{}")
+  source      String? // automationId/módulo que lo emitió
+  processed   Boolean  @default(false)
+  occurredAt  DateTime @default(now())
+
+  @@index([companyId, type, processed])
+  @@index([companyId, occurredAt])
+  @@index([subjectId])
+  @@map("automation_events")
 }
