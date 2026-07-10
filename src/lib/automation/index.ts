@@ -130,6 +130,9 @@ export {
   ONBOARDING_PLAYBOOKS, onboardingPlaybooks, getOnboardingPlaybook,
 } from './playbooks/onboarding'
 export {
+  FIRST_PURCHASE_PLAYBOOKS, firstPurchasePlaybooks, getFirstPurchasePlaybook,
+} from './playbooks/first-purchase'
+export {
   ALL_PLAYBOOKS, getPlaybook, playbooksByCategory, playbooksForIndustry,
 } from './playbooks'
 

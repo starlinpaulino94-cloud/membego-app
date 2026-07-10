@@ -60,7 +60,23 @@ Definida en [`types.ts`](./types.ts) — `AutomationPlaybook`:
 | --- | --- | --- | --- |
 | E1.1 | `captacion` (adquisición) | [`acquisition.ts`](./acquisition.ts) | `ACQ-001`…`ACQ-020` (20) |
 | E1.2 | `onboarding` (activación) | [`onboarding.ts`](./onboarding.ts) | `ONB-001`…`ONB-018` (18) |
-| E1.3–E1.10 | primera_compra, frecuencia, recuperación, membresías, referidos, campañas, gamificación, IA | _(próximas)_ | — |
+| E1.3 | `primera_compra` (conversión) | [`first-purchase.ts`](./first-purchase.ts) | `FP-001`…`FP-012` (12) |
+| E1.4–E1.10 | frecuencia, recuperación, membresías, referidos, campañas, gamificación, IA | _(próximas)_ | — |
+
+### E1.3 — Primera compra
+
+Aumenta la conversión de registrados en clientes activos: acompaña al cliente
+hasta su primera compra/visita/consumo y arranca el journey de fidelización.
+Cubre registro sin compra, beneficio inicial sin usar (con extensión de
+vigencia), primera visita agendada, abandono de proceso, recomendación del mejor
+servicio, oferta personalizada, primera compra completada, compra de alto valor
+(VIP), primera compra de referido, membresía como primera transacción, encuesta
+post-compra e inicio automático de fidelización.
+
+Amplió el catálogo de eventos con eventos **universales** de conversión
+(aditivos): `cliente.primera_compra`, `cliente.compra_alto_valor`,
+`cliente.proceso_abandonado`, `cliente.dio_feedback`,
+`cliente.inscrito_fidelizacion`.
 
 ### E1.2 — Onboarding
 

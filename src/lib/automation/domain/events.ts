@@ -24,6 +24,12 @@ export const AUTOMATION_EVENTS = {
   CLIENT_CONSENT_GIVEN: 'cliente.acepto_consentimiento',
   CLIENT_FIRST_VISIT: 'cliente.primera_visita',
   CLIENT_ONBOARDING_COMPLETED: 'cliente.completo_onboarding',
+  // Conversión / primera compra — universales, ninguna industria.
+  CLIENT_FIRST_PURCHASE: 'cliente.primera_compra',
+  CLIENT_HIGH_VALUE_PURCHASE: 'cliente.compra_alto_valor',
+  CLIENT_PROCESS_ABANDONED: 'cliente.proceso_abandonado',
+  CLIENT_FEEDBACK_GIVEN: 'cliente.dio_feedback',
+  CLIENT_LOYALTY_ENROLLED: 'cliente.inscrito_fidelizacion',
   // Emitidos por el propio motor.
   AUTOMATION_STARTED: 'automatizacion.iniciada',
   AUTOMATION_FINISHED: 'automatizacion.finalizada',
@@ -57,6 +63,11 @@ export const AUTOMATION_EVENT_CATALOG: readonly AutomationEventDef[] = [
   { id: AUTOMATION_EVENTS.CLIENT_CONSENT_GIVEN, name: 'Cliente aceptó consentimiento', description: 'El cliente aceptó términos, políticas o preferencias de comunicación.' },
   { id: AUTOMATION_EVENTS.CLIENT_FIRST_VISIT, name: 'Cliente hizo su primera visita', description: 'El cliente realizó su primera visita/compra tras registrarse.' },
   { id: AUTOMATION_EVENTS.CLIENT_ONBOARDING_COMPLETED, name: 'Cliente completó el onboarding', description: 'El cliente terminó su proceso de activación inicial.' },
+  { id: AUTOMATION_EVENTS.CLIENT_FIRST_PURCHASE, name: 'Cliente hizo su primera compra', description: 'El cliente completó su primera compra/consumo.' },
+  { id: AUTOMATION_EVENTS.CLIENT_HIGH_VALUE_PURCHASE, name: 'Cliente hizo una compra de alto valor', description: 'El cliente realizó una compra por encima del promedio.' },
+  { id: AUTOMATION_EVENTS.CLIENT_PROCESS_ABANDONED, name: 'Cliente abandonó un proceso', description: 'El cliente inició un proceso de compra/membresía y no lo completó.' },
+  { id: AUTOMATION_EVENTS.CLIENT_FEEDBACK_GIVEN, name: 'Cliente dejó retroalimentación', description: 'El cliente respondió una encuesta o dejó feedback.' },
+  { id: AUTOMATION_EVENTS.CLIENT_LOYALTY_ENROLLED, name: 'Cliente inscrito en fidelización', description: 'El cliente entró a un programa de fidelización.' },
   { id: AUTOMATION_EVENTS.AUTOMATION_STARTED, name: 'Automatización iniciada', description: 'Comenzó una ejecución.' },
   { id: AUTOMATION_EVENTS.AUTOMATION_FINISHED, name: 'Automatización finalizada', description: 'Terminó una ejecución.' },
 ]
