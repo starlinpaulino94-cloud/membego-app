@@ -66,7 +66,30 @@ Definida en [`types.ts`](./types.ts) — `AutomationPlaybook`:
 | E1.6 | `membresias` (ciclo de vida) | [`membership.ts`](./membership.ts) | `MEM-001`…`MEM-020` (20) |
 | E1.7 | `referidos` (journey) | [`referral.ts`](./referral.ts) | `REF-001`…`REF-020` (20) |
 | E1.8 | `campanas` (orquestación) | [`campaign.ts`](./campaign.ts) | `CAMP-001`…`CAMP-020` (20) |
-| E1.9–E1.10 | gamificación, IA | _(próximas)_ | — |
+| E1.9 | `gamificacion` (conductual) | [`gamification.ts`](./gamification.ts) | `GAM-001`…`GAM-020` (20) |
+| E1.10 | ia | _(próxima)_ | — |
+
+### E1.9 — Gamificación conductual
+
+No es "solo puntos/insignias/rankings": es un sistema de **cambio de
+comportamiento** al servicio de objetivos comerciales (frecuencia, visitas,
+consumo, referidos, renovaciones, uso de beneficios, hábito, retención, LTV). La
+gamificación nunca existe por entretenimiento — cada mecánica impulsa una meta de
+negocio (los KPIs de cada playbook son de negocio, no de juego). Se integra de
+forma nativa con el resto de motores: una misión activa promociones, una racha
+otorga beneficios, un logro inicia campañas y un nivel desbloquea membresías. Los
+**niveles son configurables por variable** (sin nombres fijos Bronce/Plata/…).
+Cubre objetivos iniciales, misiones (diaria/semanal/mensual/estacional), rachas
+(inicio/pérdida/recuperación), niveles (subida/descenso), logros/insignias,
+rankings, desafíos, competencias (inicio/fin), bonos por actividad, recompensa
+sorpresa (refuerzo variable), eventos de temporada, metas (individual/compartida/
+grupal), programa VIP y near-miss.
+
+Estos playbooks incluyen el apartado **`compatibleRewards`** (25 apartados).
+Amplió el catálogo de eventos con la gamificación (aditivos):
+`gamificacion.mision_iniciada`, `racha_recuperada`, `bajo_nivel`,
+`insignia_desbloqueada`, `ranking_actualizado`, `desafio_completado`,
+`competencia_iniciada/finalizada`, `meta_alcanzada`, `meta_grupal`.
 
 ### E1.8 — Campañas (orquestación)
 

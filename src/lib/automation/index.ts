@@ -150,6 +150,9 @@ export {
   CAMPAIGN_PLAYBOOKS, campaignPlaybooks, getCampaignPlaybook,
 } from './playbooks/campaign'
 export {
+  GAMIFICATION_PLAYBOOKS, gamificationPlaybooks, getGamificationPlaybook,
+} from './playbooks/gamification'
+export {
   ALL_PLAYBOOKS, getPlaybook, playbooksByCategory, playbooksForIndustry,
 } from './playbooks'
 

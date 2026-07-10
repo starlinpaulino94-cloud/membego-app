@@ -155,6 +155,8 @@ export interface AutomationPlaybook {
   readonly compatibleReferralModels?: readonly ReferralModelKey[]
   /** Mecánicas de gamificación compatibles (E1.8+; puntos, XP, niveles, misiones, rachas…). */
   readonly compatibleGamification?: readonly string[]
+  /** Tipos de recompensa compatibles (E1.9+; puntos, xp, insignias, niveles, accesos…). */
+  readonly compatibleRewards?: readonly string[]
   /** Beneficios compatibles (códigos del Benefit Engine). */
   readonly compatibleBenefits: readonly string[]
   /** Promociones compatibles (códigos/objetivos del Promotion Engine). */

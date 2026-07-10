@@ -13,6 +13,7 @@ import { RECOVERY_PLAYBOOKS } from './recovery'
 import { MEMBERSHIP_PLAYBOOKS } from './membership'
 import { REFERRAL_PLAYBOOKS } from './referral'
 import { CAMPAIGN_PLAYBOOKS } from './campaign'
+import { GAMIFICATION_PLAYBOOKS } from './gamification'
 import { isCompatibleWith, type AutomationPlaybook, type IndustryKey, type PlaybookCategory } from './types'
 
 /** Todos los playbooks registrados de todas las categorías. */
@@ -25,6 +26,7 @@ export const ALL_PLAYBOOKS: readonly AutomationPlaybook[] = [
   ...MEMBERSHIP_PLAYBOOKS,
   ...REFERRAL_PLAYBOOKS,
   ...CAMPAIGN_PLAYBOOKS,
+  ...GAMIFICATION_PLAYBOOKS,
 ]
 
 const BY_ID = new Map(ALL_PLAYBOOKS.map((p) => [p.id, p]))
