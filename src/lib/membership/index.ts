@@ -69,7 +69,10 @@ export type {
 
 export { instantiateTemplate } from './templates/types'
 export type { MembershipTemplate, InstantiateOverrides } from './templates/types'
-export { CARWASH_MEMBERSHIP_TEMPLATES, getCarwashTemplate } from './templates/carwash'
+export {
+  CARWASH_MEMBERSHIP_TEMPLATES, getCarwashTemplate, CARWASH_MEMBERSHIP_BY_TYPE,
+  carwashMembershipByType, carwashMembershipByTier,
+} from './templates/carwash'
 
 export { PrismaMembershipRepository } from './infrastructure/prisma-membership-repository'
 export { mapPlan, mapInstance, mapUsage } from './infrastructure/mappers'

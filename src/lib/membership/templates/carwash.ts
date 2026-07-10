@@ -7,6 +7,7 @@
  * la especificidad vive aquí, como configuración.
  */
 
+import type { MembershipPlanType } from '../domain/types'
 import type { MembershipTemplate } from './types'
 
 const SERVICES = {
@@ -174,6 +175,105 @@ export const CARWASH_MEMBERSHIP_TEMPLATES: readonly MembershipTemplate[] = [
       automations: ['gamificacion'], metrics: ['retencion', 'uso_promedio'],
     },
   },
+
+  // ── Cobertura completa de la Strategy Library (20 modelos) ──
+  {
+    key: 'carwash.maintenance',
+    industry: 'carwash', name: 'Plan Mantenimiento', tier: 'basic',
+    description: 'Cuidado programado: 2 lavados premium + 1 encerado al mes.',
+    type: 'MAINTENANCE', suggestedPrice: 1799, currency: 'DOP', periodicity: 'MONTHLY', credits: 3,
+    config: {
+      includedServices: [SERVICES.PREMIUM, SERVICES.DETAILING],
+      limits: { maxCreditsRollover: 1, allowedServices: [SERVICES.PREMIUM, SERVICES.DETAILING] },
+      benefits: ['encerado_mensual'], renewal: { auto: true, graceDays: 5 },
+      automations: ['recordatorio_mantenimiento'],
+      metrics: ['uso_promedio', 'retencion', 'rentabilidad_por_miembro'],
+    },
+  },
+  {
+    key: 'carwash.pay_per_visit',
+    industry: 'carwash', name: 'Pay Per Visit', tier: 'basic',
+    description: 'Sin cuota mensual: registro gratis y precio preferencial por visita.',
+    type: 'PAY_PER_VISIT', suggestedPrice: 0, currency: 'DOP', periodicity: 'NONE',
+    config: {
+      includedServices: [SERVICES.EXTERIOR, SERVICES.INTERIOR, SERVICES.PREMIUM],
+      restrictions: ['precio_preferencial_por_visita', 'sin_cuota_recurrente'],
+      metrics: ['visitas_promedio', 'ltv', 'retencion'],
+    },
+  },
+  {
+    key: 'carwash.loyalty',
+    industry: 'carwash', name: 'Club de Fidelidad', tier: 'basic',
+    description: 'Acumula visitas y gana un lavado gratis cada 10.',
+    type: 'LOYALTY', suggestedPrice: 0, currency: 'DOP', periodicity: 'NONE',
+    config: {
+      includedServices: [SERVICES.EXTERIOR],
+      benefits: ['lavado_gratis_cada_10'],
+      automations: ['sello_por_visita', 'recompensa_por_frecuencia'],
+      metrics: ['visitas_promedio', 'retencion', 'tasa_renovacion'],
+    },
+  },
+  {
+    key: 'carwash.prepaid',
+    industry: 'carwash', name: 'Prepago Anual', tier: 'basic',
+    description: 'Paga 10 meses y recibe 12: lavados premium ilimitados todo el año.',
+    type: 'PREPAID', suggestedPrice: 14990, currency: 'DOP', periodicity: 'ANNUAL', durationDays: 365, unlimited: true,
+    config: {
+      includedServices: [SERVICES.EXTERIOR, SERVICES.INTERIOR, SERVICES.PREMIUM],
+      limits: { maxPerPeriod: { count: 1, period: 'DAY' } },
+      renewal: { auto: false, prepaidMonths: 10, freeMonths: 2 },
+      metrics: ['rentabilidad_por_miembro', 'ltv', 'retencion'],
+    },
+  },
+  {
+    key: 'carwash.trial',
+    industry: 'carwash', name: 'Prueba 7 días', tier: 'basic',
+    description: 'Prueba la experiencia una semana por precio simbólico. Solo clientes nuevos.',
+    type: 'TRIAL', suggestedPrice: 199, currency: 'DOP', periodicity: 'ONE_TIME', durationDays: 7, unlimited: true,
+    config: {
+      includedServices: [SERVICES.EXTERIOR, SERVICES.PREMIUM],
+      limits: { maxPerPeriod: { count: 1, period: 'DAY' } },
+      restrictions: ['solo_clientes_nuevos', 'no_renovable'], renewal: { auto: false },
+      automations: ['conversion_post_prueba'],
+      metrics: ['tasa_renovacion', 'cancelaciones'],
+    },
+  },
+  {
+    key: 'carwash.student',
+    industry: 'carwash', name: 'Plan Estudiante', tier: 'basic',
+    description: '4 lavados exteriores al mes con precio especial para estudiantes.',
+    type: 'STUDENT', suggestedPrice: 699, currency: 'DOP', periodicity: 'MONTHLY', credits: 4,
+    config: {
+      includedServices: [SERVICES.EXTERIOR], segments: ['estudiantes'],
+      restrictions: ['requiere_verificacion_estudiantil'], renewal: { auto: true },
+      metrics: ['uso_promedio', 'retencion'],
+    },
+  },
+  {
+    key: 'carwash.driver',
+    industry: 'carwash', name: 'Plan Conductor', tier: 'advanced',
+    description: 'Para taxistas, rideshare y delivery: alta frecuencia y línea rápida.',
+    type: 'DRIVER', suggestedPrice: 1299, currency: 'DOP', periodicity: 'MONTHLY', unlimited: true,
+    config: {
+      includedServices: [SERVICES.EXTERIOR, SERVICES.INTERIOR],
+      segments: ['taxistas', 'rideshare', 'delivery'],
+      limits: { maxPerPeriod: { count: 2, period: 'DAY' } },
+      benefits: ['linea_rapida'], renewal: { auto: true },
+      metrics: ['uso_promedio', 'rentabilidad_por_miembro', 'retencion'],
+    },
+  },
+  {
+    key: 'carwash.subscription_box',
+    industry: 'carwash', name: 'Wash Box Mensual', tier: 'smart',
+    description: 'Caja mensual: 4 lavados premium + producto de cuidado sorpresa.',
+    type: 'SUBSCRIPTION_BOX', suggestedPrice: 1999, currency: 'DOP', periodicity: 'MONTHLY', credits: 4,
+    config: {
+      includedServices: [SERVICES.PREMIUM],
+      benefits: ['producto_mensual', 'aromatizante', 'kit_interior'],
+      automations: ['envio_caja_mensual'], renewal: { auto: true },
+      metrics: ['retencion', 'ltv', 'uso_promedio'],
+    },
+  },
 ]
 
 /** Índice por clave para instanciar rápido. */
@@ -181,4 +281,47 @@ const BY_KEY = new Map(CARWASH_MEMBERSHIP_TEMPLATES.map((t) => [t.key, t]))
 
 export function getCarwashTemplate(key: string): MembershipTemplate | undefined {
   return BY_KEY.get(key)
+}
+
+/**
+ * Cobertura de los 20 modelos comerciales agrupada por tipo. El `satisfies`
+ * GARANTIZA en compilación que ningún `MembershipPlanType` quede fuera del mapa:
+ * si se añade un modelo al enum sin registrarlo aquí, `tsc` falla. La biblioteca
+ * provee ≥1 plantilla para cada tipo (cobertura completa de la Strategy Library).
+ */
+export const CARWASH_MEMBERSHIP_BY_TYPE = {
+  UNLIMITED: CARWASH_MEMBERSHIP_TEMPLATES.filter((t) => t.type === 'UNLIMITED'),
+  CREDITS: CARWASH_MEMBERSHIP_TEMPLATES.filter((t) => t.type === 'CREDITS'),
+  HYBRID: CARWASH_MEMBERSHIP_TEMPLATES.filter((t) => t.type === 'HYBRID'),
+  TIER: CARWASH_MEMBERSHIP_TEMPLATES.filter((t) => t.type === 'TIER'),
+  FAMILY: CARWASH_MEMBERSHIP_TEMPLATES.filter((t) => t.type === 'FAMILY'),
+  FLEET: CARWASH_MEMBERSHIP_TEMPLATES.filter((t) => t.type === 'FLEET'),
+  CORPORATE: CARWASH_MEMBERSHIP_TEMPLATES.filter((t) => t.type === 'CORPORATE'),
+  SEASONAL: CARWASH_MEMBERSHIP_TEMPLATES.filter((t) => t.type === 'SEASONAL'),
+  PREMIUM: CARWASH_MEMBERSHIP_TEMPLATES.filter((t) => t.type === 'PREMIUM'),
+  MAINTENANCE: CARWASH_MEMBERSHIP_TEMPLATES.filter((t) => t.type === 'MAINTENANCE'),
+  PAY_PER_VISIT: CARWASH_MEMBERSHIP_TEMPLATES.filter((t) => t.type === 'PAY_PER_VISIT'),
+  LOYALTY: CARWASH_MEMBERSHIP_TEMPLATES.filter((t) => t.type === 'LOYALTY'),
+  PREPAID: CARWASH_MEMBERSHIP_TEMPLATES.filter((t) => t.type === 'PREPAID'),
+  VIP: CARWASH_MEMBERSHIP_TEMPLATES.filter((t) => t.type === 'VIP'),
+  REWARDS: CARWASH_MEMBERSHIP_TEMPLATES.filter((t) => t.type === 'REWARDS'),
+  TRIAL: CARWASH_MEMBERSHIP_TEMPLATES.filter((t) => t.type === 'TRIAL'),
+  STUDENT: CARWASH_MEMBERSHIP_TEMPLATES.filter((t) => t.type === 'STUDENT'),
+  DRIVER: CARWASH_MEMBERSHIP_TEMPLATES.filter((t) => t.type === 'DRIVER'),
+  SUBSCRIPTION_BOX: CARWASH_MEMBERSHIP_TEMPLATES.filter((t) => t.type === 'SUBSCRIPTION_BOX'),
+  CUSTOM: CARWASH_MEMBERSHIP_TEMPLATES.filter((t) => t.type === 'CUSTOM'),
+} satisfies Record<MembershipPlanType, readonly MembershipTemplate[]>
+
+/** Plantillas Car Wash de un modelo comercial. */
+export function carwashMembershipByType(
+  type: MembershipPlanType,
+): readonly MembershipTemplate[] {
+  return CARWASH_MEMBERSHIP_BY_TYPE[type]
+}
+
+/** Plantillas Car Wash de un nivel de despliegue (basic/advanced/smart). */
+export function carwashMembershipByTier(
+  tier: MembershipTemplate['tier'],
+): readonly MembershipTemplate[] {
+  return CARWASH_MEMBERSHIP_TEMPLATES.filter((t) => t.tier === tier)
 }

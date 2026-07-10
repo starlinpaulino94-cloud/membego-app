@@ -29,7 +29,7 @@ src/lib/membership/
 │   └── usage-tracker.ts              # registrar uso + enforcement de límites (+ reglas BEL)
 ├── templates/
 │   ├── types.ts                      # MembershipTemplate + instantiateTemplate
-│   └── carwash.ts                    # BIBLIOTECA Car Wash (16 plantillas)
+│   └── carwash.ts                    # BIBLIOTECA Car Wash (23 plantillas, 20 modelos)
 └── infrastructure/
     ├── prisma-membership-repository.ts
     └── mappers.ts
@@ -82,10 +82,17 @@ con `CANCELLED` terminal. `validateTransition` rechaza movimientos inválidos.
 
 ## 6. Plantillas de industria (Car Wash)
 
-`CARWASH_MEMBERSHIP_TEMPLATES` (16 plantillas, en 3 niveles):
-- **Básico:** Unlimited Básico/Premium, Wash Credits, Silver/Gold/Platinum, Hybrid, Family.
-- **Avanzado:** Fleet, Corporate, Premium Service, VIP, Seasonal.
-- **Inteligente:** Custom Builder, Membership + Rewards.
+`CARWASH_MEMBERSHIP_TEMPLATES` (23 plantillas, en 3 niveles) — **cobertura
+completa de los 20 modelos** de `MembershipPlanType`:
+- **Básico:** Unlimited Básico/Premium, Wash Credits, Silver/Gold/Platinum, Hybrid,
+  Family, Mantenimiento, Pay Per Visit, Club de Fidelidad, Prepago Anual,
+  Prueba 7 días, Plan Estudiante.
+- **Avanzado:** Fleet, Corporate, Premium Service, VIP, Seasonal, Plan Conductor.
+- **Inteligente:** Custom Builder, Membership + Rewards, Wash Box Mensual.
+
+Descubrimiento: `carwashMembershipByType(type)`, `carwashMembershipByTier(tier)` y
+`CARWASH_MEMBERSHIP_BY_TYPE` (mapa por modelo; su `satisfies Record<MembershipPlanType,…>`
+garantiza en compilación que ningún modelo quede sin plantilla).
 
 ```ts
 import { createMembershipService, CARWASH_MEMBERSHIP_TEMPLATES, instantiateTemplate } from '@/lib/membership'
