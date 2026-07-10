@@ -234,6 +234,8 @@ model Company {
   campanas         Campana[]
   invitaciones     Invitacion[]
   accesosStaff     UserCompanyAccess[]
+  // Benefit Engine (Fase C). Relaciones inversas; ningún flujo las consume aún.
+  benefits         Benefit[]
   // Motor Universal de Reglas (Fase 1). Relaciones inversas; no cambian el
   // comportamiento actual: ninguna función existente las consulta todavía.
   ruleGroups       RuleGroup[]
@@ -1453,4 +1455,89 @@ model MembershipUsage {
   @@index([instanceId, usadoEn])
   @@index([companyId, usadoEn])
   @@map("membership_usage")
+}
+
+// ─────────────────────────────────────────────
+// FASE C · BENEFIT ENGINE (Benefits & Rewards Library)
+// Un beneficio es una ENTIDAD independiente y editable que cualquier módulo
+// (membresías, promociones, referidos, puntos, gamificación, campañas,
+// automatizaciones) puede seleccionar, modificar o crear. Todo lo específico
+// vive en `config` (JSON): valor, servicio, reglas, restricciones,
+// disponibilidad y módulos donde puede usarse. Ningún flujo existente lo
+// consume todavía.
+// ─────────────────────────────────────────────
+
+/// Los 10 tipos base de beneficio (el detalle —% vs monto, servicio, etc.—
+/// vive en `config`). CUSTOM habilita beneficios creados por la empresa.
+enum BenefitType {
+  SERVICE_FREE // servicio gratis (lavado, aspirado, cera…)
+  DISCOUNT // descuento (% o monto fijo, según config)
+  UPGRADE // mejora de servicio (básico→premium)
+  PRODUCT // producto físico
+  POINTS // puntos de lealtad
+  CREDIT // crédito/saldo interno (wallet)
+  TIME // tiempo (mes gratis, visita extra, precio congelado)
+  EXPERIENCE // experiencia (evento, servicio personalizado)
+  ACCESS // acceso exclusivo (línea rápida, área VIP)
+  CUSTOM // beneficio personalizado de la empresa
+}
+
+/// Estado de un beneficio entregado a un suscriptor (ciclo de canje).
+enum BenefitGrantStatus {
+  GRANTED // entregado, disponible para canjear
+  REDEEMED // canjeado/utilizado
+  EXPIRED // venció sin usarse
+  REVOKED // revocado por la empresa
+}
+
+/// Catálogo de beneficios de una empresa (plantilla instanciada o creado a
+/// mano). Reutilizable por todos los módulos. `costoReal` vs `valorPercibido`
+/// permiten calcular rentabilidad/ROI.
+model Benefit {
+  id              String      @id @default(cuid())
+  companyId       String
+  company         Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  code            String? // ej. "CAR-001" cuando nace de una plantilla
+  nombre          String
+  descripcion     String?
+  categoria       String // categoría de la biblioteca (SERVICE, DISCOUNT, VIP…)
+  tipo            BenefitType
+  valorPercibido  Decimal?    @db.Decimal(10, 2) // lo que el cliente cree que vale
+  costoReal       Decimal?    @db.Decimal(10, 2) // lo que le cuesta al negocio
+  templateKey     String? // plantilla de industria de la que nació
+  config          Json        @default("{}") // valor, servicio, reglas, restricciones, disponibilidad, módulos
+  status          String      @default("DRAFT") // DRAFT | PUBLISHED | ARCHIVED
+  metadata        Json        @default("{}")
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  grants BenefitGrant[]
+
+  @@index([companyId, status])
+  @@index([companyId, categoria])
+  @@index([companyId, tipo])
+  @@map("benefits")
+}
+
+/// Beneficio entregado a un suscriptor desde un módulo concreto. Es la fuente
+/// de las métricas del Benefit Engine (entregados, utilizados, costo real, ROI).
+model BenefitGrant {
+  id             String             @id @default(cuid())
+  companyId      String // scalar (sin relación) para filtrar por empresa
+  benefitId      String
+  benefit        Benefit            @relation(fields: [benefitId], references: [id], onDelete: Cascade)
+  subscriberId   String // ref. genérica al titular (cliente/usuario/empresa)
+  subscriberKind String             @default("CLIENT")
+  sourceModule   String // membership | promotion | referral | points | gamification | campaign | automation
+  status         BenefitGrantStatus @default(GRANTED)
+  grantedAt      DateTime           @default(now())
+  redeemedAt     DateTime?
+  expiresAt      DateTime?
+  meta           Json               @default("{}")
+
+  @@index([companyId, status])
+  @@index([benefitId, status])
+  @@index([subscriberId])
+  @@index([companyId, sourceModule])
+  @@map("benefit_grants")
 }

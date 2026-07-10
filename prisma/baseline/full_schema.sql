@@ -67,6 +67,12 @@ CREATE TYPE "MembershipPeriodicity" AS ENUM ('NONE', 'ONE_TIME', 'WEEKLY', 'MONT
 -- CreateEnum
 CREATE TYPE "MembershipInstanceStatus" AS ENUM ('PENDING', 'ACTIVE', 'PAUSED', 'SUSPENDED', 'EXPIRED', 'CANCELLED');
 
+-- CreateEnum
+CREATE TYPE "BenefitType" AS ENUM ('SERVICE_FREE', 'DISCOUNT', 'UPGRADE', 'PRODUCT', 'POINTS', 'CREDIT', 'TIME', 'EXPERIENCE', 'ACCESS', 'CUSTOM');
+
+-- CreateEnum
+CREATE TYPE "BenefitGrantStatus" AS ENUM ('GRANTED', 'REDEEMED', 'EXPIRED', 'REVOKED');
+
 -- CreateTable
 CREATE TABLE "users" (
     "id" TEXT NOT NULL,
@@ -890,6 +896,44 @@ CREATE TABLE "membership_usage" (
     CONSTRAINT "membership_usage_pkey" PRIMARY KEY ("id")
 );
 
+-- CreateTable
+CREATE TABLE "benefits" (
+    "id" TEXT NOT NULL,
+    "companyId" TEXT NOT NULL,
+    "code" TEXT,
+    "nombre" TEXT NOT NULL,
+    "descripcion" TEXT,
+    "categoria" TEXT NOT NULL,
+    "tipo" "BenefitType" NOT NULL,
+    "valorPercibido" DECIMAL(10,2),
+    "costoReal" DECIMAL(10,2),
+    "templateKey" TEXT,
+    "config" JSONB NOT NULL DEFAULT '{}',
+    "status" TEXT NOT NULL DEFAULT 'DRAFT',
+    "metadata" JSONB NOT NULL DEFAULT '{}',
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "benefits_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "benefit_grants" (
+    "id" TEXT NOT NULL,
+    "companyId" TEXT NOT NULL,
+    "benefitId" TEXT NOT NULL,
+    "subscriberId" TEXT NOT NULL,
+    "subscriberKind" TEXT NOT NULL DEFAULT 'CLIENT',
+    "sourceModule" TEXT NOT NULL,
+    "status" "BenefitGrantStatus" NOT NULL DEFAULT 'GRANTED',
+    "grantedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "redeemedAt" TIMESTAMP(3),
+    "expiresAt" TIMESTAMP(3),
+    "meta" JSONB NOT NULL DEFAULT '{}',
+
+    CONSTRAINT "benefit_grants_pkey" PRIMARY KEY ("id")
+);
+
 -- CreateIndex
 CREATE UNIQUE INDEX "users_supabaseId_key" ON "users"("supabaseId");
 
@@ -1244,6 +1288,27 @@ CREATE INDEX "membership_usage_instanceId_usadoEn_idx" ON "membership_usage"("in
 -- CreateIndex
 CREATE INDEX "membership_usage_companyId_usadoEn_idx" ON "membership_usage"("companyId", "usadoEn");
 
+-- CreateIndex
+CREATE INDEX "benefits_companyId_status_idx" ON "benefits"("companyId", "status");
+
+-- CreateIndex
+CREATE INDEX "benefits_companyId_categoria_idx" ON "benefits"("companyId", "categoria");
+
+-- CreateIndex
+CREATE INDEX "benefits_companyId_tipo_idx" ON "benefits"("companyId", "tipo");
+
+-- CreateIndex
+CREATE INDEX "benefit_grants_companyId_status_idx" ON "benefit_grants"("companyId", "status");
+
+-- CreateIndex
+CREATE INDEX "benefit_grants_benefitId_status_idx" ON "benefit_grants"("benefitId", "status");
+
+-- CreateIndex
+CREATE INDEX "benefit_grants_subscriberId_idx" ON "benefit_grants"("subscriberId");
+
+-- CreateIndex
+CREATE INDEX "benefit_grants_companyId_sourceModule_idx" ON "benefit_grants"("companyId", "sourceModule");
+
 -- AddForeignKey
 ALTER TABLE "users" ADD CONSTRAINT "users_companyId_fkey" FOREIGN KEY ("companyId") REFERENCES "companies"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
@@ -1483,4 +1548,10 @@ ALTER TABLE "membership_instances" ADD CONSTRAINT "membership_instances_planId_f
 
 -- AddForeignKey
 ALTER TABLE "membership_usage" ADD CONSTRAINT "membership_usage_instanceId_fkey" FOREIGN KEY ("instanceId") REFERENCES "membership_instances"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "benefits" ADD CONSTRAINT "benefits_companyId_fkey" FOREIGN KEY ("companyId") REFERENCES "companies"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "benefit_grants" ADD CONSTRAINT "benefit_grants_benefitId_fkey" FOREIGN KEY ("benefitId") REFERENCES "benefits"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 

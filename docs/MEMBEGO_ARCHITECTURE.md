@@ -59,8 +59,8 @@ vive en los motores, nunca en los módulos de UI.
 | **Business Data Dictionary** | ✅ Construido (F6) | `src/lib/dictionary` — fuente oficial de variables. |
 | **Expression Engine (BEL)** | ✅ Construido (F7) | `src/lib/bel` — lenguaje de fórmulas/expresiones, sin `eval`. |
 | **Promotion Engine / Framework** | ✅ Base construida (F4) | `src/lib/promotions` — promoción = config + reglas + acciones + ciclo de vida. |
-| **Membership Engine** | ⛔ Pendiente | Modelos: unlimited, créditos, familiar, corporativa, flota, VIP, temporal, híbrida, personalizada. |
-| **Benefit Engine** | ⛔ Pendiente | Beneficios **separados** de promociones; reutilizables por varios módulos. |
+| **Membership Engine** | ✅ Construido (FA) | `src/lib/membership` — 20 modelos por configuración (unlimited, créditos, familiar, flota, VIP…) + plantillas Car Wash. |
+| **Benefit Engine** | ✅ Construido (FC) | `src/lib/benefits` — beneficios **separados** como entidad reutilizable; 10 tipos, valor percibido vs costo real, ROI, 50 plantillas Car Wash. |
 | **Reward Engine** | ⛔ Pendiente | Puntos, créditos, servicios, regalos, beneficios digitales. |
 | **Referral Engine (universal)** | ⛔ Pendiente | Embudo Invitado→Registrado→1ª compra→Activo→Recompensa; niveles escalables. |
 | **Automation Engine** | ⛔ Pendiente | Triggers + condiciones + acciones + esperas + métricas. |
