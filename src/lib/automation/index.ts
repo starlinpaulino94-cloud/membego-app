@@ -153,6 +153,9 @@ export {
   GAMIFICATION_PLAYBOOKS, gamificationPlaybooks, getGamificationPlaybook,
 } from './playbooks/gamification'
 export {
+  DECISION_PLAYBOOKS, decisionPlaybooks, getDecisionPlaybook,
+} from './playbooks/decision'
+export {
   ALL_PLAYBOOKS, getPlaybook, playbooksByCategory, playbooksForIndustry,
 } from './playbooks'
 

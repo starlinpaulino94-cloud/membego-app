@@ -86,6 +86,12 @@ export const AUTOMATION_EVENTS = {
   GAMI_COMPETITION_FINISHED: 'gamificacion.competencia_finalizada',
   GAMI_GOAL_REACHED: 'gamificacion.meta_alcanzada',
   GAMI_GROUP_GOAL_REACHED: 'gamificacion.meta_grupal',
+  // Decisiones inteligentes / recomendaciones — universales, sin IA.
+  DECISION_MADE: 'decision.tomada',
+  RECOMMENDATION_READY: 'recomendacion.lista',
+  OPPORTUNITY_DETECTED: 'oportunidad.detectada',
+  RISK_DETECTED: 'riesgo.detectado',
+  NEXT_BEST_ACTION_READY: 'siguiente_accion.lista',
   // Emitidos por el propio motor.
   AUTOMATION_STARTED: 'automatizacion.iniciada',
   AUTOMATION_FINISHED: 'automatizacion.finalizada',
@@ -174,6 +180,11 @@ export const AUTOMATION_EVENT_CATALOG: readonly AutomationEventDef[] = [
   { id: AUTOMATION_EVENTS.GAMI_COMPETITION_FINISHED, name: 'Competencia finalizada', description: 'Terminó una competencia y se premió a los ganadores.' },
   { id: AUTOMATION_EVENTS.GAMI_GOAL_REACHED, name: 'Meta alcanzada', description: 'El cliente alcanzó una meta de gamificación.' },
   { id: AUTOMATION_EVENTS.GAMI_GROUP_GOAL_REACHED, name: 'Meta grupal alcanzada', description: 'Un grupo/equipo alcanzó una meta colectiva.' },
+  { id: AUTOMATION_EVENTS.DECISION_MADE, name: 'Decisión tomada', description: 'El Decision Engine produjo una decisión (no ejecuta acciones).' },
+  { id: AUTOMATION_EVENTS.RECOMMENDATION_READY, name: 'Recomendación lista', description: 'El Recommendation Engine produjo una recomendación para el Action Engine.' },
+  { id: AUTOMATION_EVENTS.OPPORTUNITY_DETECTED, name: 'Oportunidad detectada', description: 'Se detectó una oportunidad (VIP, upgrade, programa especial).' },
+  { id: AUTOMATION_EVENTS.RISK_DETECTED, name: 'Riesgo detectado', description: 'Se detectó un riesgo (abandono, no renovación).' },
+  { id: AUTOMATION_EVENTS.NEXT_BEST_ACTION_READY, name: 'Siguiente mejor acción lista', description: 'El Decision Engine determinó la siguiente mejor acción.' },
   { id: AUTOMATION_EVENTS.AUTOMATION_STARTED, name: 'Automatización iniciada', description: 'Comenzó una ejecución.' },
   { id: AUTOMATION_EVENTS.AUTOMATION_FINISHED, name: 'Automatización finalizada', description: 'Terminó una ejecución.' },
 ]

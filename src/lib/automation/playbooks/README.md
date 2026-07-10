@@ -67,7 +67,28 @@ Definida en [`types.ts`](./types.ts) — `AutomationPlaybook`:
 | E1.7 | `referidos` (journey) | [`referral.ts`](./referral.ts) | `REF-001`…`REF-020` (20) |
 | E1.8 | `campanas` (orquestación) | [`campaign.ts`](./campaign.ts) | `CAMP-001`…`CAMP-020` (20) |
 | E1.9 | `gamificacion` (conductual) | [`gamification.ts`](./gamification.ts) | `GAM-001`…`GAM-020` (20) |
-| E1.10 | ia | _(próxima)_ | — |
+| E1.10 | `decisiones` (inteligentes) | [`decision.ts`](./decision.ts) | `DEC-001`…`DEC-018` (18) |
+
+### E1.10 — Decisiones inteligentes (última fase)
+
+No integra IA: instala automatizaciones que **toman decisiones** usando la
+arquitectura desacoplada [`src/lib/decision`](../../decision/README.md)
+(Decision Engine → Recommendation Engine → Prediction → Optimization, servida por
+Decision Providers). Hoy el único proveedor es `rule_based`; mañana se registra un
+AI/ML Provider sin tocar estos playbooks ni el resto del sistema, y **las empresas
+nunca ven "IA"** (la categoría interna es `decisiones`, no `ia`). Regla de oro: el
+Decision Engine **decide** (paso "Decidir", `INVOKE_MODULE` al módulo `decision`);
+el Action Engine **ejecuta**. Cubre recomendación de promoción/membresía/beneficio/
+campaña/recompensa, predicción de abandono/renovación, detección de oportunidades/
+riesgos, optimización continua, next best action (incluye "esperar/no ejecutar"),
+priorización, mejor canal/momento, anti-fatiga, segmentación inteligente y el
+patrón de preparación para IA.
+
+Estos playbooks incluyen los apartados **`decisionProvider`**,
+**`suggestedActions`** (sugeridas por el Decision Engine) y **`executedActions`**
+(ejecutadas por el Action Engine) — 24 apartados. Amplió el catálogo de eventos
+(aditivos): `decision.tomada`, `recomendacion.lista`, `oportunidad.detectada`,
+`riesgo.detectado`, `siguiente_accion.lista`.
 
 ### E1.9 — Gamificación conductual
 

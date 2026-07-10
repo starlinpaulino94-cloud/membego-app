@@ -109,7 +109,7 @@ export type PlaybookCategory =
   | 'referidos'
   | 'campanas'
   | 'gamificacion'
-  | 'ia'
+  | 'decisiones'
 
 /**
  * Estructura COMPLETA del Playbook (los 24 apartados del documento). Los campos
@@ -141,6 +141,12 @@ export interface AutomationPlaybook {
   readonly flow: readonly string[]
   /** Acciones (tipos del Action Engine). */
   readonly actions: readonly string[]
+  /** Decision Provider utilizado (E1.10+; ej. "rule_based"). */
+  readonly decisionProvider?: string
+  /** Acciones SUGERIDAS por el Decision Engine (E1.10+; no ejecutadas por él). */
+  readonly suggestedActions?: readonly string[]
+  /** Acciones EJECUTADAS por el Action Engine (E1.10+). */
+  readonly executedActions?: readonly string[]
   /** Esperas del flujo (resumen legible; las reales están en `config.steps[].wait`). */
   readonly esperas?: readonly string[]
   /** Eventos generados. */
