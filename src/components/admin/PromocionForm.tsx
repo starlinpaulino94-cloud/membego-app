@@ -112,8 +112,8 @@ export function PromocionForm({
       )}
 
       {/* Qué ofreces */}
-      <div className="space-y-5 rounded-xl border border-slate-200 p-5">
-        <h3 className="font-semibold text-slate-900">Qué ofreces</h3>
+      <div className="space-y-5 rounded-xl border border-border p-5">
+        <h3 className="font-semibold text-foreground">Qué ofreces</h3>
 
         <div className="grid gap-5 sm:grid-cols-2">
           <div className="space-y-2">
@@ -196,8 +196,8 @@ export function PromocionForm({
       </div>
 
       {/* Vigencia y límites */}
-      <div className="space-y-5 rounded-xl border border-slate-200 p-5">
-        <h3 className="font-semibold text-slate-900">Vigencia y límites</h3>
+      <div className="space-y-5 rounded-xl border border-border p-5">
+        <h3 className="font-semibold text-foreground">Vigencia y límites</h3>
         <div className="grid gap-5 sm:grid-cols-2">
           <div className="space-y-2">
             <Label htmlFor="vigenciaDesde">Inicio (fecha y hora)</Label>
@@ -247,8 +247,8 @@ export function PromocionForm({
       </div>
 
       {/* Alcance */}
-      <div className="space-y-5 rounded-xl border border-slate-200 p-5">
-        <h3 className="font-semibold text-slate-900">Alcance</h3>
+      <div className="space-y-5 rounded-xl border border-border p-5">
+        <h3 className="font-semibold text-foreground">Alcance</h3>
         <div className="space-y-2">
           <Label htmlFor="visibilidad">Visibilidad</Label>
           <Select name="visibilidad" defaultValue={existing?.visibilidad ?? 'publica'}>
@@ -309,7 +309,7 @@ export function PromocionForm({
       </div>
 
       <div className="flex gap-3">
-        <Button type="submit" disabled={pending} className="bg-sky-500 hover:bg-sky-400">
+        <Button type="submit" disabled={pending}>
           {pending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
           {existing ? 'Guardar cambios' : 'Publicar promoción'}
         </Button>

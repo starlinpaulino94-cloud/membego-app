@@ -14,9 +14,9 @@ import { ArrowLeft, Sparkles, Target, Gauge, Users } from 'lucide-react'
 export const dynamic = 'force-dynamic'
 
 const DIFICULTAD_STYLE: Record<PromoPlantillaCard['dificultad'], string> = {
-  baja: 'bg-emerald-50 text-emerald-700',
-  media: 'bg-amber-50 text-amber-700',
-  alta: 'bg-rose-50 text-rose-700',
+  baja: 'bg-success/10 text-success',
+  media: 'bg-warning/15 text-warning-foreground',
+  alta: 'bg-destructive/10 text-destructive',
 }
 
 function PlantillaCard({ p }: { p: PromoPlantillaCard }) {
@@ -25,9 +25,9 @@ function PlantillaCard({ p }: { p: PromoPlantillaCard }) {
       <CardContent className="flex flex-1 flex-col p-5">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <p className="font-semibold text-slate-900">{p.nombre}</p>
+            <p className="font-semibold text-foreground">{p.nombre}</p>
             <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs">
-              <span className="rounded-full bg-sky-50 px-2 py-0.5 font-medium text-sky-700">
+              <span className="rounded-full bg-info/10 px-2 py-0.5 font-medium text-info">
                 {p.categoria}
               </span>
               <span
@@ -42,36 +42,36 @@ function PlantillaCard({ p }: { p: PromoPlantillaCard }) {
           </Badge>
         </div>
 
-        <p className="mt-3 text-sm text-slate-600">{p.descripcion}</p>
+        <p className="mt-3 text-sm text-muted-foreground">{p.descripcion}</p>
 
-        <dl className="mt-3 space-y-1.5 text-xs text-slate-500">
+        <dl className="mt-3 space-y-1.5 text-xs text-muted-foreground">
           <div className="flex items-start gap-1.5">
-            <Sparkles className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-500" />
+            <Sparkles className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warning-foreground" />
             <span>
-              <span className="font-medium text-slate-700">Beneficio:</span> {p.beneficio}
+              <span className="font-medium text-foreground">Beneficio:</span> {p.beneficio}
             </span>
           </div>
           <div className="flex items-start gap-1.5">
-            <Users className="mt-0.5 h-3.5 w-3.5 shrink-0 text-sky-500" />
+            <Users className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
             <span>
-              <span className="font-medium text-slate-700">Recomendado para:</span>{' '}
+              <span className="font-medium text-foreground">Recomendado para:</span>{' '}
               {p.recomendadoPara}
             </span>
           </div>
           {p.resultadoEsperado && (
             <div className="flex items-start gap-1.5">
-              <Target className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-500" />
+              <Target className="mt-0.5 h-3.5 w-3.5 shrink-0 text-success" />
               <span className="line-clamp-2">
-                <span className="font-medium text-slate-700">Resultado esperado:</span>{' '}
+                <span className="font-medium text-foreground">Resultado esperado:</span>{' '}
                 {p.resultadoEsperado}
               </span>
             </div>
           )}
           {p.duracionRecomendada && (
             <div className="flex items-start gap-1.5">
-              <Gauge className="mt-0.5 h-3.5 w-3.5 shrink-0 text-violet-500" />
+              <Gauge className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
               <span>
-                <span className="font-medium text-slate-700">Duración sugerida:</span>{' '}
+                <span className="font-medium text-foreground">Duración sugerida:</span>{' '}
                 {p.duracionRecomendada}
               </span>
             </div>
@@ -80,7 +80,7 @@ function PlantillaCard({ p }: { p: PromoPlantillaCard }) {
 
         <div className="mt-auto pt-4">
           <Link href={`/admin/promociones/nuevo?plantilla=${encodeURIComponent(p.key)}`}>
-            <Button size="sm" className="w-full bg-sky-500 hover:bg-sky-400">
+            <Button size="sm" className="w-full">
               Usar plantilla
             </Button>
           </Link>
@@ -106,8 +106,8 @@ export default async function PromoPlantillasPage({
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Plantillas de promoción</h1>
-          <p className="text-slate-500">
+          <h1 className="text-2xl font-bold text-foreground">Plantillas de promoción</h1>
+          <p className="text-muted-foreground">
             Estrategias listas para usar. Al elegir una se crea una copia editable:
             ajústala y publícala. La plantilla original no cambia.
           </p>

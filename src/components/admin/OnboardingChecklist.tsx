@@ -47,9 +47,9 @@ export function OnboardingChecklist({ onboarding }: { onboarding: OnboardingEmpr
               {item.done ? (
                 <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-500" />
               ) : (
-                <Circle className="h-4 w-4 shrink-0 text-slate-300" />
+                <Circle className="h-4 w-4 shrink-0 text-muted-foreground/40" />
               )}
-              <span className={item.done ? 'text-slate-400 line-through' : 'text-slate-700'}>
+              <span className={item.done ? 'text-muted-foreground line-through' : 'text-foreground'}>
                 {item.label}
               </span>
             </span>

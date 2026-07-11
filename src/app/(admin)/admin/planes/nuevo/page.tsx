@@ -20,21 +20,21 @@ export default async function NuevoPlanEmpresaPage({
   return (
     <div className="max-w-xl space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">Nuevo plan</h1>
-        <p className="text-slate-500">
+        <h1 className="text-2xl font-bold text-foreground">Nuevo plan</h1>
+        <p className="text-muted-foreground">
           Define un plan de membresía para tus clientes (ej. Silver, Gold,
           Premium, VIP).
         </p>
       </div>
 
       {prefill && (
-        <div className="flex items-start gap-3 rounded-xl border border-sky-200 bg-sky-50 p-4 text-sm">
-          <LayoutTemplate className="mt-0.5 h-5 w-5 shrink-0 text-sky-600" />
+        <div className="flex items-start gap-3 rounded-xl border border-info/30 bg-info/10 p-4 text-sm">
+          <LayoutTemplate className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
           <div>
-            <p className="font-medium text-sky-900">
+            <p className="font-medium text-info">
               Basado en la plantilla &laquo;{prefill.plantillaNombre}&raquo;
             </p>
-            <p className="text-sky-700">
+            <p className="text-info">
               Es una copia tuya: ajusta precio, beneficios y condiciones antes de
               guardar. La plantilla original no se modifica.{' '}
               <Link href="/admin/planes/plantillas" className="underline">
