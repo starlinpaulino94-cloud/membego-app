@@ -137,13 +137,49 @@ function PromoCard({ p, showCompany }: { p: PromoRow; showCompany: boolean }) {
   )
 }
 
+/** Fase E5: métricas de ventas del ciclo de compras de promociones. */
+async function fetchVentas(companyId: string | null) {
+  const where = companyId ? { companyId } : {}
+  const [porEstado, ingresos] = await Promise.all([
+    prisma.productoCompra.groupBy({
+      by: ['estado'],
+      where,
+      _count: { _all: true },
+    }),
+    prisma.productoCompra.aggregate({
+      where: { ...where, pagoConfirmado: true },
+      _sum: { montoPagado: true },
+    }),
+  ])
+  const count = (estados: string[]) =>
+    porEstado.filter((r) => estados.includes(r.estado)).reduce((s, r) => s + r._count._all, 0)
+
+  const total = porEstado.reduce((s, r) => s + r._count._all, 0)
+  const vendidas = count(['ACTIVA', 'CONSUMIDA', 'EXPIRADA'])
+  return {
+    total,
+    vendidas,
+    activas: count(['ACTIVA']),
+    pendientes: count(['SOLICITADA', 'PENDIENTE_PAGO', 'APROBADA', 'RECHAZADA']),
+    porValidar: count(['EN_VALIDACION']),
+    consumidas: count(['CONSUMIDA']),
+    vencidas: count(['EXPIRADA']),
+    conversion: total > 0 ? Math.round((vendidas / total) * 100) : 0,
+    ingresos: Number(ingresos._sum.montoPagado ?? 0),
+  }
+}
+
 export default async function PromocionesPage() {
   const user = await requireRole(ADMIN_ROLES)
   const companyId = companyFilter(user)
 
   let promociones: PromoRow[] = []
+  let ventas: Awaited<ReturnType<typeof fetchVentas>> | null = null
   try {
-    promociones = await fetchPromos(companyId ?? null)
+    ;[promociones, ventas] = await Promise.all([
+      fetchPromos(companyId ?? null),
+      fetchVentas(companyId ?? null),
+    ])
   } catch (e) {
     console.error('[admin-promociones]', e)
   }
@@ -176,6 +212,52 @@ export default async function PromocionesPage() {
           </Link>
         </div>
       </div>
+
+      {/* Fase E5: panel de ventas del motor de compras */}
+      {ventas && ventas.total > 0 && (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <Card>
+            <CardContent className="p-5">
+              <p className="text-sm font-medium text-muted-foreground">Ingresos por promociones</p>
+              <p className="mt-1 text-2xl font-bold text-foreground">
+                {new Intl.NumberFormat('es-DO', { style: 'currency', currency: 'DOP', maximumFractionDigits: 0 }).format(ventas.ingresos)}
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">pagos confirmados</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-5">
+              <p className="text-sm font-medium text-muted-foreground">Vendidas</p>
+              <p className="mt-1 text-2xl font-bold text-foreground">{ventas.vendidas}</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {ventas.activas} activas · {ventas.consumidas} consumidas · {ventas.vencidas} vencidas
+              </p>
+            </CardContent>
+          </Card>
+          <Card className={ventas.porValidar > 0 ? 'border-warning/40' : ''}>
+            <CardContent className="p-5">
+              <p className="text-sm font-medium text-muted-foreground">Pagos por validar</p>
+              <p className="mt-1 text-2xl font-bold text-foreground">{ventas.porValidar}</p>
+              {ventas.porValidar > 0 ? (
+                <Link href="/admin/pagos" className="mt-1 inline-block text-xs font-medium text-primary hover:underline">
+                  Ir a validación de pagos →
+                </Link>
+              ) : (
+                <p className="mt-1 text-xs text-muted-foreground">{ventas.pendientes} en proceso de pago</p>
+              )}
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-5">
+              <p className="text-sm font-medium text-muted-foreground">Conversión de ventas</p>
+              <p className="mt-1 text-2xl font-bold text-foreground">{ventas.conversion}%</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {ventas.vendidas} de {ventas.total} solicitudes
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {activas.length === 0 && archivadas.length === 0 ? (
         <Card>
