@@ -7,17 +7,25 @@
  * - Registro auditado de impresiones/reimpresiones (COPIA #N con motivo).
  */
 
+import { revalidatePath } from 'next/cache'
+import type { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { getUser } from '@/lib/auth'
 import { getRequestMeta } from '@/lib/server-utils'
-import { SCANNER_ROLES } from '@/types'
+import { ADMIN_ROLES, SCANNER_ROLES } from '@/types'
 import {
   getByCodigo,
   getById,
   registrarImpresionRecibo,
   type TransactionDetalle,
 } from '@/lib/transactions'
-import type { ReceiptTemplateConfig, ReceiptTransaccionInfo, ReceiptEmpresaInfo } from '@/lib/receipts'
+import { DEFAULT_BLOCK_ORDER } from '@/lib/receipts'
+import type {
+  ReceiptBlockId,
+  ReceiptTemplateConfig,
+  ReceiptTransaccionInfo,
+  ReceiptEmpresaInfo,
+} from '@/lib/receipts'
 
 // ── Info serializable para la pantalla "Historial del QR" ────────────────────
 
@@ -224,5 +232,97 @@ export async function registrarImpresionTx(
     return { numero, esCopia }
   } catch {
     return { error: 'No se pudo registrar la impresión.' }
+  }
+}
+
+// ── Plantilla del comprobante por empresa (personalizable sin código) ─────────
+
+const MAX_TEXTO = 200
+
+function texto(v: unknown, max = MAX_TEXTO): string | undefined {
+  if (typeof v !== 'string') return undefined
+  const t = v.trim().slice(0, max)
+  return t || undefined
+}
+
+/** Whitelist + saneo del config recibido del cliente. */
+function sanitizarPlantilla(raw: ReceiptTemplateConfig): ReceiptTemplateConfig {
+  const bloquesValidos = new Set<ReceiptBlockId>(DEFAULT_BLOCK_ORDER)
+  const blockOrder = Array.isArray(raw.blockOrder)
+    ? (raw.blockOrder.filter(
+        (b, i, arr) => bloquesValidos.has(b) && arr.indexOf(b) === i
+      ) as ReceiptBlockId[])
+    : undefined
+
+  const bool = (v: unknown) => (typeof v === 'boolean' ? v : undefined)
+
+  return {
+    paperWidthMm: raw.paperWidthMm === 58 ? 58 : raw.paperWidthMm === 80 ? 80 : undefined,
+    blockOrder: blockOrder && blockOrder.length > 0 ? blockOrder : undefined,
+    mostrarLogo: bool(raw.mostrarLogo),
+    rnc: texto(raw.rnc, 40),
+    lineasEncabezado: Array.isArray(raw.lineasEncabezado)
+      ? raw.lineasEncabezado
+          .map((l) => texto(l, 80))
+          .filter((l): l is string => Boolean(l))
+          .slice(0, 4)
+      : undefined,
+    mostrarVehiculo: bool(raw.mostrarVehiculo),
+    mostrarPuntos: bool(raw.mostrarPuntos),
+    mostrarNivel: bool(raw.mostrarNivel),
+    mostrarPromocion: bool(raw.mostrarPromocion),
+    mostrarBeneficio: bool(raw.mostrarBeneficio),
+    mostrarTotales: bool(raw.mostrarTotales),
+    mostrarQr: bool(raw.mostrarQr),
+    mensajePie: texto(raw.mensajePie),
+    web: texto(raw.web, 100),
+    redes: texto(raw.redes),
+    politicas: texto(raw.politicas, 300),
+    proximaVisita: texto(raw.proximaVisita),
+    mostrarPromosActivas: bool(raw.mostrarPromosActivas),
+  }
+}
+
+export async function guardarPlantillaRecibo(
+  companyId: string,
+  config: ReceiptTemplateConfig
+): Promise<{ error?: string; success?: boolean }> {
+  try {
+    const user = await getUser()
+    if (!user || !ADMIN_ROLES.includes(user.metadata.role)) {
+      return { error: 'No autorizado.' }
+    }
+    if (!autorizado(user, companyId)) return { error: 'No autorizado para esta empresa.' }
+
+    const limpio = sanitizarPlantilla(config ?? {})
+    // Solo se persisten las claves definidas (lo demás usa el default).
+    const data = JSON.parse(JSON.stringify(limpio)) as Prisma.InputJsonObject
+
+    await prisma.receiptTemplate.upsert({
+      where: { companyId },
+      create: { companyId, config: data },
+      update: { config: data },
+    })
+
+    const meta = await getRequestMeta()
+    await prisma.auditLog
+      .create({
+        data: {
+          companyId,
+          userId: user.metadata.dbUserId ?? null,
+          accion: 'PLANTILLA_RECIBO_ACTUALIZADA',
+          entidadTipo: 'ReceiptTemplate',
+          entidadId: companyId,
+          payload: data,
+          ...meta,
+        },
+      })
+      .catch(() => {})
+
+    revalidatePath('/admin/perfil')
+    return { success: true }
+  } catch (e) {
+    console.error('[transacciones] guardarPlantillaRecibo:', e)
+    return { error: 'No se pudo guardar la plantilla del comprobante.' }
   }
 }

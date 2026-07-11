@@ -96,6 +96,7 @@ enum AuditAccion {
   REFERIDO_COMPLETADO
   RECOMPENSA_OTORGADA
   NOTA_INTERNA
+  PLANTILLA_RECIBO_ACTUALIZADA
 }
 
 // ─────────────────────────────────────────────
