@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 import { getUser } from '@/lib/auth'
+import { registrarRegistroIniciado } from '@/lib/referidos-attribution'
 import { RegisterForm } from '@/components/auth/RegisterForm'
 import { CompanyRegistroHeader } from '@/components/auth/CompanyRegistroHeader'
 import { AfiliarEmpresaCard } from '@/components/cliente/AfiliarEmpresaCard'
@@ -22,6 +23,9 @@ export default async function RegistroPage({
   })
 
   if (!company || !company.isActive) notFound()
+
+  // Fase E6 · Embudo: landing de registro con atribución (dedup 24 h).
+  if (ref) await registrarRegistroIniciado(ref)
 
   // Si el usuario ya inició sesión como cliente, no debe registrarse de nuevo:
   // se afilia a esta empresa con su cuenta existente (un clic).

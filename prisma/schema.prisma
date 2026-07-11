@@ -493,10 +493,16 @@ enum TipoRecompensa {
 // registro, membresía) con sus puntos. Base de estadísticas, niveles y ranking.
 // Diseñado para extenderse (campañas, afiliados) vía canal/meta sin migrar.
 enum ReferralEventTipo {
+  LINK // Fase E6: enlace de referido generado (código corto emitido)
   SHARE // el referente compartió su enlace
   CLICK // alguien abrió /r/[code]
+  REGISTRO_INICIADO // Fase E6: landing de registro cargada con atribución
   REGISTRO // un referido creó cuenta
+  VERIFICADO // Fase E6: el referido confirmó su correo
   MEMBRESIA // el referido activó membresía
+  COMPRA // Fase E6: primera compra confirmada (membresía o promoción E5)
+  RECOMPENSA // Fase E6: recompensa entregada al referente
+  FRAUDE // Fase E6: intento bloqueado o referido marcado sospechoso
   // Centro global MembeGo: el referido se unió a OTRA empresa de la plataforma.
   // companyId = empresa del referente; meta.targetCompanyId = empresa destino.
   REGISTRO_GLOBAL
@@ -512,11 +518,19 @@ model ReferralEvent {
   tipo      ReferralEventTipo
   puntos    Int               @default(0)
   canal     String? // native | whatsapp | copy | qr | telegram | ...
-  meta      Json              @default("{}") // dispositivo, campaña, referidoId...
+  // Fase E6 · Attribution Tracking: identificador anónimo del visitante,
+  // sembrado en el clic (cookie) y propagado hasta el registro. Permite
+  // visitas ÚNICAS reales y reconstruir el recorrido completo por persona.
+  visitorId String?
+  // Fase E6: referido al que pertenece el evento (cuando ya existe cuenta).
+  referidoClienteId String?
+  meta      Json              @default("{}") // dispositivo, campaña, ip hash...
   createdAt DateTime          @default(now())
 
   @@index([clienteId, companyId])
   @@index([companyId, tipo, createdAt])
+  @@index([companyId, tipo, visitorId])
+  @@index([referidoClienteId])
   @@map("referral_events")
 }
 
@@ -543,6 +557,39 @@ model Referido {
   @@map("referidos")
 }
 
+// Fase E6: recompensa REAL del programa de referidos, con estado propio.
+// Reemplaza el booleano recompensaAplicada como fuente de verdad: cada umbral
+// alcanzado genera una fila (>= sin pérdidas), auditable y sin doble entrega.
+enum ReferralRecompensaEstado {
+  PENDIENTE // otorgada pero de entrega manual (descuentos) o esperando entrega
+  ENTREGADA // efecto aplicado (p. ej. usos sumados a la membresía)
+  RECHAZADA // anulada por el admin (p. ej. fraude posterior)
+}
+
+model ReferralRecompensa {
+  id                 String                   @id @default(cuid())
+  companyId          String
+  referenteClienteId String
+  reglaId            String
+  regla              ReglaRecompensa          @relation(fields: [reglaId], references: [id])
+  estado             ReferralRecompensaEstado @default(PENDIENTE)
+  tipo               TipoRecompensa
+  valor              Int
+  descripcion        String
+  // Umbral de referidos completados que la disparó (auditoría del cálculo).
+  umbral             Int
+  completadosAlOtorgar Int
+  entregadaAt        DateTime?
+  motivoRechazo      String?
+  createdAt          DateTime                 @default(now())
+
+  // Una recompensa por regla por referente: el umbral >= no duplica entregas.
+  @@unique([referenteClienteId, reglaId])
+  @@index([companyId, estado])
+  @@index([referenteClienteId])
+  @@map("referral_recompensas")
+}
+
 // Regla de recompensa 100% configurable desde el panel admin: sin valores
 // fijos en código. El admin define cuándo y qué recompensa otorgar.
 model ReglaRecompensa {
@@ -557,6 +604,8 @@ model ReglaRecompensa {
   activo          Boolean             @default(true)
   createdAt       DateTime            @default(now())
   updatedAt       DateTime            @updatedAt
+
+  recompensas ReferralRecompensa[]
 
   @@index([companyId, activo])
   @@map("reglas_recompensa")

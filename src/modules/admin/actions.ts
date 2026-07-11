@@ -7,7 +7,6 @@ import { resolveCompanyId } from '@/lib/auth/company-context'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getRequestMeta, periodEnd } from '@/lib/server-utils'
 import { crearNotificacion } from '@/modules/notificaciones/service'
-import { procesarReferidoCompletado } from '@/modules/referidos/actions'
 import { activarMembresia } from '@/modules/pagos/activacion'
 import { paymentLimiter } from '@/lib/rate-limit'
 import { ensureEmailIdentity } from '@/lib/supabase/identity'
@@ -80,9 +79,9 @@ export async function confirmarPago(
       })
     }
 
-    if (result.esPrimera) {
-      await procesarReferidoCompletado(result.clienteId, result.companyId)
-    }
+    // Fase E6: la conversión del referido ahora se procesa DENTRO de
+    // activarMembresia (punto de activación único); cualquier vía de
+    // activación la dispara sin depender de este caller.
 
     revalidatePath(`/admin/clientes/${result.clienteId}`)
     revalidatePath('/admin/clientes')

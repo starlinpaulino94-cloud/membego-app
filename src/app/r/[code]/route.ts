@@ -1,8 +1,16 @@
+import { randomUUID } from 'node:crypto'
 import { NextResponse, type NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getUser } from '@/lib/auth'
 import { getAppUrl } from '@/lib/site'
-import { logReferralEvent, hashIp, REF_COOKIE, REF_COOKIE_DIAS } from '@/lib/referidos'
+import {
+  logReferralEvent,
+  hashIp,
+  REF_COOKIE,
+  REF_COOKIE_DIAS,
+  VISITOR_COOKIE,
+  VISITOR_COOKIE_DIAS,
+} from '@/lib/referidos'
 import { createRateLimiter, getClientIdentifier } from '@/lib/rate-limit'
 
 export const dynamic = 'force-dynamic'
@@ -69,6 +77,11 @@ export async function GET(
     esDuenno = sessionUser?.metadata.clienteId === cliente.id
   }
 
+  // Fase E6 · Attribution Tracking: identificador anónimo del visitante.
+  // Se reutiliza si ya existe (visitas ÚNICAS reales entre clics repetidos)
+  // y viaja en cookie hasta el registro para unir todo el recorrido.
+  const visitorId = req.cookies.get(VISITOR_COOKIE)?.value || randomUUID()
+
   if (!esBot && !esDuenno && clickLimiter(`refclick:${ip}:${cliente.id}`)) {
     const canal = req.nextUrl.searchParams.get('c')
     const campana = req.nextUrl.searchParams.get('utm_campaign')
@@ -77,6 +90,7 @@ export async function GET(
       companyId: cliente.companyId,
       tipo: 'CLICK',
       canal,
+      visitorId,
       meta: {
         dispositivo: /mobile|android|iphone|ipad/i.test(ua) ? 'móvil' : 'escritorio',
         ipHash: hashIp(ip),
@@ -88,6 +102,14 @@ export async function GET(
   const res = NextResponse.redirect(
     `${base}/registro/${cliente.company.slug}?ref=${cliente.codigoReferido}`
   )
+  if (!esDuenno) {
+    res.cookies.set(VISITOR_COOKIE, visitorId, {
+      maxAge: VISITOR_COOKIE_DIAS * 24 * 60 * 60,
+      httpOnly: true,
+      sameSite: 'lax',
+      path: '/',
+    })
+  }
   // Atribución del Centro global MembeGo: si la persona termina registrándose
   // en OTRA empresa de la plataforma, el referente igual gana puntos globales.
   // No se coloca para el propio dueño del enlace (evita autoatribución).

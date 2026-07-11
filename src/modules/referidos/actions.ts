@@ -7,40 +7,77 @@
 
 import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
-import { logReferralEvent, TIPOS_EMPRESA, TIPOS_GLOBAL } from '@/lib/referidos'
+import { logReferralEvent, PUNTOS, TIPOS_EMPRESA, TIPOS_GLOBAL } from '@/lib/referidos'
+import { emitirEventoEstrategia } from '@/modules/estrategias/eventos'
+import { crearTransaccionAplicada } from '@/lib/transactions'
 
 /**
- * Se llama cuando un cliente activa su primera membresía. Si fue referido,
- * marca el referido como completado y evalúa las reglas de recompensa
- * configuradas por el admin (sin lógica de negocio fija en código: todo
- * sale de ReglaRecompensa).
+ * Fase E6: conversión del referido en su PRIMERA compra confirmada — membresía
+ * (origen 'MEMBRESIA') o promoción E5 (origen 'COMPRA'). Reglas:
+ * - Un vínculo `sospechoso` NUNCA convierte ni empuja recompensas; genera un
+ *   evento FRAUDE auditable en su lugar.
+ * - La completación es atómica (guard PENDIENTE) y queda como eventos reales:
+ *   COMPRA (+MEMBRESIA si aplica) enlazados al referido concreto.
+ * - Las recompensas salen de ReglaRecompensa (umbral >=, sin pérdidas) y se
+ *   registran en referral_recompensas con estado real.
  */
 export async function procesarReferidoCompletado(
   clienteId: string,
-  companyId: string
+  companyId: string,
+  opts: { origen?: 'MEMBRESIA' | 'COMPRA'; monto?: number } = {}
 ) {
+  const origen = opts.origen ?? 'MEMBRESIA'
   // Centro global MembeGo: si este cliente llegó referido desde OTRA empresa,
   // el referente gana los puntos globales de membresía (una sola vez).
-  await procesarMembresiaGlobal(clienteId).catch(() => {})
+  if (origen === 'MEMBRESIA') await procesarMembresiaGlobal(clienteId).catch(() => {})
 
   try {
     const referido = await prisma.referido.findUnique({
       where: { referidoClienteId: clienteId },
+      include: { referenteCliente: { select: { nombre: true } } },
     })
-    if (!referido || referido.estado !== 'PENDIENTE') return
+    if (!referido || referido.companyId !== companyId) return
 
-    await prisma.referido.update({
-      where: { id: referido.id },
+    if (referido.sospechoso) {
+      // El antifraude aplica en TODAS las etapas (antes solo en el registro):
+      // sin puntos, sin COMPLETADO, sin recompensa — pero auditado.
+      await logReferralEvent({
+        clienteId: referido.referenteClienteId,
+        companyId,
+        tipo: 'FRAUDE',
+        referidoClienteId: clienteId,
+        meta: { motivo: 'conversion_bloqueada_vinculo_sospechoso', origen },
+      })
+      return
+    }
+    if (referido.estado !== 'PENDIENTE') return
+
+    // Guard atómico anti doble-conversión (dos activaciones concurrentes).
+    const upd = await prisma.referido.updateMany({
+      where: { id: referido.id, estado: 'PENDIENTE' },
       data: { estado: 'COMPLETADO', completadoEn: new Date() },
     })
+    if (upd.count === 0) return
 
-    // Evento del embudo (+puntos) para el referente.
+    // Eventos reales del embudo, enlazados al referido concreto.
     await logReferralEvent({
       clienteId: referido.referenteClienteId,
       companyId,
-      tipo: 'MEMBRESIA',
-      meta: { referidoClienteId: clienteId },
+      tipo: 'COMPRA',
+      referidoClienteId: clienteId,
+      meta: { origen, ...(opts.monto != null ? { monto: opts.monto } : {}) },
+      // La conversión vale 200 pts: van en MEMBRESIA si el origen es membresía
+      // (semántica histórica) o en COMPRA si convirtió con una promoción.
+      puntos: origen === 'COMPRA' ? PUNTOS.MEMBRESIA : 0,
     })
+    if (origen === 'MEMBRESIA') {
+      await logReferralEvent({
+        clienteId: referido.referenteClienteId,
+        companyId,
+        tipo: 'MEMBRESIA',
+        referidoClienteId: clienteId,
+      })
+    }
 
     await prisma.auditLog.create({
       data: {
@@ -48,9 +85,26 @@ export async function procesarReferidoCompletado(
         accion: 'REFERIDO_COMPLETADO',
         entidadTipo: 'Referido',
         entidadId: referido.id,
-        payload: { referenteClienteId: referido.referenteClienteId, referidoClienteId: clienteId },
+        payload: {
+          referenteClienteId: referido.referenteClienteId,
+          referidoClienteId: clienteId,
+          origen,
+          ...(opts.monto != null ? { monto: opts.monto } : {}),
+        },
       },
     })
+
+    // Bus de estrategias: la conversión ahora SÍ se emite (antes solo existía
+    // el evento de registro; el journey de automatizaciones quedaba a ciegas).
+    await emitirEventoEstrategia({
+      companyId,
+      type: 'referido.convirtio',
+      subjectId: referido.referenteClienteId,
+      payload: {
+        cliente: { nombre: referido.referenteCliente.nombre },
+        referido: { clienteId, origen, monto: opts.monto ?? null },
+      },
+    }).catch(() => {})
 
     await evaluarRecompensas(referido.referenteClienteId, companyId)
   } catch (e) {
@@ -98,24 +152,37 @@ async function procesarMembresiaGlobal(referidoClienteId: string) {
   })
 }
 
-/** Revisa las reglas activas de la empresa y otorga la recompensa si el referente alcanzó la condición. */
+/**
+ * Fase E6: evalúa las reglas activas y otorga recompensas con REGISTRO real.
+ * - Umbral `>=` (antes igualdad exacta: si el conteo saltaba el número, la
+ *   recompensa se perdía en silencio).
+ * - Solo cuentan referidos COMPLETADOS legítimos (sospechoso:false).
+ * - Cada regla alcanzada crea UNA fila en referral_recompensas (unique por
+ *   referente+regla → sin dobles entregas bajo concurrencia).
+ * - Estados reales: ENTREGADA (efecto aplicado) o PENDIENTE (entrega manual:
+ *   descuentos, o usos sin membresía activa donde aplicarlos).
+ * - Cada entrega genera: transacción oficial (Transaction Engine, REFERRAL),
+ *   evento RECOMPENSA, auditoría y notificación.
+ */
 async function evaluarRecompensas(referenteClienteId: string, companyId: string) {
   const completados = await prisma.referido.count({
-    where: { companyId, referenteClienteId, estado: 'COMPLETADO' },
+    where: { companyId, referenteClienteId, estado: 'COMPLETADO', sospechoso: false },
   })
+  if (completados === 0) return
 
   const reglas = await prisma.reglaRecompensa.findMany({
     where: {
       companyId,
       activo: true,
       condicion: 'N_REFERIDOS_COMPLETADOS',
-      valorCondicion: completados,
+      valorCondicion: { lte: completados },
     },
   })
   if (reglas.length === 0) return
 
   const referente = await prisma.cliente.findUnique({
     where: { id: referenteClienteId },
+    include: { company: { select: { name: true, zonaHoraria: true } } },
   })
   if (!referente) return
 
@@ -127,50 +194,106 @@ async function evaluarRecompensas(referenteClienteId: string, companyId: string)
   const notificacionesACrear = []
 
   for (const regla of reglas) {
-    let mensaje = ''
-
-    // Validate Number conversion to ensure it's finite
     const valor = Number(regla.valorRecompensa)
     if (!Number.isFinite(valor)) {
       console.error('[referidos] Invalid valorRecompensa:', regla.valorRecompensa)
       continue
     }
 
+    // Descripción legible de la recompensa (para registro, ticket y aviso).
+    const descripcion =
+      regla.tipoRecompensa === 'LAVADOS_GRATIS'
+        ? `${valor} uso${valor !== 1 ? 's' : ''} gratis`
+        : regla.tipoRecompensa === 'DESCUENTO_PORCENTAJE'
+          ? `${valor}% de descuento`
+          : `RD$${valor} de descuento`
+
+    // Entrega tangible solo para usos gratis con membresía ACTIVA; el resto
+    // queda PENDIENTE hasta que el negocio la aplique (estado real, no un
+    // mensaje al vacío).
+    let estado: 'ENTREGADA' | 'PENDIENTE' = 'PENDIENTE'
+    let mensaje = ''
     if (regla.tipoRecompensa === 'LAVADOS_GRATIS') {
-      // Find active membership in THIS COMPANY for the referrer
       const activa = await prisma.membership.findUnique({
-        where: {
-          clienteId_companyId: {
-            clienteId: referenteClienteId,
-            companyId,
-          },
-        },
+        where: { clienteId_companyId: { clienteId: referenteClienteId, companyId } },
       })
       if (activa && activa.estado === 'ACTIVA') {
-        await prisma.membership.update({
-          where: { id: activa.id },
-          data: { lavadosRestantes: { increment: valor } },
-        })
-        mensaje = `¡Ganaste ${valor} usos gratis por tus referidos! Ya se aplicaron a tu membresía.`
+        estado = 'ENTREGADA'
+        mensaje = `¡Ganaste ${descripcion} por tus referidos! Ya se aplicaron a tu membresía.`
       } else {
-        mensaje = `¡Ganaste ${valor} usos gratis por tus referidos! Se aplicarán cuando actives tu próxima membresía en esta empresa.`
+        mensaje = `¡Ganaste ${descripcion} por tus referidos! Se aplicarán cuando actives tu membresía.`
       }
-    } else if (regla.tipoRecompensa === 'DESCUENTO_PORCENTAJE') {
-      mensaje = `¡Ganaste un ${valor}% de descuento por tus referidos! Contacta al negocio para aplicarlo.`
     } else {
-      mensaje = `¡Ganaste RD$${valor} de descuento por tus referidos! Contacta al negocio para aplicarlo.`
+      mensaje = `¡Ganaste ${descripcion} por tus referidos! El negocio la tiene registrada como pendiente de aplicar.`
     }
 
+    // Registro real de la recompensa. El unique (referente, regla) hace la
+    // creación idempotente: si otra conversión concurrente ya la otorgó, se
+    // salta sin duplicar.
+    let recompensaId: string
+    try {
+      const creada = await prisma.referralRecompensa.create({
+        data: {
+          companyId,
+          referenteClienteId,
+          reglaId: regla.id,
+          estado,
+          tipo: regla.tipoRecompensa,
+          valor,
+          descripcion,
+          umbral: regla.valorCondicion,
+          completadosAlOtorgar: completados,
+          entregadaAt: estado === 'ENTREGADA' ? new Date() : null,
+        },
+      })
+      recompensaId = creada.id
+    } catch (e) {
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') continue
+      throw e
+    }
+
+    // Efecto tangible (después de asegurar la fila: sin fila no hay efecto).
+    if (estado === 'ENTREGADA') {
+      await prisma.membership.updateMany({
+        where: { clienteId: referenteClienteId, companyId, estado: 'ACTIVA' },
+        data: { lavadosRestantes: { increment: valor } },
+      })
+    }
+
+    // Transacción oficial (Transaction Engine): la recompensa es una operación
+    // auditable con TX-ID, como cualquier otra del sistema.
+    await crearTransaccionAplicada(prisma, {
+      tipo: 'REFERRAL',
+      companyId,
+      clienteId: referenteClienteId,
+      snapshot: {
+        cliente: referente.nombre,
+        empresa: referente.company.name,
+        servicio: `Recompensa por referidos: ${descripcion}`,
+        restantes: undefined,
+      },
+      auditoria: { origen: 'referral_engine', reglaId: regla.id, recompensaId },
+      resultado: `Umbral: ${regla.valorCondicion} referidos completados (${completados} al otorgar)`,
+      timeZone: referente.company.zonaHoraria,
+      userId: null,
+    }).catch((e) => console.error('[referidos] tx recompensa:', e))
+
+    // Evento del embudo + auditoría + notificación.
+    await logReferralEvent({
+      clienteId: referenteClienteId,
+      companyId,
+      tipo: 'RECOMPENSA',
+      meta: { reglaId: regla.id, recompensaId, descripcion, estado },
+    })
     await prisma.auditLog.create({
       data: {
         companyId,
         accion: 'RECOMPENSA_OTORGADA',
-        entidadTipo: 'ReglaRecompensa',
-        entidadId: regla.id,
-        payload: { referenteClienteId, reglaId: regla.id, completados },
+        entidadTipo: 'ReferralRecompensa',
+        entidadId: recompensaId,
+        payload: { referenteClienteId, reglaId: regla.id, completados, estado, descripcion },
       },
     })
-
     if (referenteUser) {
       notificacionesACrear.push({
         userId: referenteUser.id,
@@ -190,8 +313,10 @@ async function evaluarRecompensas(referenteClienteId: string, companyId: string)
     })
   }
 
+  // Compatibilidad con vistas existentes: el booleano legacy se mantiene,
+  // pero la fuente de verdad de recompensas es referral_recompensas.
   await prisma.referido.updateMany({
-    where: { companyId, referenteClienteId, estado: 'COMPLETADO', recompensaAplicada: false },
+    where: { companyId, referenteClienteId, estado: 'COMPLETADO', sospechoso: false, recompensaAplicada: false },
     data: { recompensaAplicada: true },
   })
 }

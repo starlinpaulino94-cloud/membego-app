@@ -12,6 +12,7 @@
 
 import { prisma } from '@/lib/prisma'
 import { emitirEventoEstrategia } from '@/modules/estrategias/eventos'
+import { procesarReferidoCompletado } from '@/modules/referidos/actions'
 import { periodEnd } from '@/lib/server-utils'
 
 type Meta = { ipAddress: string | null; userAgent: string | null }
@@ -138,6 +139,16 @@ export async function activarMembresia(
     subjectId: membership.clienteId,
     payload: { cliente: factsCliente, membresia: factsMembresia },
   })
+
+  // Fase E6: la conversión del referido se procesa en el punto de activación
+  // ÚNICO (antes dependía de que cada caller lo recordara). Primera compra
+  // confirmada = referido completado + recompensas, para CUALQUIER vía.
+  if (esPrimera) {
+    await procesarReferidoCompletado(membership.clienteId, membership.companyId, {
+      origen: 'MEMBRESIA',
+      monto: montoNeto,
+    }).catch(() => {})
+  }
 
   return {
     ok: true,

@@ -12,6 +12,7 @@
 import { prisma } from '@/lib/prisma'
 import { crearNotificacion } from '@/modules/notificaciones/service'
 import { emitirEventoEstrategia } from '@/modules/estrategias/eventos'
+import { procesarReferidoCompletado } from '@/modules/referidos/actions'
 import {
   calcularVencimientoBeneficio,
   registrarTransicionCompra,
@@ -145,6 +146,32 @@ export async function activarCompraPromocion(
       compra: { tipo: 'promocion', monto, promocion: promo.titulo },
     },
   })
+
+  // Fase E6: la PRIMERA compra confirmada (de cualquier producto) convierte al
+  // referido. Antes solo contaban las membresías aprobadas por el admin.
+  try {
+    const [membresiasPrevias, comprasPrevias] = await Promise.all([
+      prisma.membership.count({
+        where: { clienteId: compra.clienteId, companyId: compra.companyId, pagoConfirmado: true },
+      }),
+      prisma.productoCompra.count({
+        where: {
+          clienteId: compra.clienteId,
+          companyId: compra.companyId,
+          pagoConfirmado: true,
+          id: { not: compra.id },
+        },
+      }),
+    ])
+    if (membresiasPrevias === 0 && comprasPrevias === 0) {
+      await procesarReferidoCompletado(compra.clienteId, compra.companyId, {
+        origen: 'COMPRA',
+        monto,
+      })
+    }
+  } catch (e) {
+    console.error('[pagos] referido en compra:', e)
+  }
 
   return {
     ok: true,
