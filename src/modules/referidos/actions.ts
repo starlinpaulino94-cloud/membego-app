@@ -5,7 +5,7 @@
  * desde un Server Component. Ninguna de las dos debe ser un endpoint público.
  */
 
-import { Prisma } from '@prisma/client'
+import { Prisma, type ReferralEventTipo } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { logReferralEvent, PUNTOS, TIPOS_EMPRESA, TIPOS_GLOBAL } from '@/lib/referidos'
 import { emitirEventoEstrategia } from '@/modules/estrategias/eventos'
@@ -330,31 +330,58 @@ export async function getClienteReferidos(clienteId: string) {
   })
 }
 
+export interface EtapaEmbudo {
+  etapa: string
+  valor: number
+  /** % respecto a la etapa anterior (null en la primera). */
+  tasaPct: number | null
+}
+
 export interface ReferidosDashboard {
   stats: {
     compartidos: number
     clicks: number
+    clicksUnicos: number
+    registrosIniciados: number
     registros: number
+    verificados: number
     membresias: number
-    conversionPct: number // membresías / clics
+    /** Conversión registro → compra confirmada (mismo universo: filas Referido). */
+    conversionPct: number
     recompensas: number
     puntos: number
   }
+  embudo: EtapaEmbudo[]
   historial: {
     id: string
     nombre: string
     fecha: Date
     estado: 'REGISTRADO' | 'MEMBRESIA_ACTIVA' | 'RECOMPENSA_ENTREGADA'
   }[]
-  ranking: { posicion: number; nombre: string; puntos: number; esYo: boolean }[]
+  ranking: {
+    posicion: number
+    nombre: string
+    registros: number
+    membresias: number
+    puntos: number
+    esYo: boolean
+  }[]
   miPosicion: number | null
-  /** Retos activos de la empresa (reglas de recompensa) con progreso. */
+  /** Retos activos de la empresa (reglas de recompensa) con progreso REAL. */
   retos: {
     id: string
     nombre: string
     meta: number
     progreso: number
     recompensa: string
+    logrado: boolean
+  }[]
+  /** Recompensas reales del referente (referral_recompensas). */
+  misRecompensas: {
+    id: string
+    descripcion: string
+    estado: string
+    fecha: Date
   }[]
   /** Centro global MembeGo (suma de todas tus cuentas). */
   global: { puntos: number; registros: number; membresias: number }
@@ -366,45 +393,66 @@ const RECOMPENSA_LABEL: Record<string, string> = {
   DESCUENTO_MONTO: 'RD$ de descuento',
 }
 
+function tasa(valor: number, base: number): number | null {
+  if (base <= 0) return null
+  return Math.round((valor / base) * 1000) / 10
+}
+
 /**
- * Panel completo de referidos del cliente: embudo (compartidos → clics →
- * registros → membresías), puntos, historial con estados y ranking de la
- * empresa (aislado por companyId). Server-only.
+ * Fase E6 · Panel de referidos del cliente. Reglas de oro:
+ * - Cada etapa del embudo sale de UNA fuente consistente y muestra su tasa
+ *   respecto a la etapa anterior (nunca se dividen universos distintos).
+ * - Clics únicos = visitantes distintos (visitorId sembrado en el clic).
+ * - El ranking ordena por CONVERSIONES reales (no por puntos gamificables).
+ * - Las recompensas salen de referral_recompensas (estado real).
  */
 export async function getReferidosDashboard(
   clienteId: string,
   companyId: string,
   supabaseId: string
 ): Promise<ReferidosDashboard> {
-  const [eventos, referidos, topRaw, reglas, misClientes] = await Promise.all([
-    prisma.referralEvent.groupBy({
-      by: ['tipo'],
-      where: { clienteId, companyId, tipo: { in: TIPOS_EMPRESA } },
-      _count: { _all: true },
-      _sum: { puntos: true },
-    }),
-    prisma.referido.findMany({
-      where: { referenteClienteId: clienteId, companyId },
-      include: { referidoCliente: { select: { nombre: true } } },
-      orderBy: { createdAt: 'desc' },
-      take: 200,
-    }),
-    prisma.referralEvent.groupBy({
-      by: ['clienteId'],
-      where: { companyId, tipo: { in: TIPOS_EMPRESA } },
-      _sum: { puntos: true },
-      orderBy: { _sum: { puntos: 'desc' } },
-      take: 50,
-    }),
-    prisma.reglaRecompensa.findMany({
-      where: { companyId, activo: true },
-      orderBy: { valorCondicion: 'asc' },
-    }),
-    prisma.cliente.findMany({
-      where: { supabaseId },
-      select: { id: true },
-    }),
-  ])
+  const [eventos, clicksUnicosRows, referidos, rankingRows, reglas, misRecompensasRows, misClientes] =
+    await Promise.all([
+      prisma.referralEvent.groupBy({
+        by: ['tipo'],
+        where: { clienteId, companyId },
+        _count: { _all: true },
+        _sum: { puntos: true },
+      }),
+      prisma.$queryRaw<{ n: bigint }[]>(
+        Prisma.sql`SELECT count(DISTINCT "visitorId")::bigint AS n
+          FROM "referral_events"
+          WHERE "clienteId" = ${clienteId} AND "companyId" = ${companyId}
+            AND tipo = 'CLICK' AND "visitorId" IS NOT NULL`
+      ),
+      prisma.referido.findMany({
+        where: { referenteClienteId: clienteId, companyId },
+        include: { referidoCliente: { select: { nombre: true } } },
+        orderBy: { createdAt: 'desc' },
+        take: 200,
+      }),
+      // Ranking por conversiones REALES: referidos legítimos por referente.
+      prisma.$queryRaw<{ referente: string; registros: bigint; membresias: bigint }[]>(
+        Prisma.sql`SELECT "referenteClienteId" AS referente,
+            count(*)::bigint AS registros,
+            count(*) FILTER (WHERE estado = 'COMPLETADO')::bigint AS membresias
+          FROM "referidos"
+          WHERE "companyId" = ${companyId} AND sospechoso = false
+          GROUP BY 1
+          ORDER BY membresias DESC, registros DESC
+          LIMIT 50`
+      ),
+      prisma.reglaRecompensa.findMany({
+        where: { companyId, activo: true },
+        orderBy: { valorCondicion: 'asc' },
+      }),
+      prisma.referralRecompensa.findMany({
+        where: { referenteClienteId: clienteId, companyId },
+        orderBy: { createdAt: 'desc' },
+        take: 20,
+      }),
+      prisma.cliente.findMany({ where: { supabaseId }, select: { id: true } }),
+    ])
 
   // Centro global MembeGo: eventos globales de TODAS tus cuentas.
   const globalAgg = await prisma.referralEvent.groupBy({
@@ -418,38 +466,70 @@ export async function getReferidosDashboard(
   })
 
   const byTipo = new Map(eventos.map((e) => [e.tipo, e]))
-  const compartidos = byTipo.get('SHARE')?._count._all ?? 0
-  const clicks = byTipo.get('CLICK')?._count._all ?? 0
-  // Registros/membresías: la fuente autoritativa son las filas de Referido, pero
-  // SOLO las legítimas. Las sospechosas (autoreferido / huella repetida) se
-  // conservan para auditoría pero no inflan el embudo ni la conversión.
+  const count = (t: string) => byTipo.get(t as never)?._count._all ?? 0
+  const compartidos = count('SHARE')
+  const clicks = count('CLICK')
+  const clicksUnicos = Number(clicksUnicosRows[0]?.n ?? 0)
+  const registrosIniciados = count('REGISTRO_INICIADO')
+
+  // Registros/conversiones: la fuente autoritativa son las filas de Referido
+  // LEGÍTIMAS. Las sospechosas se conservan para auditoría, fuera del embudo.
   const legitimos = referidos.filter((r) => !r.sospechoso)
   const registros = legitimos.length
   const membresias = legitimos.filter((r) => r.estado === 'COMPLETADO').length
-  const recompensas = legitimos.filter((r) => r.recompensaAplicada).length
-  const puntos = eventos.reduce((acc, e) => acc + (e._sum.puntos ?? 0), 0)
-  const conversionPct = clicks > 0 ? Math.round((membresias / clicks) * 100) : 0
+  const verificados = count('VERIFICADO')
+  const recompensas = misRecompensasRows.length
+  const puntos = eventos
+    .filter((e) => (TIPOS_EMPRESA as string[]).includes(e.tipo))
+    .reduce((acc, e) => acc + (e._sum.puntos ?? 0), 0)
+  // Conversión honesta: registro → compra confirmada (mismo universo).
+  const conversionPct = registros > 0 ? Math.round((membresias / registros) * 100) : 0
 
-  // Ranking de la empresa (top 5 + posición propia), con nombres.
-  const top5 = topRaw.slice(0, 5)
-  const nombres = await prisma.cliente.findMany({
-    where: { id: { in: top5.map((t) => t.clienteId) } },
-    select: { id: true, nombre: true },
-  })
+  const embudo: EtapaEmbudo[] = [
+    { etapa: 'Compartidos', valor: compartidos, tasaPct: null },
+    { etapa: 'Clics', valor: clicks, tasaPct: tasa(clicks, compartidos) },
+    { etapa: 'Visitantes únicos', valor: clicksUnicos, tasaPct: tasa(clicksUnicos, clicks) },
+    { etapa: 'Registros iniciados', valor: registrosIniciados, tasaPct: tasa(registrosIniciados, clicksUnicos) },
+    { etapa: 'Registros', valor: registros, tasaPct: tasa(registros, clicksUnicos) },
+    { etapa: 'Conversiones', valor: membresias, tasaPct: tasa(membresias, registros) },
+    { etapa: 'Recompensas', valor: recompensas, tasaPct: null },
+  ]
+
+  // Ranking (top 5 + posición propia), con nombres y puntos de gamificación.
+  const top5 = rankingRows.slice(0, 5)
+  const [nombres, puntosTop] = await Promise.all([
+    prisma.cliente.findMany({
+      where: { id: { in: top5.map((t) => t.referente) } },
+      select: { id: true, nombre: true },
+    }),
+    prisma.referralEvent.groupBy({
+      by: ['clienteId'],
+      where: { companyId, clienteId: { in: top5.map((t) => t.referente) }, tipo: { in: TIPOS_EMPRESA } },
+      _sum: { puntos: true },
+    }),
+  ])
   const nombreDe = new Map(nombres.map((n) => [n.id, n.nombre]))
+  const puntosDe = new Map(puntosTop.map((t) => [t.clienteId, t._sum.puntos ?? 0]))
   const ranking = top5.map((t, i) => ({
     posicion: i + 1,
-    nombre: nombreDe.get(t.clienteId) ?? 'Cliente',
-    puntos: t._sum.puntos ?? 0,
-    esYo: t.clienteId === clienteId,
+    nombre: nombreDe.get(t.referente) ?? 'Cliente',
+    registros: Number(t.registros),
+    membresias: Number(t.membresias),
+    puntos: puntosDe.get(t.referente) ?? 0,
+    esYo: t.referente === clienteId,
   }))
-  const idx = topRaw.findIndex((t) => t.clienteId === clienteId)
+  const idx = rankingRows.findIndex((t) => t.referente === clienteId)
   const miPosicion = idx >= 0 ? idx + 1 : null
 
   const globalPorTipo = new Map(globalAgg.map((g) => [g.tipo, g]))
+  const recompensaPorRegla = new Set(misRecompensasRows.map((r) => r.reglaId))
 
   return {
-    stats: { compartidos, clicks, registros, membresias, conversionPct, recompensas, puntos },
+    stats: {
+      compartidos, clicks, clicksUnicos, registrosIniciados, registros,
+      verificados, membresias, conversionPct, recompensas, puntos,
+    },
+    embudo,
     historial: legitimos.map((r) => ({
       id: r.id,
       nombre: r.referidoCliente.nombre,
@@ -468,6 +548,13 @@ export async function getReferidosDashboard(
       meta: r.valorCondicion,
       progreso: Math.min(membresias, r.valorCondicion),
       recompensa: `${Number(r.valorRecompensa)} ${RECOMPENSA_LABEL[r.tipoRecompensa] ?? ''}`.trim(),
+      logrado: recompensaPorRegla.has(r.id),
+    })),
+    misRecompensas: misRecompensasRows.map((r) => ({
+      id: r.id,
+      descripcion: r.descripcion,
+      estado: r.estado,
+      fecha: r.entregadaAt ?? r.createdAt,
     })),
     global: {
       puntos: globalAgg.reduce((acc, g) => acc + (g._sum.puntos ?? 0), 0),
@@ -483,28 +570,55 @@ export async function getReferidosDashboard(
 
 export interface EmpresaReferidosDashboard {
   kpis: {
+    linksGenerados: number
     compartidos: number
     clicks: number
+    visitantesUnicos: number
+    registrosIniciados: number
     registros: number
+    verificados: number
+    activos: number
+    compras: number
     membresias: number
+    /** Conversión registro → compra confirmada (mismo universo). */
     conversionPct: number
+    /** Conversión visitante único → registro. */
+    conversionClickPct: number
     recompensasEntregadas: number
+    recompensasPendientes: number
     ingresosReferidos: number
+    valorPromedioPorReferido: number
+    tiempoPromedioConversionDias: number | null
     sospechosos: number
+    fraudes: number
     embajadoresActivos: number
     embajadoresInactivos: number
   }
-  porCanal: { canal: string; clicks: number; compartidos: number }[]
+  embudo: EtapaEmbudo[]
+  porCanal: { canal: string; clicks: number; compartidos: number; registros: number }[]
   porCampana: { campana: string; clicks: number }[]
   registrosDiarios: { dia: string; registros: number }[]
   evolucionMensual: { mes: string; registros: number; membresias: number }[]
-  topEmbajadores: { nombre: string; puntos: number; registros: number; membresias: number }[]
-  topConversion: { nombre: string; clicks: number; membresias: number; pct: number }[]
+  topEmbajadores: { nombre: string; registros: number; membresias: number; puntos: number }[]
+  topConversion: { nombre: string; registros: number; membresias: number; pct: number }[]
+  ultimosMovimientos: { id: string; tipo: string; nombre: string; fecha: Date; canal: string | null }[]
+  referidosRecientes: {
+    id: string
+    referidoClienteId: string
+    nombre: string
+    referente: string
+    estado: string
+    sospechoso: boolean
+    fecha: Date
+    completadoEn: Date | null
+  }[]
 }
 
 /**
- * Métricas del programa de referidos de la empresa. `companyId` null =
- * superadmin (toda la plataforma). Server-only.
+ * Fase E6 · Métricas del programa de referidos de la empresa. `companyId`
+ * null = superadmin (toda la plataforma). Cada cifra proviene de eventos o
+ * filas reales, con UNA fuente por etapa; los sospechosos/fraudes se reportan
+ * aparte y no contaminan ninguna métrica. Server-only.
  */
 export async function getEmpresaReferidosDashboard(
   companyId: string | null
@@ -515,94 +629,126 @@ export async function getEmpresaReferidosDashboard(
     : Prisma.sql`TRUE`
 
   const hace30d = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
-
   const hace6m = new Date()
   hace6m.setMonth(hace6m.getMonth() - 5)
   hace6m.setDate(1)
 
-  // Ronda 1: agregaciones independientes. Antes esta función ejecutaba ~9
-  // rondas secuenciales, con `distinct` resuelto en memoria (traía todas las
-  // filas) y listas de IDs materializadas para contar.
+  // Ronda 1: agregaciones independientes.
   const [
     eventosTipo,
+    visitantesUnicosRows,
     referidosTotal,
     membresias,
-    recompensadas,
+    activosRows,
+    recompensasAgg,
     canalRows,
-    topPuntos,
-    porClienteTipo,
+    canalRegistrosRows,
+    rankingRows,
     activosCountRows,
+    tiempoConversionRows,
   ] = await Promise.all([
     prisma.referralEvent.groupBy({
       by: ['tipo'],
-      where: { ...whereRef, tipo: { in: TIPOS_EMPRESA } },
+      where: whereRef,
       _count: { _all: true },
     }),
-    // Solo referidos legítimos cuentan en el embudo (los sospechosos van aparte).
+    prisma.$queryRaw<{ n: bigint }[]>(
+      Prisma.sql`SELECT count(DISTINCT "visitorId")::bigint AS n
+        FROM "referral_events"
+        WHERE ${companySql} AND tipo = 'CLICK' AND "visitorId" IS NOT NULL`
+    ),
     prisma.referido.count({ where: { ...whereRef, sospechoso: false } }),
     prisma.referido.count({ where: { ...whereRef, estado: 'COMPLETADO', sospechoso: false } }),
-    prisma.referido.count({ where: { ...whereRef, recompensaAplicada: true } }),
+    // Clientes referidos ACTIVOS: con membresía activa hoy (legítimos).
+    prisma.$queryRaw<{ n: bigint }[]>(
+      Prisma.sql`SELECT count(DISTINCT r."referidoClienteId")::bigint AS n
+        FROM "referidos" r
+        JOIN "memberships" m ON m."clienteId" = r."referidoClienteId" AND m.estado = 'ACTIVA'
+        WHERE ${companyId ? Prisma.sql`r."companyId" = ${companyId}` : Prisma.sql`TRUE`}
+          AND r.sospechoso = false`
+    ),
+    prisma.referralRecompensa.groupBy({
+      by: ['estado'],
+      where: whereRef,
+      _count: { _all: true },
+    }),
     prisma.referralEvent.groupBy({
       by: ['tipo', 'canal'],
       where: { ...whereRef, tipo: { in: ['SHARE', 'CLICK'] } },
       _count: { _all: true },
     }),
-    prisma.referralEvent.groupBy({
-      by: ['clienteId'],
-      where: { ...whereRef, tipo: { in: TIPOS_EMPRESA } },
-      _sum: { puntos: true },
-      orderBy: { _sum: { puntos: 'desc' } },
-      take: 5,
-    }),
-    prisma.referralEvent.groupBy({
-      by: ['clienteId', 'tipo'],
-      where: { ...whereRef, tipo: { in: ['CLICK', 'MEMBRESIA'] } },
-      _count: { _all: true },
-    }),
-    // COUNT(DISTINCT) en la BD; antes se traían todas las filas para contar.
+    // Canal con mayor conversión: registros atribuidos por canal del clic del
+    // MISMO visitante (attribution real, no aproximación).
+    prisma.$queryRaw<{ canal: string; n: bigint }[]>(
+      Prisma.sql`SELECT COALESCE(c.canal, 'directo') AS canal, count(DISTINCT reg."referidoClienteId")::bigint AS n
+        FROM "referral_events" reg
+        JOIN "referral_events" c
+          ON c."visitorId" = reg."visitorId" AND c.tipo = 'CLICK'
+        WHERE ${companyId ? Prisma.sql`reg."companyId" = ${companyId}` : Prisma.sql`TRUE`}
+          AND reg.tipo = 'REGISTRO' AND reg."visitorId" IS NOT NULL
+        GROUP BY 1`
+    ),
+    // Ranking por conversiones reales (no por puntos gamificables).
+    prisma.$queryRaw<{ referente: string; registros: bigint; membresias: bigint }[]>(
+      Prisma.sql`SELECT "referenteClienteId" AS referente,
+          count(*)::bigint AS registros,
+          count(*) FILTER (WHERE estado = 'COMPLETADO')::bigint AS membresias
+        FROM "referidos"
+        WHERE ${companySql} AND sospechoso = false
+        GROUP BY 1
+        ORDER BY membresias DESC, registros DESC
+        LIMIT 10`
+    ),
     prisma.$queryRaw<{ n: bigint }[]>(
       Prisma.sql`SELECT count(DISTINCT "clienteId")::bigint AS n
         FROM "referral_events"
         WHERE ${companySql} AND "createdAt" >= ${hace30d}`
+    ),
+    // Tiempo promedio registro → conversión (días), solo legítimos completados.
+    prisma.$queryRaw<{ dias: number | null }[]>(
+      Prisma.sql`SELECT avg(EXTRACT(EPOCH FROM ("completadoEn" - "createdAt")) / 86400)::float AS dias
+        FROM "referidos"
+        WHERE ${companySql} AND estado = 'COMPLETADO' AND sospechoso = false
+          AND "completadoEn" IS NOT NULL`
     ),
   ])
 
   const countTipo = (t: string) =>
     eventosTipo.find((e) => e.tipo === t)?._count._all ?? 0
   const clicks = countTipo('CLICK')
+  const visitantesUnicos = Number(visitantesUnicosRows[0]?.n ?? 0)
+  const registrosIniciados = countTipo('REGISTRO_INICIADO')
+  const verificados = countTipo('VERIFICADO')
+  const compras = countTipo('COMPRA')
+  const fraudes = countTipo('FRAUDE')
 
-  // Ronda 2: agregados y series (independientes entre sí; antes secuenciales).
-  const [ingresosAgg, sospechosos, campanaRows, diariosRows, mensualRows, historicosCountRows] =
+  // Ronda 2: agregados y series.
+  const [ingresosAgg, sospechosos, campanaRows, diariosRows, mensualRows, historicosCountRows, movimientos, referidosRecientesRows] =
     await Promise.all([
-      // Ingresos atribuibles: membresías pagadas de clientes que llegaron
-      // referidos. Filtro por relación (sin materializar la lista de IDs).
+      // Ingresos atribuibles: pagos confirmados de clientes referidos LEGÍTIMOS.
       prisma.membership.aggregate({
         where: {
           pagoConfirmado: true,
           cliente: {
             referidoComo: {
-              some: { estado: 'COMPLETADO', ...(companyId ? { companyId } : {}) },
+              some: { estado: 'COMPLETADO', sospechoso: false, ...(companyId ? { companyId } : {}) },
             },
           },
         },
         _sum: { montoPagado: true },
       }),
-      // Registros marcados sospechosos por el anti-fraude (huella repetida).
       prisma.referido.count({ where: { ...whereRef, sospechoso: true } }),
-      // Clics por campaña (utm_campaign capturado en /r/[code]).
       prisma.$queryRaw<{ campana: string; n: bigint }[]>(
         Prisma.sql`SELECT meta->>'campana' AS campana, count(*)::bigint AS n
           FROM "referral_events"
           WHERE ${companySql} AND tipo = 'CLICK' AND meta->>'campana' IS NOT NULL
           GROUP BY 1 ORDER BY 2 DESC LIMIT 10`
       ),
-      // Registros por día (últimos 30 días).
       prisma.$queryRaw<{ dia: Date; n: bigint }[]>(
         Prisma.sql`SELECT date_trunc('day', "createdAt") AS dia, count(*)::bigint AS n
           FROM "referidos" WHERE ${companySql} AND "sospechoso" = false AND "createdAt" >= ${hace30d}
           GROUP BY 1 ORDER BY 1`
       ),
-      // Evolución mensual (últimos 6 meses).
       prisma.$queryRaw<{ mes: Date; registros: bigint; membresias: bigint }[]>(
         Prisma.sql`SELECT date_trunc('month', "createdAt") AS mes,
             count(*)::bigint AS registros,
@@ -614,88 +760,112 @@ export async function getEmpresaReferidosDashboard(
         Prisma.sql`SELECT count(DISTINCT "clienteId")::bigint AS n
           FROM "referral_events" WHERE ${companySql}`
       ),
+      // Últimos movimientos del programa (eventos reales, cronológicos).
+      prisma.referralEvent.findMany({
+        where: whereRef,
+        include: { cliente: { select: { nombre: true } } },
+        orderBy: { createdAt: 'desc' },
+        take: 12,
+      }),
+      // Estado de cada referido (los sospechosos visibles, marcados).
+      prisma.referido.findMany({
+        where: whereRef,
+        include: {
+          referidoCliente: { select: { nombre: true } },
+          referenteCliente: { select: { nombre: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 25,
+      }),
     ])
 
   const ingresosReferidos = Number(ingresosAgg._sum.montoPagado ?? 0)
+  const recompensasEntregadas =
+    recompensasAgg.find((r) => r.estado === 'ENTREGADA')?._count._all ?? 0
+  const recompensasPendientes =
+    recompensasAgg.find((r) => r.estado === 'PENDIENTE')?._count._all ?? 0
+  const linksGenerados = countTipo('LINK')
 
-  // Nombres + registros/membresías de los tops.
-  const clicksPor = new Map<string, number>()
-  const membresiasPor = new Map<string, number>()
-  for (const r of porClienteTipo) {
-    if (r.tipo === 'CLICK') clicksPor.set(r.clienteId, r._count._all)
-    if (r.tipo === 'MEMBRESIA') membresiasPor.set(r.clienteId, r._count._all)
-  }
-  const conversionCandidatos = [...clicksPor.entries()]
-    .filter(([, c]) => c >= 5)
-    .map(([id, c]) => ({ id, clicks: c, membresias: membresiasPor.get(id) ?? 0 }))
-    .map((x) => ({ ...x, pct: Math.round((x.membresias / x.clicks) * 100) }))
-    .sort((a, b) => b.pct - a.pct)
-    .slice(0, 5)
-
-  const idsNecesarios = [
-    ...new Set([...topPuntos.map((t) => t.clienteId), ...conversionCandidatos.map((c) => c.id)]),
-  ]
-
-  // Ronda 3: dependen de los tops de la ronda 1.
-  const [nombres, referidosPorReferente, completadosPorReferente] = await Promise.all([
+  // Nombres y puntos de los tops (ranking ya viene por conversiones).
+  const topIds = rankingRows.map((t) => t.referente)
+  const [nombres, puntosTop] = await Promise.all([
     prisma.cliente.findMany({
-      where: { id: { in: idsNecesarios } },
+      where: { id: { in: topIds } },
       select: { id: true, nombre: true },
     }),
-    prisma.referido.groupBy({
-      by: ['referenteClienteId'],
-      where: { ...whereRef, referenteClienteId: { in: topPuntos.map((t) => t.clienteId) } },
-      _count: { _all: true },
-    }),
-    prisma.referido.groupBy({
-      by: ['referenteClienteId'],
-      where: {
-        ...whereRef,
-        estado: 'COMPLETADO',
-        referenteClienteId: { in: topPuntos.map((t) => t.clienteId) },
-      },
-      _count: { _all: true },
+    prisma.referralEvent.groupBy({
+      by: ['clienteId'],
+      where: { ...whereRef, clienteId: { in: topIds }, tipo: { in: TIPOS_EMPRESA } },
+      _sum: { puntos: true },
     }),
   ])
   const nombreDe = new Map(nombres.map((n) => [n.id, n.nombre]))
-  const regDe = new Map(referidosPorReferente.map((r) => [r.referenteClienteId, r._count._all]))
-  const memDe = new Map(completadosPorReferente.map((r) => [r.referenteClienteId, r._count._all]))
+  const puntosDe = new Map(puntosTop.map((t) => [t.clienteId, t._sum.puntos ?? 0]))
 
-  // Embajadores: con actividad histórica vs con actividad en los últimos 30 días.
   const embajadoresActivos = Number(activosCountRows[0]?.n ?? 0)
   const embajadoresInactivos = Math.max(
     0,
     Number(historicosCountRows[0]?.n ?? 0) - embajadoresActivos
   )
 
+  const embudo: EtapaEmbudo[] = [
+    { etapa: 'Links generados', valor: linksGenerados, tasaPct: null },
+    { etapa: 'Clics', valor: clicks, tasaPct: null },
+    { etapa: 'Visitantes únicos', valor: visitantesUnicos, tasaPct: tasa(visitantesUnicos, clicks) },
+    { etapa: 'Registros iniciados', valor: registrosIniciados, tasaPct: tasa(registrosIniciados, visitantesUnicos) },
+    { etapa: 'Registros completados', valor: referidosTotal, tasaPct: tasa(referidosTotal, visitantesUnicos) },
+    { etapa: 'Verificados', valor: verificados, tasaPct: tasa(verificados, referidosTotal) },
+    { etapa: 'Compras realizadas', valor: compras, tasaPct: tasa(compras, referidosTotal) },
+    { etapa: 'Referidos válidos', valor: membresias, tasaPct: tasa(membresias, referidosTotal) },
+    { etapa: 'Recompensas entregadas', valor: recompensasEntregadas, tasaPct: null },
+  ]
+
   const fmtMes = new Intl.DateTimeFormat('es-DO', { timeZone: 'America/Santo_Domingo', month: 'short', year: '2-digit' })
   const fmtDia = new Intl.DateTimeFormat('es-DO', { timeZone: 'America/Santo_Domingo', day: '2-digit', month: 'short' })
 
   return {
     kpis: {
+      linksGenerados,
       compartidos: countTipo('SHARE'),
       clicks,
+      visitantesUnicos,
+      registrosIniciados,
       registros: referidosTotal,
+      verificados,
+      activos: Number(activosRows[0]?.n ?? 0),
+      compras,
       membresias,
-      conversionPct: clicks > 0 ? Math.round((membresias / clicks) * 100) : 0,
-      recompensasEntregadas: recompensadas,
+      conversionPct: referidosTotal > 0 ? Math.round((membresias / referidosTotal) * 100) : 0,
+      conversionClickPct:
+        visitantesUnicos > 0 ? Math.round((referidosTotal / visitantesUnicos) * 100) : 0,
+      recompensasEntregadas,
+      recompensasPendientes,
       ingresosReferidos,
+      valorPromedioPorReferido: membresias > 0 ? Math.round(ingresosReferidos / membresias) : 0,
+      tiempoPromedioConversionDias:
+        tiempoConversionRows[0]?.dias != null
+          ? Math.round(tiempoConversionRows[0].dias * 10) / 10
+          : null,
       sospechosos,
+      fraudes,
       embajadoresActivos,
       embajadoresInactivos,
     },
+    embudo,
     porCanal: (() => {
-      const mapa = new Map<string, { clicks: number; compartidos: number }>()
+      const registrosPorCanal = new Map(canalRegistrosRows.map((r) => [r.canal, Number(r.n)]))
+      const mapa = new Map<string, { clicks: number; compartidos: number; registros: number }>()
       for (const r of canalRows) {
         const canal = r.canal ?? 'directo'
-        const item = mapa.get(canal) ?? { clicks: 0, compartidos: 0 }
+        const item = mapa.get(canal) ?? { clicks: 0, compartidos: 0, registros: 0 }
         if (r.tipo === 'CLICK') item.clicks += r._count._all
         else item.compartidos += r._count._all
+        item.registros = registrosPorCanal.get(canal) ?? 0
         mapa.set(canal, item)
       }
       return [...mapa.entries()]
         .map(([canal, v]) => ({ canal, ...v }))
-        .sort((a, b) => b.clicks + b.compartidos - (a.clicks + a.compartidos))
+        .sort((a, b) => b.registros - a.registros || b.clicks - a.clicks)
     })(),
     porCampana: campanaRows.map((c) => ({ campana: c.campana, clicks: Number(c.n) })),
     registrosDiarios: diariosRows.map((d) => ({ dia: fmtDia.format(d.dia), registros: Number(d.n) })),
@@ -704,17 +874,70 @@ export async function getEmpresaReferidosDashboard(
       registros: Number(m.registros),
       membresias: Number(m.membresias),
     })),
-    topEmbajadores: topPuntos.map((t) => ({
-      nombre: nombreDe.get(t.clienteId) ?? 'Cliente',
-      puntos: t._sum.puntos ?? 0,
-      registros: regDe.get(t.clienteId) ?? 0,
-      membresias: memDe.get(t.clienteId) ?? 0,
+    topEmbajadores: rankingRows.slice(0, 5).map((t) => ({
+      nombre: nombreDe.get(t.referente) ?? 'Cliente',
+      registros: Number(t.registros),
+      membresias: Number(t.membresias),
+      puntos: puntosDe.get(t.referente) ?? 0,
     })),
-    topConversion: conversionCandidatos.map((c) => ({
-      nombre: nombreDe.get(c.id) ?? 'Cliente',
-      clicks: c.clicks,
-      membresias: c.membresias,
-      pct: c.pct,
+    // Conversión por embajador: registro → compra, MISMO universo, mín. 3 registros.
+    topConversion: rankingRows
+      .filter((t) => Number(t.registros) >= 3)
+      .map((t) => ({
+        nombre: nombreDe.get(t.referente) ?? 'Cliente',
+        registros: Number(t.registros),
+        membresias: Number(t.membresias),
+        pct: Math.round((Number(t.membresias) / Number(t.registros)) * 100),
+      }))
+      .sort((a, b) => b.pct - a.pct)
+      .slice(0, 5),
+    ultimosMovimientos: movimientos.map((m) => ({
+      id: m.id,
+      tipo: m.tipo,
+      nombre: m.cliente.nombre,
+      fecha: m.createdAt,
+      canal: m.canal,
+    })),
+    referidosRecientes: referidosRecientesRows.map((r) => ({
+      id: r.id,
+      referidoClienteId: r.referidoClienteId,
+      nombre: r.referidoCliente.nombre,
+      referente: r.referenteCliente.nombre,
+      estado: r.sospechoso ? 'SOSPECHOSO' : r.estado,
+      sospechoso: r.sospechoso,
+      fecha: r.createdAt,
+      completadoEn: r.completadoEn,
     })),
   }
+}
+
+/**
+ * Fase E6 · Línea de tiempo completa de UN referido: todos los eventos reales
+ * de su recorrido (clic del visitante que se convirtió en su registro,
+ * registro, verificación, compras, recompensas) con fecha y hora. Server-only.
+ */
+export async function getReferidoTimeline(referidoClienteId: string) {
+  const registro = await prisma.referralEvent.findFirst({
+    where: { tipo: 'REGISTRO', referidoClienteId },
+    select: { visitorId: true },
+  })
+  const eventos = await prisma.referralEvent.findMany({
+    where: {
+      OR: [
+        { referidoClienteId },
+        ...(registro?.visitorId
+          ? [{ visitorId: registro.visitorId, tipo: { in: ['CLICK', 'REGISTRO_INICIADO'] as ReferralEventTipo[] } }]
+          : []),
+      ],
+    },
+    orderBy: { createdAt: 'asc' },
+    take: 100,
+  })
+  return eventos.map((e) => ({
+    id: e.id,
+    tipo: e.tipo,
+    fecha: e.createdAt,
+    canal: e.canal,
+    puntos: e.puntos,
+  }))
 }
