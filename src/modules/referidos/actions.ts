@@ -117,20 +117,16 @@ export async function procesarReferidoCompletado(
  * atribución REGISTRO_GLOBAL para este cliente y aún no se contó su membresía).
  */
 async function procesarMembresiaGlobal(referidoClienteId: string) {
+  // Fase E6.1: se filtra por la COLUMNA indexada referidoClienteId (antes por
+  // meta JSON → seq-scan en cada conversión de membresía). Índice: E6-A.
   const registroGlobal = await prisma.referralEvent.findFirst({
-    where: {
-      tipo: 'REGISTRO_GLOBAL',
-      meta: { path: ['referidoClienteId'], equals: referidoClienteId },
-    },
+    where: { tipo: 'REGISTRO_GLOBAL', referidoClienteId },
     orderBy: { createdAt: 'asc' },
   })
   if (!registroGlobal) return
 
   const yaContada = await prisma.referralEvent.findFirst({
-    where: {
-      tipo: 'MEMBRESIA_GLOBAL',
-      meta: { path: ['referidoClienteId'], equals: referidoClienteId },
-    },
+    where: { tipo: 'MEMBRESIA_GLOBAL', referidoClienteId },
     select: { id: true },
   })
   if (yaContada) return
@@ -140,6 +136,7 @@ async function procesarMembresiaGlobal(referidoClienteId: string) {
     clienteId: registroGlobal.clienteId,
     companyId: registroGlobal.companyId,
     tipo: 'MEMBRESIA_GLOBAL',
+    referidoClienteId,
     meta: {
       global: true,
       referidoClienteId,
@@ -411,59 +408,76 @@ export async function getReferidosDashboard(
   companyId: string,
   supabaseId: string
 ): Promise<ReferidosDashboard> {
-  const [eventos, clicksUnicosRows, referidos, rankingRows, reglas, misRecompensasRows, misClientes] =
-    await Promise.all([
-      prisma.referralEvent.groupBy({
-        by: ['tipo'],
-        where: { clienteId, companyId },
-        _count: { _all: true },
-        _sum: { puntos: true },
-      }),
-      prisma.$queryRaw<{ n: bigint }[]>(
-        Prisma.sql`SELECT count(DISTINCT "visitorId")::bigint AS n
-          FROM "referral_events"
-          WHERE "clienteId" = ${clienteId} AND "companyId" = ${companyId}
-            AND tipo = 'CLICK' AND "visitorId" IS NOT NULL`
-      ),
-      prisma.referido.findMany({
-        where: { referenteClienteId: clienteId, companyId },
-        include: { referidoCliente: { select: { nombre: true } } },
-        orderBy: { createdAt: 'desc' },
-        take: 200,
-      }),
-      // Ranking por conversiones REALES: referidos legítimos por referente.
-      prisma.$queryRaw<{ referente: string; registros: bigint; membresias: bigint }[]>(
-        Prisma.sql`SELECT "referenteClienteId" AS referente,
-            count(*)::bigint AS registros,
-            count(*) FILTER (WHERE estado = 'COMPLETADO')::bigint AS membresias
-          FROM "referidos"
-          WHERE "companyId" = ${companyId} AND sospechoso = false
-          GROUP BY 1
-          ORDER BY membresias DESC, registros DESC
-          LIMIT 50`
-      ),
-      prisma.reglaRecompensa.findMany({
-        where: { companyId, activo: true },
-        orderBy: { valorCondicion: 'asc' },
-      }),
-      prisma.referralRecompensa.findMany({
-        where: { referenteClienteId: clienteId, companyId },
-        orderBy: { createdAt: 'desc' },
-        take: 20,
-      }),
-      prisma.cliente.findMany({ where: { supabaseId }, select: { id: true } }),
-    ])
+  // Los IDs de todas mis cuentas (para el Centro global) se resuelven primero
+  // porque globalAgg depende de ellos; el resto va en un único Promise.all.
+  const misClientes = await prisma.cliente.findMany({ where: { supabaseId }, select: { id: true } })
+  const misIds = misClientes.map((c) => c.id)
 
-  // Centro global MembeGo: eventos globales de TODAS tus cuentas.
-  const globalAgg = await prisma.referralEvent.groupBy({
-    by: ['tipo'],
-    where: {
-      clienteId: { in: misClientes.map((c) => c.id) },
-      tipo: { in: TIPOS_GLOBAL },
-    },
-    _count: { _all: true },
-    _sum: { puntos: true },
-  })
+  const [
+    eventos,
+    clicksUnicosRows,
+    registros, // conteo EXACTO sin cap (fuente: filas Referido legítimas)
+    membresias, // conversiones EXACTAS sin cap
+    recompensas, // total EXACTO de recompensas del referente
+    referidos, // solo para la lista de historial (acotada a 200 recientes)
+    rankingRows,
+    reglas,
+    misRecompensasRows,
+    globalAgg,
+  ] = await Promise.all([
+    prisma.referralEvent.groupBy({
+      by: ['tipo'],
+      where: { clienteId, companyId },
+      _count: { _all: true },
+      _sum: { puntos: true },
+    }),
+    prisma.$queryRaw<{ n: bigint }[]>(
+      Prisma.sql`SELECT count(DISTINCT "visitorId")::bigint AS n
+        FROM "referral_events"
+        WHERE "clienteId" = ${clienteId} AND "companyId" = ${companyId}
+          AND tipo = 'CLICK' AND "visitorId" IS NOT NULL`
+    ),
+    // Fuente autoritativa SIN cap: coincide con el admin y con el SQL de
+    // auditoría aun para referentes con miles de referidos.
+    prisma.referido.count({ where: { referenteClienteId: clienteId, companyId, sospechoso: false } }),
+    prisma.referido.count({
+      where: { referenteClienteId: clienteId, companyId, sospechoso: false, estado: 'COMPLETADO' },
+    }),
+    prisma.referralRecompensa.count({ where: { referenteClienteId: clienteId, companyId } }),
+    prisma.referido.findMany({
+      where: { referenteClienteId: clienteId, companyId },
+      include: { referidoCliente: { select: { nombre: true } } },
+      orderBy: { createdAt: 'desc' },
+      take: 200,
+    }),
+    // Ranking por conversiones REALES: referidos legítimos por referente.
+    prisma.$queryRaw<{ referente: string; registros: bigint; membresias: bigint }[]>(
+      Prisma.sql`SELECT "referenteClienteId" AS referente,
+          count(*)::bigint AS registros,
+          count(*) FILTER (WHERE estado = 'COMPLETADO')::bigint AS membresias
+        FROM "referidos"
+        WHERE "companyId" = ${companyId} AND sospechoso = false
+        GROUP BY 1
+        ORDER BY membresias DESC, registros DESC
+        LIMIT 50`
+    ),
+    prisma.reglaRecompensa.findMany({
+      where: { companyId, activo: true },
+      orderBy: { valorCondicion: 'asc' },
+    }),
+    prisma.referralRecompensa.findMany({
+      where: { referenteClienteId: clienteId, companyId },
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+    }),
+    // Centro global MembeGo: eventos globales de TODAS tus cuentas.
+    prisma.referralEvent.groupBy({
+      by: ['tipo'],
+      where: { clienteId: { in: misIds }, tipo: { in: TIPOS_GLOBAL } },
+      _count: { _all: true },
+      _sum: { puntos: true },
+    }),
+  ])
 
   const byTipo = new Map(eventos.map((e) => [e.tipo, e]))
   const count = (t: string) => byTipo.get(t as never)?._count._all ?? 0
@@ -472,13 +486,9 @@ export async function getReferidosDashboard(
   const clicksUnicos = Number(clicksUnicosRows[0]?.n ?? 0)
   const registrosIniciados = count('REGISTRO_INICIADO')
 
-  // Registros/conversiones: la fuente autoritativa son las filas de Referido
-  // LEGÍTIMAS. Las sospechosas se conservan para auditoría, fuera del embudo.
+  // La lista de historial se acota a 200; las CIFRAS usan los conteos exactos.
   const legitimos = referidos.filter((r) => !r.sospechoso)
-  const registros = legitimos.length
-  const membresias = legitimos.filter((r) => r.estado === 'COMPLETADO').length
   const verificados = count('VERIFICADO')
-  const recompensas = misRecompensasRows.length
   const puntos = eventos
     .filter((e) => (TIPOS_EMPRESA as string[]).includes(e.tipo))
     .reduce((acc, e) => acc + (e._sum.puntos ?? 0), 0)
@@ -663,7 +673,8 @@ export async function getEmpresaReferidosDashboard(
     prisma.$queryRaw<{ n: bigint }[]>(
       Prisma.sql`SELECT count(DISTINCT r."referidoClienteId")::bigint AS n
         FROM "referidos" r
-        JOIN "memberships" m ON m."clienteId" = r."referidoClienteId" AND m.estado = 'ACTIVA'
+        JOIN "memberships" m ON m."clienteId" = r."referidoClienteId"
+          AND m.estado = 'ACTIVA' AND m."companyId" = r."companyId"
         WHERE ${companyId ? Prisma.sql`r."companyId" = ${companyId}` : Prisma.sql`TRUE`}
           AND r.sospechoso = false`
     ),
@@ -677,16 +688,25 @@ export async function getEmpresaReferidosDashboard(
       where: { ...whereRef, tipo: { in: ['SHARE', 'CLICK'] } },
       _count: { _all: true },
     }),
-    // Canal con mayor conversión: registros atribuidos por canal del clic del
-    // MISMO visitante (attribution real, no aproximación).
+    // Canal con mayor conversión (LAST-TOUCH, sin fan-out): para cada referido
+    // LEGÍTIMO se toma UN solo clic —el último antes de su registro, del mismo
+    // visitante— y se cuenta su canal. Excluye sospechosos y respeta companyId
+    // en ambos lados (el visitorId es una cookie cross-empresa de 365 días).
     prisma.$queryRaw<{ canal: string; n: bigint }[]>(
-      Prisma.sql`SELECT COALESCE(c.canal, 'directo') AS canal, count(DISTINCT reg."referidoClienteId")::bigint AS n
+      Prisma.sql`SELECT canal, count(*)::bigint AS n FROM (
+        SELECT DISTINCT ON (reg."referidoClienteId") COALESCE(c.canal, 'directo') AS canal
         FROM "referral_events" reg
-        JOIN "referral_events" c
+        JOIN "referidos" rf
+          ON rf."referidoClienteId" = reg."referidoClienteId" AND rf.sospechoso = false
+          ${companyId ? Prisma.sql`AND rf."companyId" = ${companyId}` : Prisma.empty}
+        LEFT JOIN "referral_events" c
           ON c."visitorId" = reg."visitorId" AND c.tipo = 'CLICK'
+          AND c."createdAt" <= reg."createdAt"
+          ${companyId ? Prisma.sql`AND c."companyId" = ${companyId}` : Prisma.empty}
         WHERE ${companyId ? Prisma.sql`reg."companyId" = ${companyId}` : Prisma.sql`TRUE`}
           AND reg.tipo = 'REGISTRO' AND reg."visitorId" IS NOT NULL
-        GROUP BY 1`
+        ORDER BY reg."referidoClienteId", c."createdAt" DESC NULLS LAST
+      ) t GROUP BY 1`
     ),
     // Ranking por conversiones reales (no por puntos gamificables).
     prisma.$queryRaw<{ referente: string; registros: bigint; membresias: bigint }[]>(
@@ -855,13 +875,21 @@ export async function getEmpresaReferidosDashboard(
     porCanal: (() => {
       const registrosPorCanal = new Map(canalRegistrosRows.map((r) => [r.canal, Number(r.n)]))
       const mapa = new Map<string, { clicks: number; compartidos: number; registros: number }>()
-      for (const r of canalRows) {
-        const canal = r.canal ?? 'directo'
+      const get = (canal: string) => {
         const item = mapa.get(canal) ?? { clicks: 0, compartidos: 0, registros: 0 }
+        mapa.set(canal, item)
+        return item
+      }
+      for (const r of canalRows) {
+        const item = get(r.canal ?? 'directo')
         if (r.tipo === 'CLICK') item.clicks += r._count._all
         else item.compartidos += r._count._all
-        item.registros = registrosPorCanal.get(canal) ?? 0
-        mapa.set(canal, item)
+      }
+      // Los registros por canal (last-touch) incluyen 'directo' —registros cuyo
+      // último toque no fue un clic rastreable— que NO aparece en canalRows;
+      // se recorren aparte para no perderlos de la tabla.
+      for (const [canal, n] of registrosPorCanal) {
+        get(canal).registros = n
       }
       return [...mapa.entries()]
         .map(([canal, v]) => ({ canal, ...v }))

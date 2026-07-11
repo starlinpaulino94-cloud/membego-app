@@ -151,7 +151,7 @@ export async function vincularReferido(
   companyId: string,
   referidoClienteId: string,
   ipAddress: string | null,
-  opts?: { permitirCookie?: boolean }
+  opts?: { permitirCookie?: boolean; visitorId?: string | null }
 ) {
   try {
     let code = refCode
@@ -164,12 +164,16 @@ export async function vincularReferido(
     if (!code) return
 
     // Fase E6: visitante anónimo sembrado en el clic — une el recorrido
-    // clic → registro → conversión de esta persona.
-    let visitorId: string | null = null
-    try {
-      const cookieStore = await cookies()
-      visitorId = cookieStore.get(VISITOR_COOKIE)?.value ?? null
-    } catch { /* fuera de request scope */ }
+    // clic → registro → conversión de esta persona. El llamador puede pasarlo
+    // explícitamente (más fiable a través del redirect); si no, se lee de la
+    // cookie. La atribución explícita evita depender del timing de la cookie.
+    let visitorId: string | null = opts?.visitorId ?? null
+    if (!visitorId) {
+      try {
+        const cookieStore = await cookies()
+        visitorId = cookieStore.get(VISITOR_COOKIE)?.value ?? null
+      } catch { /* fuera de request scope */ }
+    }
 
     const referente = await prisma.cliente.findUnique({
       where: { codigoReferido: code },

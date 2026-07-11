@@ -89,3 +89,55 @@ SELECT r.id FROM "referidos" r
      SELECT 1 FROM "referral_events" e
       WHERE e.tipo = 'COMPRA' AND e."referidoClienteId" = r."referidoClienteId"
    );
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- FASE E6.1 · Queries de contraste para las métricas restantes del dashboard
+-- (antes sin SQL de auditoría). Reemplaza :companyId.
+-- ═══════════════════════════════════════════════════════════════════════════
+
+-- 6) Clientes activos (referidos con membresía ACTIVA en la misma empresa)
+SELECT count(DISTINCT r."referidoClienteId") AS clientes_activos
+  FROM "referidos" r
+  JOIN "memberships" m
+    ON m."clienteId" = r."referidoClienteId" AND m.estado = 'ACTIVA'
+   AND m."companyId" = r."companyId"
+ WHERE r."companyId" = :companyId AND r.sospechoso = false;
+
+-- 7) Canal por conversión — LAST-TOUCH, sin fan-out (== dashboard porCanal.registros)
+SELECT canal, count(*) AS registros FROM (
+  SELECT DISTINCT ON (reg."referidoClienteId") COALESCE(c.canal, 'directo') AS canal
+    FROM "referral_events" reg
+    JOIN "referidos" rf
+      ON rf."referidoClienteId" = reg."referidoClienteId"
+     AND rf.sospechoso = false AND rf."companyId" = :companyId
+    LEFT JOIN "referral_events" c
+      ON c."visitorId" = reg."visitorId" AND c.tipo = 'CLICK'
+     AND c."createdAt" <= reg."createdAt" AND c."companyId" = :companyId
+   WHERE reg."companyId" = :companyId AND reg.tipo = 'REGISTRO' AND reg."visitorId" IS NOT NULL
+   ORDER BY reg."referidoClienteId", c."createdAt" DESC NULLS LAST
+) t GROUP BY 1 ORDER BY registros DESC;
+
+-- 8) Clics por campaña (== dashboard porCampana)
+SELECT meta->>'campana' AS campana, count(*) AS clics
+  FROM "referral_events"
+ WHERE "companyId" = :companyId AND tipo = 'CLICK' AND meta->>'campana' IS NOT NULL
+ GROUP BY 1 ORDER BY clics DESC;
+
+-- 9) Embajadores activos (con evento en 30 días) / históricos
+SELECT
+  (SELECT count(DISTINCT "clienteId") FROM "referral_events"
+    WHERE "companyId" = :companyId AND "createdAt" >= now() - interval '30 days') AS activos_30d,
+  (SELECT count(DISTINCT "clienteId") FROM "referral_events"
+    WHERE "companyId" = :companyId) AS historicos;
+
+-- 10) Valor promedio por referido = ingresos / referidos válidos ; ROI (defínase
+--     el costo del programa como sum(referral_recompensas.valor entregadas) si
+--     aplica a usos monetizables): ingresos / costo.
+SELECT
+  (SELECT COALESCE(sum(m."montoPagado"),0) FROM "memberships" m
+     WHERE m."pagoConfirmado"=true AND EXISTS (
+       SELECT 1 FROM "referidos" r WHERE r."referidoClienteId"=m."clienteId"
+         AND r.estado='COMPLETADO' AND r.sospechoso=false AND r."companyId"=:companyId))
+  / NULLIF((SELECT count(*) FROM "referidos"
+      WHERE "companyId"=:companyId AND estado='COMPLETADO' AND sospechoso=false),0)
+  AS valor_promedio_por_referido;

@@ -393,7 +393,10 @@ export default async function ReferidosClientePage() {
                       {r.nombre}
                       {r.esYo && <Badge variant="secondary">Tú</Badge>}
                     </span>
-                    <span className="font-medium">{r.puntos} pts</span>
+                    <span className="font-medium">
+                      {r.membresias} conv
+                      <span className="ml-1 text-xs font-normal text-muted-foreground">· {r.puntos} pts</span>
+                    </span>
                   </li>
                 ))}
               </ul>
