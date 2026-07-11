@@ -5,7 +5,7 @@ import {
   Printer,
   CheckCircle2,
   Share2,
-  ArrowRight,
+  ScanLine,
   User,
   Building2,
   CreditCard,
@@ -27,6 +27,8 @@ interface Props {
   servicio: string
   restantes: number
   onDone: () => void
+  /** Vuelve directo a la cámara para el siguiente cliente. */
+  onScanNext?: () => void
 }
 
 function fmtDate(d: Date) {
@@ -44,8 +46,8 @@ function fmtDateTime(d: Date) {
 function InfoRow({ label, value, icon: Icon }: { label: string; value: string; icon: typeof User }) {
   return (
     <div className="flex items-center gap-2.5 py-1.5">
-      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-green-50">
-        <Icon className="h-3.5 w-3.5 text-green-600" />
+      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-success/10">
+        <Icon className="h-3.5 w-3.5 text-success" />
       </div>
       <div className="min-w-0 flex-1">
         <p className="text-[11px] text-muted-foreground">{label}</p>
@@ -55,7 +57,7 @@ function InfoRow({ label, value, icon: Icon }: { label: string; value: string; i
   )
 }
 
-export function ComprobanteReceipt({ cliente, visitId, servicio, restantes, onDone }: Props) {
+export function ComprobanteReceipt({ cliente, visitId, servicio, restantes, onDone, onScanNext }: Props) {
   const hasLogged = useRef(false)
   const codigoOperacion = `MBGO-${visitId.slice(-8).toUpperCase()}`
   const now = new Date()
@@ -95,15 +97,15 @@ export function ComprobanteReceipt({ cliente, visitId, servicio, restantes, onDo
       <div className="print:hidden space-y-5">
         {/* Success header */}
         <div className="text-center">
-          <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
-            <CheckCircle2 className="h-9 w-9 text-green-600" />
+          <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-success/15">
+            <CheckCircle2 className="h-9 w-9 text-success" />
           </div>
           <h3 className="text-xl font-bold text-foreground">Uso registrado correctamente</h3>
           <p className="mt-1 text-sm text-muted-foreground">{fmtDateTime(now)}</p>
         </div>
 
         {/* Receipt card */}
-        <div className="rounded-xl border-2 border-green-200 bg-white p-4 space-y-0.5">
+        <div className="rounded-xl border-2 border-success/25 bg-card p-4 space-y-0.5">
           <InfoRow label="Cliente" value={cliente.nombre} icon={User} />
           <InfoRow label="Empresa" value={cliente.empresa} icon={Building2} />
           <InfoRow label="Plan" value={cliente.planNombre ?? 'Sin plan'} icon={CreditCard} />
@@ -120,13 +122,20 @@ export function ComprobanteReceipt({ cliente, visitId, servicio, restantes, onDo
 
         {/* Status badge */}
         <div className="flex justify-center">
-          <Badge className="bg-green-100 text-green-700 text-xs px-3 py-1">
+          <Badge variant="success" className="text-xs px-3 py-1">
             <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
             QR validado y registrado
           </Badge>
         </div>
 
-        {/* Action buttons */}
+        {/* Action buttons: la acción primaria es atender al siguiente cliente
+            sin volver a la pantalla fría. */}
+        {onScanNext && (
+          <Button onClick={onScanNext} size="xl" className="w-full gap-2 font-semibold">
+            <ScanLine className="h-5 w-5" />
+            Escanear siguiente
+          </Button>
+        )}
         <div className="grid grid-cols-3 gap-3">
           <Button
             onClick={handlePrint}
@@ -146,9 +155,10 @@ export function ComprobanteReceipt({ cliente, visitId, servicio, restantes, onDo
           </Button>
           <Button
             onClick={onDone}
-            className="flex-col gap-1 h-auto py-3 bg-green-600 hover:bg-green-500 text-white"
+            variant="outline"
+            className="flex-col gap-1 h-auto py-3"
           >
-            <ArrowRight className="h-5 w-5" />
+            <CheckCircle2 className="h-5 w-5" />
             <span className="text-xs">Finalizar</span>
           </Button>
         </div>

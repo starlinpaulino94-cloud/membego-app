@@ -42,15 +42,15 @@ export default async function PerfilEmpresaPage({
       return (
         <div className="space-y-6">
           <div>
-            <h1 className="text-2xl font-bold text-slate-900">Perfil público</h1>
-            <p className="text-slate-500">
+            <h1 className="text-2xl font-bold text-foreground">Perfil público</h1>
+            <p className="text-muted-foreground">
               Elige la empresa cuyo perfil quieres editar.
             </p>
           </div>
           {companies.length === 0 ? (
             <Card>
-              <CardContent className="py-12 text-center text-slate-500">
-                <Building2 className="mx-auto mb-3 h-8 w-8 text-slate-300" />
+              <CardContent className="py-12 text-center text-muted-foreground">
+                <Building2 className="mx-auto mb-3 h-8 w-8 text-muted-foreground/40" />
                 Aún no hay empresas registradas.
               </CardContent>
             </Card>
@@ -60,15 +60,15 @@ export default async function PerfilEmpresaPage({
                 <Link
                   key={c.id}
                   href={`/admin/perfil?empresa=${c.id}`}
-                  className="flex items-center justify-between rounded-xl border border-slate-200 bg-white p-4 transition hover:border-blue-200 hover:shadow-sm"
+                  className="flex items-center justify-between rounded-xl border border-border bg-white p-4 transition hover:border-info/30 hover:shadow-sm"
                 >
                   <div>
-                    <p className="font-semibold text-slate-900">{c.name}</p>
-                    <p className="text-xs text-slate-500">
+                    <p className="font-semibold text-foreground">{c.name}</p>
+                    <p className="text-xs text-muted-foreground">
                       {c.isPublished ? 'Publicada' : 'Sin publicar'}
                     </p>
                   </div>
-                  <Building2 className="h-5 w-5 text-slate-300" />
+                  <Building2 className="h-5 w-5 text-muted-foreground/40" />
                 </Link>
               ))}
             </div>
@@ -78,10 +78,10 @@ export default async function PerfilEmpresaPage({
     }
     return (
       <div className="space-y-6">
-        <h1 className="text-2xl font-bold text-slate-900">Perfil público</h1>
+        <h1 className="text-2xl font-bold text-foreground">Perfil público</h1>
         <Card>
-          <CardContent className="py-12 text-center text-slate-500">
-            <AlertCircle className="mx-auto mb-3 h-8 w-8 text-slate-300" />
+          <CardContent className="py-12 text-center text-muted-foreground">
+            <AlertCircle className="mx-auto mb-3 h-8 w-8 text-muted-foreground/40" />
             Tu cuenta no tiene una empresa asignada. Contacta a soporte.
           </CardContent>
         </Card>
@@ -102,9 +102,9 @@ export default async function PerfilEmpresaPage({
     console.error('[admin-perfil]', e)
     return (
       <div className="space-y-6">
-        <h1 className="text-2xl font-bold text-slate-900">Perfil público</h1>
+        <h1 className="text-2xl font-bold text-foreground">Perfil público</h1>
         <Card>
-          <CardContent className="py-12 text-center text-slate-500">
+          <CardContent className="py-12 text-center text-muted-foreground">
             <AlertCircle className="mx-auto mb-3 h-8 w-8 text-destructive" />
             No pudimos cargar tu perfil en este momento. Intenta de nuevo.
           </CardContent>
@@ -116,9 +116,9 @@ export default async function PerfilEmpresaPage({
   if (!company) {
     return (
       <div className="space-y-6">
-        <h1 className="text-2xl font-bold text-slate-900">Perfil público</h1>
+        <h1 className="text-2xl font-bold text-foreground">Perfil público</h1>
         <Card>
-          <CardContent className="py-12 text-center text-slate-500">
+          <CardContent className="py-12 text-center text-muted-foreground">
             <AlertCircle className="mx-auto mb-3 h-8 w-8 text-destructive" />
             No encontramos tu empresa. Contacta a soporte.
           </CardContent>
@@ -131,8 +131,8 @@ export default async function PerfilEmpresaPage({
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Perfil público</h1>
-          <p className="text-slate-500">
+          <h1 className="text-2xl font-bold text-foreground">Perfil público</h1>
+          <p className="text-muted-foreground">
             Así te ven los visitantes en el marketplace. Todo lo que edites
             aquí se refleja en tu página pública.
           </p>
@@ -197,7 +197,7 @@ export default async function PerfilEmpresaPage({
           <CardTitle className="text-base">QR de registro</CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="mb-4 text-sm text-slate-500">
+          <p className="mb-4 text-sm text-muted-foreground">
             Imprime este código y colócalo en tu local. Tus clientes lo escanean
             y se registran directamente en tu empresa.
           </p>

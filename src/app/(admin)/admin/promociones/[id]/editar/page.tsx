@@ -30,7 +30,7 @@ export default async function EditarPromocionPage({
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">Editar promoción</h1>
+        <h1 className="text-2xl font-bold text-foreground">Editar promoción</h1>
       </div>
       <PromocionForm existing={promo} campanas={campanas} />
     </div>

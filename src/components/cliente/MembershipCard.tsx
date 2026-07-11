@@ -83,7 +83,7 @@ export function MembershipCard({ membership }: MembershipCardProps) {
         <div className="pointer-events-none absolute inset-0 bg-grid-light opacity-30" />
         <div className="pointer-events-none absolute -inset-x-full inset-y-0 bg-gradient-to-r from-transparent via-white/10 to-transparent transition-transform duration-700 group-hover:translate-x-[200%]" />
         {isActive && (
-          <div className="pointer-events-none absolute -right-10 -top-16 h-40 w-40 rounded-full bg-sky-400/25 blur-2xl" />
+          <div className="pointer-events-none absolute -right-10 -top-16 h-40 w-40 rounded-full bg-primary/25 blur-2xl" />
         )}
 
         <div className="relative">
@@ -116,10 +116,10 @@ export function MembershipCard({ membership }: MembershipCardProps) {
             <span
               className={`shrink-0 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold backdrop-blur ${
                 isActive
-                  ? 'border-emerald-300/30 bg-emerald-400/20 text-emerald-100'
+                  ? 'border-success/30 bg-success/20 text-success'
                   : isExpired
-                    ? 'border-red-300/30 bg-red-400/20 text-red-100'
-                    : 'border-amber-300/30 bg-amber-400/20 text-amber-100'
+                    ? 'border-destructive/30 bg-destructive/20 text-destructive/70'
+                    : 'border-warning/30 bg-warning/20 text-warning-foreground'
               }`}
             >
               {estadoLabel}
@@ -141,9 +141,9 @@ export function MembershipCard({ membership }: MembershipCardProps) {
                 <p
                   className={`inline-flex items-center gap-1.5 ${
                     isExpired
-                      ? 'text-red-200'
+                      ? 'text-destructive/70'
                       : porVencer
-                        ? 'font-medium text-amber-200'
+                        ? 'font-medium text-warning-foreground'
                         : 'text-white/70'
                   }`}
                 >
@@ -154,7 +154,7 @@ export function MembershipCard({ membership }: MembershipCardProps) {
               )}
               {isActive &&
                 (membership.plan.esIlimitado ? (
-                  <p className="inline-flex items-center gap-1.5 font-medium text-sky-200">
+                  <p className="inline-flex items-center gap-1.5 font-medium text-primary">
                     <InfinityIcon className="h-3.5 w-3.5" /> Usos ilimitados
                   </p>
                 ) : (
@@ -169,7 +169,7 @@ export function MembershipCard({ membership }: MembershipCardProps) {
             <span
               className={`inline-flex shrink-0 items-center gap-1.5 rounded-xl px-3.5 py-2 text-sm font-semibold transition-colors ${
                 isActive && membership.qrToken
-                  ? 'bg-white text-blue-700 group-hover:bg-sky-50'
+                  ? 'bg-white text-primary group-hover:bg-white/90'
                   : 'border border-white/25 bg-white/10 text-white group-hover:bg-white/20'
               }`}
             >

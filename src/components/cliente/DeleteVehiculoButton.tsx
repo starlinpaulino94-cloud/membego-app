@@ -28,7 +28,7 @@ export function DeleteVehiculoButton({ vehiculoId, label }: { vehiculoId: string
         {pending ? (
           <Loader2 className="h-4 w-4 animate-spin" />
         ) : (
-          <Trash2 className="h-4 w-4 text-red-400" />
+          <Trash2 className="h-4 w-4 text-destructive" />
         )}
       </Button>
     </form>
