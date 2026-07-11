@@ -31,6 +31,13 @@ export const TIPOS_CON_PORCENTAJE = ['descuento', 'happy_hour', 'temporada']
 /** Tipos cuyo campo `descuento` se interpreta como monto fijo (RD$). */
 export const TIPOS_CON_MONTO = ['monto_fijo']
 
+export function formatDescuento(descuento: number, tipo: string): string {
+  if (TIPOS_CON_MONTO.includes(tipo)) {
+    return `RD$${descuento.toLocaleString('es-DO')}`
+  }
+  return `-${descuento}%`
+}
+
 export const PROMO_VISIBILIDADES = [
   { value: 'publica', label: 'Pública — visible para todo MembeGo' },
   { value: 'privada', label: 'Privada — solo miembros de tu empresa' },
