@@ -126,14 +126,14 @@ export default async function MisMembresias() {
 
           {/* CTA to explore more */}
           <div className="flex flex-col items-center gap-3 rounded-xl border bg-gradient-to-br from-sky-50 to-blue-50 p-6 text-center">
-            <Sparkles className="h-6 w-6 text-blue-600" />
+            <Sparkles className="h-6 w-6 text-primary" />
             <div>
-              <h3 className="font-semibold text-slate-900">¿Quieres más beneficios?</h3>
-              <p className="mt-1 text-sm text-slate-600">
+              <h3 className="font-semibold text-foreground">¿Quieres más beneficios?</h3>
+              <p className="mt-1 text-sm text-muted-foreground">
                 Descubre otras empresas y sus promociones exclusivas.
               </p>
             </div>
-            <Button asChild className="bg-blue-600 hover:bg-blue-700">
+            <Button asChild className="bg-primary hover:bg-primary/90">
               <Link href="/cliente/explorar">Explorar más empresas</Link>
             </Button>
           </div>
