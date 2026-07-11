@@ -15,6 +15,81 @@ function fmtFecha(d: Date) {
   return new Intl.DateTimeFormat('es-DO', { dateStyle: 'medium' }).format(d)
 }
 
+interface CompraItem {
+  id: string
+  estado: string
+  usosRestantes: number
+  createdAt: Date
+  promocion: { titulo: string; imagenUrl: string | null; tipo: string } | null
+  company: { name: string }
+}
+
+function Item({ compra }: { compra: CompraItem }) {
+  const ui = compraEstadoUi(compra.estado)
+  return (
+    <Link
+      href={`/cliente/mis-promociones/${compra.id}`}
+      className="flex items-center gap-3 px-5 py-4 transition-colors hover:bg-muted/50"
+    >
+      {compra.promocion?.imagenUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={compra.promocion.imagenUrl}
+          alt=""
+          className="h-12 w-12 shrink-0 rounded-lg object-cover"
+        />
+      ) : (
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+          <Ticket className="h-5 w-5 text-primary" />
+        </div>
+      )}
+      <div className="min-w-0 flex-1">
+        <p className="truncate font-semibold text-foreground">
+          {compra.promocion?.titulo ?? 'Promoción'}
+        </p>
+        <p className="text-xs text-muted-foreground">
+          {compra.company.name} · {fmtFecha(compra.createdAt)}
+          {compra.estado === 'ACTIVA' && (
+            <> · {compra.usosRestantes} uso{compra.usosRestantes !== 1 ? 's' : ''} restante{compra.usosRestantes !== 1 ? 's' : ''}</>
+          )}
+        </p>
+      </div>
+      <Badge variant={ui.badge} className="shrink-0 text-[10px]">
+        {ui.label}
+      </Badge>
+      <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+    </Link>
+  )
+}
+
+function Section({
+  titulo,
+  icon: Icon,
+  items,
+}: {
+  titulo: string
+  icon: typeof Ticket
+  items: CompraItem[]
+}) {
+  if (items.length === 0) return null
+  return (
+    <div className="space-y-2">
+      <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+        <Icon className="h-4 w-4" /> {titulo}
+      </h2>
+      <Card>
+        <CardContent className="p-0">
+          <div className="divide-y divide-border/60">
+            {items.map((c) => (
+              <Item key={c.id} compra={c} />
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
 export default async function MisPromocionesPage() {
   const user = await requireRole('CLIENTE')
   const clienteId = user.metadata.clienteId
@@ -37,71 +112,6 @@ export default async function MisPromocionesPage() {
   const historial = compras.filter(
     (c) => !PENDIENTES.includes(c.estado) && c.estado !== 'ACTIVA'
   )
-
-  const Item = ({ compra }: { compra: (typeof compras)[number] }) => {
-    const ui = compraEstadoUi(compra.estado)
-    return (
-      <Link
-        key={compra.id}
-        href={`/cliente/mis-promociones/${compra.id}`}
-        className="flex items-center gap-3 px-5 py-4 transition-colors hover:bg-muted/50"
-      >
-        {compra.promocion?.imagenUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={compra.promocion.imagenUrl}
-            alt=""
-            className="h-12 w-12 shrink-0 rounded-lg object-cover"
-          />
-        ) : (
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-            <Ticket className="h-5 w-5 text-primary" />
-          </div>
-        )}
-        <div className="min-w-0 flex-1">
-          <p className="truncate font-semibold text-foreground">
-            {compra.promocion?.titulo ?? 'Promoción'}
-          </p>
-          <p className="text-xs text-muted-foreground">
-            {compra.company.name} · {fmtFecha(compra.createdAt)}
-            {compra.estado === 'ACTIVA' && (
-              <> · {compra.usosRestantes} uso{compra.usosRestantes !== 1 ? 's' : ''} restante{compra.usosRestantes !== 1 ? 's' : ''}</>
-            )}
-          </p>
-        </div>
-        <Badge variant={ui.badge} className="shrink-0 text-[10px]">
-          {ui.label}
-        </Badge>
-        <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
-      </Link>
-    )
-  }
-
-  const Section = ({
-    titulo,
-    icon: Icon,
-    items,
-  }: {
-    titulo: string
-    icon: typeof Ticket
-    items: typeof compras
-  }) =>
-    items.length === 0 ? null : (
-      <div className="space-y-2">
-        <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-          <Icon className="h-4 w-4" /> {titulo}
-        </h2>
-        <Card>
-          <CardContent className="p-0">
-            <div className="divide-y divide-border/60">
-              {items.map((c) => (
-                <Item key={c.id} compra={c} />
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    )
 
   return (
     <div className="space-y-6">
