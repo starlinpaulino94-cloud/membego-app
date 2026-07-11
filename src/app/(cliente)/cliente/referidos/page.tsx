@@ -238,35 +238,66 @@ export default async function ReferidosClientePage() {
         ))}
       </div>
 
-      {/* Embudo de conversión */}
+      {/* Fase E6 · Embudo real: cada etapa sale de eventos registrados, con su
+          tasa respecto a la anterior. Visitantes = personas únicas, no hits. */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Tu conversión</CardTitle>
+          <CardTitle className="text-base">Tu embudo</CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Conversión real: {stats.conversionPct}% de tus registros terminan
+            comprando.
+          </p>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-wrap items-center justify-center gap-2 text-center text-sm">
-            <div className="rounded-lg bg-primary/10 px-4 py-2">
-              <p className="text-lg font-bold text-primary">{stats.clicks}</p>
-              <p className="text-xs text-muted-foreground">clics</p>
-            </div>
-            <span className="text-muted-foreground/40">→</span>
-            <div className="rounded-lg bg-warning/15 px-4 py-2">
-              <p className="text-lg font-bold text-warning-foreground">{stats.registros}</p>
-              <p className="text-xs text-muted-foreground">registros</p>
-            </div>
-            <span className="text-muted-foreground/40">→</span>
-            <div className="rounded-lg bg-success/10 px-4 py-2">
-              <p className="text-lg font-bold text-success">{stats.membresias}</p>
-              <p className="text-xs text-muted-foreground">membresías</p>
-            </div>
-            <span className="text-muted-foreground/40">=</span>
-            <div className="rounded-lg bg-info/10 px-4 py-2">
-              <p className="text-lg font-bold text-info">{stats.conversionPct}%</p>
-              <p className="text-xs text-muted-foreground">conversión</p>
-            </div>
+          <div className="space-y-2">
+            {dashboard.embudo.map((e) => {
+              const max = Math.max(...dashboard.embudo.map((x) => x.valor), 1)
+              const ancho = Math.max(3, Math.round((e.valor / max) * 100))
+              return (
+                <div key={e.etapa} className="flex items-center gap-3 text-sm">
+                  <span className="w-36 shrink-0 text-muted-foreground">{e.etapa}</span>
+                  <div className="h-2 w-full rounded-full bg-muted">
+                    <div className="h-2 rounded-full bg-primary/70" style={{ width: `${ancho}%` }} />
+                  </div>
+                  <span className="w-10 shrink-0 text-right font-semibold tabular-nums text-foreground">
+                    {e.valor}
+                  </span>
+                  <span className="w-12 shrink-0 text-right text-xs tabular-nums text-muted-foreground">
+                    {e.tasaPct != null ? `${e.tasaPct}%` : ''}
+                  </span>
+                </div>
+              )
+            })}
           </div>
         </CardContent>
       </Card>
+
+      {/* Fase E6 · Recompensas reales (con estado) */}
+      {dashboard.misRecompensas.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Tus recompensas</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ul className="space-y-2">
+              {dashboard.misRecompensas.map((r) => (
+                <li key={r.id} className="flex items-center justify-between gap-2 text-sm">
+                  <span className="text-foreground">🎁 {r.descripcion}</span>
+                  <span className="flex shrink-0 items-center gap-2 text-xs text-muted-foreground">
+                    {new Intl.DateTimeFormat('es-DO', { dateStyle: 'medium' }).format(r.fecha)}
+                    <Badge
+                      variant={r.estado === 'ENTREGADA' ? 'success' : r.estado === 'PENDIENTE' ? 'warning' : 'secondary'}
+                      className="text-[10px]"
+                    >
+                      {r.estado === 'ENTREGADA' ? 'Entregada' : r.estado === 'PENDIENTE' ? 'Pendiente de aplicar' : r.estado}
+                    </Badge>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Retos activos de la empresa */}
       {retos.length > 0 && (
@@ -362,7 +393,10 @@ export default async function ReferidosClientePage() {
                       {r.nombre}
                       {r.esYo && <Badge variant="secondary">Tú</Badge>}
                     </span>
-                    <span className="font-medium">{r.puntos} pts</span>
+                    <span className="font-medium">
+                      {r.membresias} conv
+                      <span className="ml-1 text-xs font-normal text-muted-foreground">· {r.puntos} pts</span>
+                    </span>
                   </li>
                 ))}
               </ul>

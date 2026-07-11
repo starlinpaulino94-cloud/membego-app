@@ -8,7 +8,6 @@ import {
   ShieldAlert,
   Activity,
   Megaphone,
-  Share2,
 } from 'lucide-react'
 import { requireRole } from '@/lib/auth/guards'
 import { ADMIN_ROLES } from '@/types'
@@ -115,15 +114,38 @@ export default async function ReferidosPage() {
   )
 
   const kpiCards = [
-    { label: 'Compartidos', valor: String(kpis.compartidos), icon: Share2, accent: 'sky' as const },
-    { label: 'Clics', valor: String(kpis.clicks), icon: MousePointerClick, accent: 'violet' as const },
+    { label: 'Visitantes únicos', valor: String(kpis.visitantesUnicos), icon: MousePointerClick, accent: 'violet' as const },
     { label: 'Registros', valor: String(kpis.registros), icon: Users, accent: 'amber' as const },
-    { label: 'Membresías por referidos', valor: String(kpis.membresias), icon: BadgeCheck, accent: 'green' as const },
-    { label: 'Conversión (clic → membresía)', valor: `${kpis.conversionPct}%`, icon: Trophy, accent: 'green' as const },
+    { label: 'Referidos válidos', valor: String(kpis.membresias), icon: BadgeCheck, accent: 'green' as const },
+    { label: 'Conversión (registro → compra)', valor: `${kpis.conversionPct}%`, icon: Trophy, accent: 'green' as const },
     { label: 'Ingresos por referidos', valor: fmtMoney(kpis.ingresosReferidos), icon: DollarSign, accent: 'green' as const },
-    { label: 'Recompensas entregadas', valor: String(kpis.recompensasEntregadas), icon: Gift, accent: 'violet' as const },
-    { label: 'Registros sospechosos', valor: String(kpis.sospechosos), icon: ShieldAlert, accent: 'red' as const },
+    { label: 'Valor promedio por referido', valor: fmtMoney(kpis.valorPromedioPorReferido), icon: DollarSign, accent: 'sky' as const },
+    { label: 'Recompensas (entregadas / pendientes)', valor: `${kpis.recompensasEntregadas} / ${kpis.recompensasPendientes}`, icon: Gift, accent: 'violet' as const },
+    { label: 'Sospechosos / fraudes', valor: `${kpis.sospechosos} / ${kpis.fraudes}`, icon: ShieldAlert, accent: 'red' as const },
   ]
+
+  const maxEmbudo = Math.max(...dash.embudo.map((e) => e.valor), 1)
+
+  const MOVIMIENTO_LABEL: Record<string, string> = {
+    LINK: 'generó su enlace',
+    SHARE: 'compartió su enlace',
+    CLICK: 'recibió un clic',
+    REGISTRO_INICIADO: 'llevó a alguien al registro',
+    REGISTRO: 'logró un registro',
+    VERIFICADO: 'su referido verificó el correo',
+    MEMBRESIA: 'su referido activó membresía',
+    COMPRA: 'su referido compró',
+    RECOMPENSA: 'recibió una recompensa',
+    FRAUDE: 'intento bloqueado (antifraude)',
+    REGISTRO_GLOBAL: 'registro global MembeGo',
+    MEMBRESIA_GLOBAL: 'membresía global MembeGo',
+  }
+
+  const ESTADO_REFERIDO: Record<string, { label: string; badge: 'success' | 'warning' | 'destructive' | 'secondary' }> = {
+    PENDIENTE: { label: 'Pendiente', badge: 'warning' },
+    COMPLETADO: { label: 'Convertido', badge: 'success' },
+    SOSPECHOSO: { label: 'Sospechoso', badge: 'destructive' },
+  }
 
   return (
     <div className="space-y-8">
@@ -138,6 +160,45 @@ export default async function ReferidosPage() {
           <StatCard key={k.label} label={k.label} value={k.valor} icon={k.icon} accent={k.accent} />
         ))}
       </div>
+
+      {/* Fase E6 · Embudo de conversión completo, con tasas por etapa */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Embudo de conversión</CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Cada etapa proviene de eventos reales registrados; el porcentaje es
+            la tasa respecto a la etapa anterior.
+          </p>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-2">
+            {dash.embudo.map((e) => (
+              <div key={e.etapa} className="flex items-center gap-3 text-sm">
+                <span className="w-44 shrink-0 text-muted-foreground">{e.etapa}</span>
+                <Bar value={e.valor} max={maxEmbudo} className="bg-primary/70" />
+                <span className="w-14 shrink-0 text-right font-semibold tabular-nums text-foreground">
+                  {e.valor}
+                </span>
+                <span className="w-14 shrink-0 text-right text-xs tabular-nums text-muted-foreground">
+                  {e.tasaPct != null ? `${e.tasaPct}%` : ''}
+                </span>
+              </div>
+            ))}
+          </div>
+          <div className="mt-4 flex flex-wrap gap-x-6 gap-y-1 border-t border-border/60 pt-3 text-xs text-muted-foreground">
+            <span>Clics totales: <strong className="text-foreground">{kpis.clicks}</strong></span>
+            <span>Compartidos: <strong className="text-foreground">{kpis.compartidos}</strong></span>
+            <span>Verificados: <strong className="text-foreground">{kpis.verificados}</strong></span>
+            <span>Clientes activos: <strong className="text-foreground">{kpis.activos}</strong></span>
+            {kpis.tiempoPromedioConversionDias != null && (
+              <span>
+                Tiempo promedio a conversión:{' '}
+                <strong className="text-foreground">{kpis.tiempoPromedioConversionDias} días</strong>
+              </span>
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Embajadores activos/inactivos */}
       <Card>
@@ -265,7 +326,7 @@ export default async function ReferidosPage() {
         {/* Top embajadores */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Top embajadores (por puntos)</CardTitle>
+            <CardTitle className="text-base">Top embajadores (por conversiones)</CardTitle>
           </CardHeader>
           <CardContent>
             {dash.topEmbajadores.length === 0 ? (
@@ -286,7 +347,7 @@ export default async function ReferidosPage() {
                       {t.nombre}
                     </span>
                     <span className="text-xs text-muted-foreground">
-                      {t.puntos} pts · {t.registros} reg · {t.membresias} memb
+                      {t.membresias} conv · {t.registros} reg · {t.puntos} pts
                     </span>
                   </li>
                 ))}
@@ -298,12 +359,12 @@ export default async function ReferidosPage() {
         {/* Top conversión */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Mayor conversión (mín. 5 clics)</CardTitle>
+            <CardTitle className="text-base">Mayor conversión (mín. 3 registros)</CardTitle>
           </CardHeader>
           <CardContent>
             {dash.topConversion.length === 0 ? (
               <p className="text-sm text-muted-foreground">
-                Se mostrará cuando haya embajadores con al menos 5 clics.
+                Se mostrará cuando haya embajadores con al menos 3 registros.
               </p>
             ) : (
               <ul className="space-y-2">
@@ -311,10 +372,71 @@ export default async function ReferidosPage() {
                   <li key={t.nombre + i} className="flex items-center justify-between text-sm">
                     <span className="text-foreground">{t.nombre}</span>
                     <span className="text-xs text-muted-foreground">
-                      {t.pct}% ({t.membresias}/{t.clicks})
+                      {t.pct}% ({t.membresias}/{t.registros})
                     </span>
                   </li>
                 ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Fase E6: últimos movimientos (eventos reales) */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Últimos movimientos</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {dash.ultimosMovimientos.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Sin actividad todavía.</p>
+            ) : (
+              <ul className="space-y-2">
+                {dash.ultimosMovimientos.map((m) => (
+                  <li key={m.id} className="flex items-center justify-between gap-2 text-sm">
+                    <span className="min-w-0 truncate text-foreground">
+                      <strong>{m.nombre}</strong>{' '}
+                      <span className="text-muted-foreground">
+                        {MOVIMIENTO_LABEL[m.tipo] ?? m.tipo}
+                        {m.canal ? ` · ${CANAL_LABEL[m.canal] ?? m.canal}` : ''}
+                      </span>
+                    </span>
+                    <span className="shrink-0 text-xs text-muted-foreground">
+                      {new Intl.DateTimeFormat('es-DO', { dateStyle: 'short', timeStyle: 'short' }).format(m.fecha)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Fase E6: estado de cada referido */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Referidos recientes</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {dash.referidosRecientes.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Aún no hay referidos.</p>
+            ) : (
+              <ul className="space-y-2">
+                {dash.referidosRecientes.slice(0, 10).map((r) => {
+                  const e = ESTADO_REFERIDO[r.estado] ?? ESTADO_REFERIDO.PENDIENTE
+                  return (
+                    <li key={r.id} className="flex items-center justify-between gap-2 text-sm">
+                      <span className="min-w-0 truncate text-foreground">
+                        <strong>{r.nombre}</strong>{' '}
+                        <span className="text-muted-foreground">por {r.referente}</span>
+                      </span>
+                      <span className="flex shrink-0 items-center gap-2">
+                        <span className="text-xs text-muted-foreground">
+                          {new Intl.DateTimeFormat('es-DO', { dateStyle: 'short' }).format(r.fecha)}
+                        </span>
+                        <Badge variant={e.badge} className="text-[10px]">{e.label}</Badge>
+                      </span>
+                    </li>
+                  )
+                })}
               </ul>
             )}
           </CardContent>

@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import type { EmailOtpType } from '@supabase/supabase-js'
 import { createRouteClient, redirectWithCookies } from '@/lib/supabase/route-client'
 import { getAppUrl } from '@/lib/site'
+import { registrarVerificacionReferido } from '@/lib/referidos-attribution'
 import { ROLE_HOME, type AppRole } from '@/types'
 
 /**
@@ -34,6 +35,9 @@ export async function GET(request: NextRequest) {
 
   // Sesión abierta: llevar al usuario directo a su panel según el rol.
   const { data } = await supabase.auth.getUser()
+
+  // Fase E6 · Embudo de referidos: correo verificado (una vez por referido).
+  if (data.user?.id) await registrarVerificacionReferido(data.user.id)
   const role = (data.user?.app_metadata?.role ?? 'CLIENTE') as AppRole
   const dest = ROLE_HOME[role] ?? '/mis-membresias'
 

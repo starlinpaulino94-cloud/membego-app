@@ -13,7 +13,9 @@
     "db:migrate": "prisma migrate dev",
     "db:migrate:deploy": "prisma migrate deploy",
     "db:reset": "prisma migrate reset",
-    "db:seed": "tsx prisma/seed.ts"
+    "db:seed": "tsx prisma/seed.ts",
+    "test": "tsx --test tests/*.test.ts",
+    "certificar:referidos": "tsx --tsconfig tsconfig.json scripts/certificar-referidos.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
