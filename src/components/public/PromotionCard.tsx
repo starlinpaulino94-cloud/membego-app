@@ -2,6 +2,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { ArrowRight, Clock, Gift } from 'lucide-react'
 import type { PromotionPublic } from '@/modules/marketplace/types'
+import { formatDescuento } from '@/lib/promociones'
 
 interface PromotionCardProps {
   promotion: PromotionPublic
@@ -46,7 +47,7 @@ export function PromotionCard({
             )}
             {promotion.descuento && (
               <span className="absolute right-2 top-2 rounded-full bg-white/95 px-2 py-0.5 text-xs font-bold text-blue-700 shadow-sm">
-                -{promotion.descuento}%
+                {formatDescuento(promotion.descuento, promotion.tipo)}
               </span>
             )}
           </div>
@@ -107,7 +108,7 @@ export function PromotionCard({
           <div className="absolute right-3 top-3 flex flex-col items-end gap-1.5">
             {promotion.descuento && (
               <span className="rounded-full bg-white/95 px-2.5 py-1 text-sm font-bold text-blue-700 shadow-sm">
-                -{promotion.descuento}%
+                {formatDescuento(promotion.descuento, promotion.tipo)}
               </span>
             )}
             {promotion.isFeatured && !isExpired && (
