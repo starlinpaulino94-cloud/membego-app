@@ -41,20 +41,20 @@ function PromoCard({ p, showCompany }: { p: PromoRow; showCompany: boolean }) {
       <CardContent className="p-5">
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div className="rounded-lg bg-amber-100 p-2">
-              <Gift className="h-5 w-5 text-amber-600" />
+            <div className="rounded-lg bg-warning/15 p-2">
+              <Gift className="h-5 w-5 text-warning-foreground" />
             </div>
             <div>
-              <p className="font-semibold text-slate-900">{p.titulo}</p>
+              <p className="font-semibold text-foreground">{p.titulo}</p>
               <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs">
-                <span className="rounded-full bg-sky-50 px-2 py-0.5 font-medium text-sky-700">
+                <span className="rounded-full bg-info/10 px-2 py-0.5 font-medium text-info">
                   {PROMO_TIPO_LABEL[p.tipo] ?? p.tipo}
                 </span>
                 <span
                   className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-medium ${
                     p.visibilidad === 'privada'
-                      ? 'bg-slate-100 text-slate-600'
-                      : 'bg-emerald-50 text-emerald-700'
+                      ? 'bg-muted text-muted-foreground'
+                      : 'bg-success/10 text-success'
                   }`}
                 >
                   {p.visibilidad === 'privada' ? (
@@ -68,7 +68,7 @@ function PromoCard({ p, showCompany }: { p: PromoRow; showCompany: boolean }) {
                   )}
                 </span>
                 {showCompany && (
-                  <span className="text-slate-400">{p.company.name}</span>
+                  <span className="text-muted-foreground">{p.company.name}</span>
                 )}
               </div>
             </div>
@@ -78,9 +78,9 @@ function PromoCard({ p, showCompany }: { p: PromoRow; showCompany: boolean }) {
           </Badge>
         </div>
 
-        <p className="mt-3 line-clamp-2 text-sm text-slate-600">{p.descripcion}</p>
+        <p className="mt-3 line-clamp-2 text-sm text-muted-foreground">{p.descripcion}</p>
 
-        <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-400">
+        <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
           {p.vigenciaHasta && <span>Hasta {fmtDate(p.vigenciaHasta)}</span>}
           {p.maxCanjes != null && (
             <span>
@@ -92,7 +92,7 @@ function PromoCard({ p, showCompany }: { p: PromoRow; showCompany: boolean }) {
         </div>
 
         {/* Indicadores */}
-        <div className="mt-3 flex gap-4 border-t border-slate-100 pt-3 text-xs text-slate-500">
+        <div className="mt-3 flex gap-4 border-t border-border/60 pt-3 text-xs text-muted-foreground">
           <span className="inline-flex items-center gap-1">
             <Eye className="h-3.5 w-3.5" /> {p.viewCount}
           </span>
@@ -155,8 +155,8 @@ export default async function PromocionesPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Promociones</h1>
-          <p className="text-slate-500">
+          <h1 className="text-2xl font-bold text-foreground">Promociones</h1>
+          <p className="text-muted-foreground">
             Crea, programa y controla tus ofertas. Tus seguidores se notifican
             automáticamente.
           </p>
@@ -169,7 +169,7 @@ export default async function PromocionesPage() {
             </Button>
           </Link>
           <Link href="/admin/promociones/nuevo">
-            <Button className="bg-sky-500 hover:bg-sky-400">
+            <Button>
               <Plus className="mr-2 h-4 w-4" />
               Nueva promoción
             </Button>
@@ -179,13 +179,13 @@ export default async function PromocionesPage() {
 
       {activas.length === 0 && archivadas.length === 0 ? (
         <Card>
-          <CardContent className="py-16 text-center text-slate-500">
-            <Gift className="mx-auto mb-3 h-10 w-10 text-slate-300" />
+          <CardContent className="py-16 text-center text-muted-foreground">
+            <Gift className="mx-auto mb-3 h-10 w-10 text-muted-foreground/40" />
             <p className="font-medium">Sin promociones publicadas</p>
             <p className="text-sm">Crea tu primera promoción para tus clientes.</p>
             <Link
               href="/admin/promociones/plantillas"
-              className="mt-3 inline-block text-sm font-medium text-sky-600 hover:underline"
+              className="mt-3 inline-block text-sm font-medium text-primary hover:underline"
             >
               Empieza desde una plantilla →
             </Link>
@@ -201,7 +201,7 @@ export default async function PromocionesPage() {
 
           {archivadas.length > 0 && (
             <details className="group">
-              <summary className="flex cursor-pointer items-center gap-2 text-sm font-medium text-slate-500 hover:text-slate-700">
+              <summary className="flex cursor-pointer items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground">
                 <Archive className="h-4 w-4" />
                 Archivadas ({archivadas.length})
               </summary>
