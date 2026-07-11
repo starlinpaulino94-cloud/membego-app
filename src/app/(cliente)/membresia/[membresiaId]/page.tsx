@@ -163,7 +163,7 @@ export default async function MembershipDetail({ params }: { params: Promise<{ m
       >
         <div className="pointer-events-none absolute inset-0 bg-grid-light opacity-30" />
         {isActive && (
-          <div className="pointer-events-none absolute -right-12 -top-16 h-44 w-44 rounded-full bg-sky-400/25 blur-2xl" />
+          <div className="pointer-events-none absolute -right-12 -top-16 h-44 w-44 rounded-full bg-primary/25 blur-2xl" />
         )}
 
         <div className="relative">
@@ -188,10 +188,10 @@ export default async function MembershipDetail({ params }: { params: Promise<{ m
             <span
               className={`shrink-0 rounded-full border px-3 py-1 text-xs font-semibold backdrop-blur ${
                 isActive
-                  ? 'border-emerald-300/30 bg-emerald-400/20 text-emerald-100'
+                  ? 'border-success/30 bg-success/20 text-success'
                   : membership.estado === 'VENCIDA'
-                    ? 'border-red-300/30 bg-red-400/20 text-red-100'
-                    : 'border-amber-300/30 bg-amber-400/20 text-amber-100'
+                    ? 'border-destructive/30 bg-destructive/20 text-destructive/70'
+                    : 'border-warning/30 bg-warning/20 text-warning-foreground'
               }`}
             >
               {estadoLabel}
@@ -208,7 +208,7 @@ export default async function MembershipDetail({ params }: { params: Promise<{ m
             )}
             {isActive &&
               (membership.plan.esIlimitado ? (
-                <span className="inline-flex items-center gap-1.5 font-medium text-sky-200">
+                <span className="inline-flex items-center gap-1.5 font-medium text-primary">
                   <InfinityIcon className="h-4 w-4" /> Usos ilimitados
                 </span>
               ) : (
@@ -327,7 +327,7 @@ export default async function MembershipDetail({ params }: { params: Promise<{ m
                 className="flex items-center justify-between border-b border-border/50 pb-3 text-sm last:border-b-0 last:pb-0"
               >
                 <span className="inline-flex items-center gap-1.5 text-foreground">
-                  <Share2 className="h-3.5 w-3.5 text-emerald-600" /> QR compartido
+                  <Share2 className="h-3.5 w-3.5 text-success" /> QR compartido
                 </span>
                 <span className="text-muted-foreground">
                   {fmtFechaHora(envio.createdAt)}
