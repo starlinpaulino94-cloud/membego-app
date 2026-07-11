@@ -43,7 +43,7 @@ export function PublicFooter() {
             <Link href="/" className="flex items-center gap-2">
               <Image src="/logo.svg" alt="MembeGo" width={28} height={28} />
               <span className="text-lg font-bold tracking-tight text-white">
-                Membe<span className="text-emerald-400">Go</span>
+                Membe<span className="text-gradient">Go</span>
               </span>
             </Link>
             <p className="mt-4 max-w-xs text-sm leading-relaxed text-muted-foreground">
