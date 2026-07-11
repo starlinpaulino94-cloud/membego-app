@@ -51,6 +51,18 @@ interface CampanaOption {
   nombre: string
 }
 
+/**
+ * Valores iniciales copiados de una plantilla (Fase E3). Solo aplica al crear:
+ * el usuario puede editar todo antes de publicar y la plantilla nunca cambia.
+ */
+export interface PromocionPrefillValues {
+  titulo: string
+  descripcion: string
+  tipo: string
+  descuento: number | null
+  vigenciaHasta: Date | null
+}
+
 const init: PromocionState = {}
 
 function toDatetimeLocal(d: Date | null) {
@@ -62,15 +74,17 @@ function toDatetimeLocal(d: Date | null) {
 
 export function PromocionForm({
   existing,
+  prefill,
   campanas = [],
 }: {
   existing?: Existing
+  prefill?: PromocionPrefillValues
   campanas?: CampanaOption[]
 }) {
   const router = useRouter()
   const action = existing ? actualizarPromocion : crearPromocion
   const [state, formAction, pending] = useActionState(action, init)
-  const [tipo, setTipo] = useState(existing?.tipo ?? 'descuento')
+  const [tipo, setTipo] = useState(existing?.tipo ?? prefill?.tipo ?? 'descuento')
 
   useEffect(() => {
     if (state.success) {
@@ -129,7 +143,7 @@ export function PromocionForm({
                 type="number"
                 min={0}
                 max={pidePorcentaje ? 100 : undefined}
-                defaultValue={existing?.descuento ?? ''}
+                defaultValue={existing?.descuento ?? prefill?.descuento ?? ''}
                 placeholder={pidePorcentaje ? '25' : '500'}
               />
             </div>
@@ -141,7 +155,7 @@ export function PromocionForm({
           <Input
             id="titulo"
             name="titulo"
-            defaultValue={existing?.titulo}
+            defaultValue={existing?.titulo ?? prefill?.titulo}
             placeholder="Ej: 25% de descuento en tu primer mes"
             required
           />
@@ -152,7 +166,7 @@ export function PromocionForm({
           <Textarea
             id="descripcion"
             name="descripcion"
-            defaultValue={existing?.descripcion}
+            defaultValue={existing?.descripcion ?? prefill?.descripcion}
             rows={4}
             placeholder="Condiciones y detalles para el cliente"
             required
@@ -200,7 +214,7 @@ export function PromocionForm({
               id="vigenciaHasta"
               name="vigenciaHasta"
               type="datetime-local"
-              defaultValue={toDatetimeLocal(existing?.vigenciaHasta ?? null)}
+              defaultValue={toDatetimeLocal(existing?.vigenciaHasta ?? prefill?.vigenciaHasta ?? null)}
             />
             <p className="text-xs text-muted-foreground">
               Vacío = sin fecha de expiración.

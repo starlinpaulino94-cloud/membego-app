@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Check, Infinity as InfinityIcon, Plus, Pencil, Package } from 'lucide-react'
+import { Check, Infinity as InfinityIcon, Plus, Pencil, Package, LayoutTemplate } from 'lucide-react'
 import { ADMIN_ROLES } from '@/types'
 import { requireRole } from '@/lib/auth/guards'
 import { companyFilter } from '@/modules/admin/queries'
@@ -92,6 +92,12 @@ export default async function PlanesPage() {
               texto={`Conoce los planes de membresía de ${empresa.name} en MembeGo.`}
             />
           )}
+          <Link href="/admin/planes/plantillas">
+            <Button variant="outline">
+              <LayoutTemplate className="mr-2 h-4 w-4" />
+              Plantillas
+            </Button>
+          </Link>
           <Link href="/admin/planes/nuevo">
             <Button className="bg-sky-500 hover:bg-sky-400">
               <Plus className="mr-2 h-4 w-4" />
@@ -112,6 +118,12 @@ export default async function PlanesPage() {
               Crea tu primer plan (ej. Silver, Gold, Premium) para que los
               clientes puedan afiliarse.
             </p>
+            <Link
+              href="/admin/planes/plantillas"
+              className="mt-3 inline-block text-sm font-medium text-sky-600 hover:underline"
+            >
+              Empieza desde una plantilla →
+            </Link>
           </CardContent>
         </Card>
       ) : (

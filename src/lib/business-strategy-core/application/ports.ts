@@ -5,17 +5,8 @@
  * the core (Strategy Library, Template Catalog, Instantiator).
  */
 
-import type {
-  TemplateMetadata,
-  TemplateCatalog,
-  TemplateCatalogQuery,
-} from '../domain/template-catalog'
-import type {
-  TemplateInstantiator,
-  TemplateInstantiationContext,
-  TemplateInstantiationResult,
-} from '../domain/template-instantiation'
-import type { StrategyDescriptor } from '../domain/strategy-descriptor'
+import type { TemplateCatalog } from '../domain/template-catalog'
+import type { TemplateInstantiator } from '../domain/template-instantiation'
 
 /**
  * Strategy Catalog — registry of all strategies for a module.

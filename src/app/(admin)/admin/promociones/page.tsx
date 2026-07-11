@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge'
 import { DeletePromocionButton } from '@/components/admin/DeletePromocionButton'
 import { PromoControls } from '@/components/admin/PromoControls'
 import { CompartirOfertaButton } from '@/components/admin/CompartirOfertaButton'
-import { Gift, Plus, Pencil, Lock, Globe, Eye, Share2, Heart, Archive } from 'lucide-react'
+import { Gift, Plus, Pencil, Lock, Globe, Eye, Share2, Heart, Archive, LayoutTemplate } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
 
@@ -161,12 +161,20 @@ export default async function PromocionesPage() {
             automáticamente.
           </p>
         </div>
-        <Link href="/admin/promociones/nuevo">
-          <Button className="bg-sky-500 hover:bg-sky-400">
-            <Plus className="mr-2 h-4 w-4" />
-            Nueva promoción
-          </Button>
-        </Link>
+        <div className="flex gap-2">
+          <Link href="/admin/promociones/plantillas">
+            <Button variant="outline">
+              <LayoutTemplate className="mr-2 h-4 w-4" />
+              Plantillas
+            </Button>
+          </Link>
+          <Link href="/admin/promociones/nuevo">
+            <Button className="bg-sky-500 hover:bg-sky-400">
+              <Plus className="mr-2 h-4 w-4" />
+              Nueva promoción
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {activas.length === 0 && archivadas.length === 0 ? (
@@ -175,6 +183,12 @@ export default async function PromocionesPage() {
             <Gift className="mx-auto mb-3 h-10 w-10 text-slate-300" />
             <p className="font-medium">Sin promociones publicadas</p>
             <p className="text-sm">Crea tu primera promoción para tus clientes.</p>
+            <Link
+              href="/admin/promociones/plantillas"
+              className="mt-3 inline-block text-sm font-medium text-sky-600 hover:underline"
+            >
+              Empieza desde una plantilla →
+            </Link>
           </CardContent>
         </Card>
       ) : (

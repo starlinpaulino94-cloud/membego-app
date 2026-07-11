@@ -14,14 +14,31 @@ interface Company {
 }
 
 /**
+ * Valores iniciales copiados de una plantilla (Fase E3). Editables antes de
+ * guardar; la plantilla original nunca cambia.
+ */
+export interface PlanPrefillValues {
+  nombre: string
+  descripcion: string
+  precio: number
+  vigenciaDias: number
+  lavados: number
+  esIlimitado: boolean
+  beneficios: string
+  condiciones: string
+}
+
+/**
  * Form de creación de plan. Con `companies` (superadmin) muestra el selector
  * de empresa; sin él (panel de empresa) la action usa la empresa de la sesión.
  */
 export function NuevoPlanForm({
   companies,
+  prefill,
   redirectTo = '/superadmin/planes',
 }: {
   companies?: Company[]
+  prefill?: PlanPrefillValues
   redirectTo?: string
 }) {
   const [state, action, pending] = useActionState(crearPlan, {})
@@ -56,21 +73,21 @@ export function NuevoPlanForm({
 
       <div className="space-y-1.5">
         <Label htmlFor="nombre">Nombre del plan</Label>
-        <Input id="nombre" name="nombre" required placeholder="Ej: Silver, Gold, Premium, VIP" />
+        <Input id="nombre" name="nombre" required defaultValue={prefill?.nombre} placeholder="Ej: Silver, Gold, Premium, VIP" />
       </div>
 
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-1.5">
           <Label htmlFor="precio">Precio (RD$)</Label>
-          <Input id="precio" name="precio" type="number" min="0" step="0.01" required placeholder="0.00" />
+          <Input id="precio" name="precio" type="number" min="0" step="0.01" required defaultValue={prefill?.precio} placeholder="0.00" />
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="vigenciaDias">Vigencia (días)</Label>
-          <Input id="vigenciaDias" name="vigenciaDias" type="number" min="1" defaultValue={30} />
+          <Input id="vigenciaDias" name="vigenciaDias" type="number" min="1" defaultValue={prefill?.vigenciaDias ?? 30} />
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="lavados">Usos incluidos</Label>
-          <Input id="lavados" name="lavados" type="number" min="0" placeholder="0" />
+          <Input id="lavados" name="lavados" type="number" min="0" defaultValue={prefill?.lavados || undefined} placeholder="0" />
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="orden">Orden</Label>
@@ -80,7 +97,7 @@ export function NuevoPlanForm({
       </div>
 
       <div className="flex items-center gap-2">
-        <input type="checkbox" id="esIlimitado" name="esIlimitado" className="h-4 w-4 rounded border-slate-300" />
+        <input type="checkbox" id="esIlimitado" name="esIlimitado" defaultChecked={prefill?.esIlimitado} className="h-4 w-4 rounded border-slate-300" />
         <Label htmlFor="esIlimitado">Usos ilimitados</Label>
       </div>
 
@@ -91,7 +108,7 @@ export function NuevoPlanForm({
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="descripcion">Descripción (opcional)</Label>
-          <Input id="descripcion" name="descripcion" placeholder="Descripción breve del plan" />
+          <Input id="descripcion" name="descripcion" defaultValue={prefill?.descripcion} placeholder="Descripción breve del plan" />
         </div>
       </div>
 
@@ -101,6 +118,7 @@ export function NuevoPlanForm({
           id="beneficios"
           name="beneficios"
           rows={4}
+          defaultValue={prefill?.beneficios}
           className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500"
           placeholder={"Ej: Servicio completo incluido\nAtención preferencial\nDescuento en servicios extra"}
         />
@@ -112,6 +130,7 @@ export function NuevoPlanForm({
           id="condiciones"
           name="condiciones"
           rows={2}
+          defaultValue={prefill?.condiciones}
           className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500"
           placeholder="Ej: No aplica con otras promociones. Válido solo en sucursal principal."
         />

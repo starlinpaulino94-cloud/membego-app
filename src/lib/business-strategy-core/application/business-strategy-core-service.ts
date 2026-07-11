@@ -12,7 +12,6 @@ import type {
   ModuleStrategyLibrary,
   BusinessStrategyCore,
 } from './ports'
-import type { StrategyDescriptor } from '../domain/strategy-descriptor'
 
 export class BusinessStrategyCoreService implements BusinessStrategyCore {
   private readonly modules: Map<string, ModuleStrategyLibrary>

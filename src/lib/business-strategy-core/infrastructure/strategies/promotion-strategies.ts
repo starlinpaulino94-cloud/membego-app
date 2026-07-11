@@ -23,7 +23,6 @@ import type {
   TemplateInstantiationResult,
 } from '../../domain/template-instantiation'
 import type { ModuleStrategyLibrary, StrategyCatalog } from '../../application/ports'
-import { generateInstantiatedId } from '../../domain/template-instantiation'
 import { CARWASH_PROMOTION_STRATEGIES } from '@/lib/promotions/templates/carwash-strategies'
 import { CARWASH_PROMOTION_TEMPLATES } from '@/lib/promotions/templates/carwash'
 import { createPromotionService } from '@/lib/promotions'
@@ -162,7 +161,6 @@ class PromotionTemplateInstantiator implements TemplateInstantiator {
     }
 
     const promotions = createPromotionService()
-    const newId = generateInstantiatedId(context.templateKey, context.companyId)
 
     const createData: CreatePromotionData = {
       companyId: context.companyId,
