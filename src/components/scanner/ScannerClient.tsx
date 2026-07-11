@@ -16,9 +16,10 @@ import {
   QrCode,
   Building2,
 } from 'lucide-react'
-import { buscarPorToken, type ClienteLookup, type LookupResult } from '@/modules/visitas/actions'
+import { buscarPorToken, type ClienteLookup, type LookupResult, type PromoCompraLookup } from '@/modules/visitas/actions'
 import type { TransaccionScanInfo } from '@/modules/transacciones/actions'
 import { ConfirmVisit } from '@/components/scanner/ConfirmVisit'
+import { ConfirmPromo } from '@/components/scanner/ConfirmPromo'
 import { TransaccionRecord } from '@/components/scanner/TransaccionRecord'
 import { ScannerErrorBoundary } from '@/components/scanner/ScannerErrorBoundary'
 import { Button } from '@/components/ui/button'
@@ -171,6 +172,8 @@ export function ScannerClient({ sucursales = [] }: { sucursales?: Sucursal[] }) 
   const [showManual, setShowManual] = useState(false)
   const [manual, setManual] = useState('')
   const [cliente, setCliente] = useState<ClienteLookup | null>(null)
+  // Fase E5: QR de una promoción comprada (canje).
+  const [promoCompra, setPromoCompra] = useState<PromoCompraLookup | null>(null)
   // Fase E4: registro de una transacción (QR de ticket TX-… o QR ya usado).
   const [txRecord, setTxRecord] = useState<{ info: TransaccionScanInfo; esQrUsado: boolean } | null>(null)
   const [errorState, setErrorState] = useState<{ message: string; code: ErrorCode | null } | null>(null)
@@ -186,6 +189,8 @@ export function ScannerClient({ sucursales = [] }: { sucursales?: Sucursal[] }) 
           // Historial de la operación: QR impreso en el ticket, o QR de
           // cliente ya consumido (se muestra el registro, no un error seco).
           setTxRecord({ info: res.transaccion, esQrUsado: res.errorCode === 'QR_INACTIVE' })
+        } else if (res.promoCompra) {
+          setPromoCompra(res.promoCompra)
         } else if (res.error) {
           setErrorState({ message: res.error, code: res.errorCode ?? null })
         } else if (res.cliente) {
@@ -205,6 +210,7 @@ export function ScannerClient({ sucursales = [] }: { sucursales?: Sucursal[] }) 
 
   function reset() {
     setCliente(null)
+    setPromoCompra(null)
     setTxRecord(null)
     setErrorState(null)
     setManual('')
@@ -216,6 +222,7 @@ export function ScannerClient({ sucursales = [] }: { sucursales?: Sucursal[] }) 
   // cámara sin pasar por la pantalla fría ni el tap extra en "Abrir cámara".
   const scanNext = useCallback(() => {
     setCliente(null)
+    setPromoCompra(null)
     setTxRecord(null)
     setErrorState(null)
     setManual('')
@@ -238,6 +245,23 @@ export function ScannerClient({ sucursales = [] }: { sucursales?: Sucursal[] }) 
               esQrUsado={txRecord.esQrUsado}
               onScanNext={scanNext}
               onClose={reset}
+            />
+          </CardContent>
+        </Card>
+      </ScannerErrorBoundary>
+    )
+  }
+
+  if (promoCompra) {
+    return (
+      <ScannerErrorBoundary onReset={reset}>
+        <Card className="border-border/60 shadow-card-hover animate-scale-in">
+          <CardContent className="p-6">
+            <ConfirmPromo
+              compra={promoCompra}
+              sucursales={sucursales}
+              onDone={reset}
+              onScanNext={scanNext}
             />
           </CardContent>
         </Card>

@@ -135,6 +135,8 @@ model User {
   transaccionesComoEmpleado Transaction[]           @relation("TransactionEmpleado")
   transicionesTransaccion   TransactionTransicion[]
   impresionesRecibo         ReceiptImpresion[]
+  comprasAprobadas          ProductoCompra[]           @relation("CompraAprobadaPor")
+  transicionesCompra        ProductoCompraTransicion[]
 
   @@index([companyId])
   @@map("users")
@@ -266,6 +268,7 @@ model Company {
 
   transacciones   Transaction[]
   receiptTemplate ReceiptTemplate?
+  compras         ProductoCompra[]
 
   @@index([isPublished, isFeatured])
   @@index([ciudad, provincia])
@@ -309,6 +312,7 @@ model MetodoPago {
   updatedAt     DateTime       @updatedAt
 
   memberships Membership[]
+  compras     ProductoCompra[]
 
   @@index([companyId])
   @@map("metodos_pago")
@@ -350,6 +354,23 @@ model Promocion {
   prioridad   Int      @default(0) // mayor = primero en los listados
   archivada   Boolean  @default(false)
 
+  // FASE E5: la promoción como producto comercial comprable.
+  // - Ventana de adquisición = vigenciaDesde/vigenciaHasta (ya existentes).
+  // - Vigencia del beneficio: días desde la activación O fecha fija; ambos
+  //   null = sin vencimiento. El Rule Engine valida ambas ventanas.
+  esComprable            Boolean   @default(false)
+  precio                 Decimal?  @db.Decimal(10, 2) // 0 = gratis (activación directa)
+  usosPorCompra          Int       @default(1)
+  beneficioVigenciaDias  Int?
+  beneficioVigenciaHasta DateTime?
+  // Restricciones de consumo (0=domingo … 6=sábado; vacío = todos los días).
+  diasPermitidos         Int[]     @default([])
+  horaDesde              String? // "HH:MM"
+  horaHasta              String? // "HH:MM"
+  // Imágenes subidas al storage del proyecto (galería futura; [0] = principal).
+  imagenes               String[]  @default([])
+
+  compras     ProductoCompra[]
   guardadaPor PromocionGuardada[]
 
   @@index([companyId, activo])
@@ -444,6 +465,7 @@ model Cliente {
   notas           ClienteNota[]
 
   transacciones Transaction[]
+  compras       ProductoCompra[]
 
   @@unique([supabaseId, companyId])
   // Filtros frecuentes solo por empresa (adminMetrics, reportes, /admin/clientes).
@@ -683,25 +705,116 @@ model Membership {
   @@map("memberships")
 }
 
-// QR generado SOLO al activar membresía. Uno por cada membresía del cliente.
+// ─────────────────────────────────────────────
+// FASE E5 · PRODUCTOS COMERCIALES (compras)
+// Ciclo de compra unificado: hoy lo usan las promociones; las membresías
+// comparten el mismo flujo conceptual (solicitud → pago → validación →
+// activación → QR → consumo) y podrán migrar a esta tabla sin rediseño.
+// ─────────────────────────────────────────────
+
+enum ProductoComercialTipo {
+  PROMOCION
+  MEMBRESIA // reservado: unificación futura del ciclo de membresías
+}
+
+enum CompraEstado {
+  SOLICITADA // el cliente pidió el producto
+  PENDIENTE_PAGO // esperando la transferencia del cliente
+  EN_VALIDACION // comprobante enviado, esperando al admin
+  APROBADA // pago validado (transitorio antes de activar)
+  ACTIVA // beneficio disponible, QR emitido
+  RECHAZADA // pago rechazado (puede reintentar)
+  CONSUMIDA // sin usos restantes
+  EXPIRADA // venció sin consumirse por completo
+  CANCELADA // cancelada por el cliente o el admin
+}
+
+model ProductoCompra {
+  id     String                @id @default(cuid())
+  tipo   ProductoComercialTipo @default(PROMOCION)
+  estado CompraEstado          @default(SOLICITADA)
+
+  companyId   String
+  company     Company    @relation(fields: [companyId], references: [id])
+  clienteId   String
+  cliente     Cliente    @relation(fields: [clienteId], references: [id])
+  promocionId String?
+  promocion   Promocion? @relation(fields: [promocionId], references: [id])
+
+  // Pago (transferencia hoy; el puerto de pagos permite pasarelas futuras)
+  metodoPagoId       String?
+  metodoPago         MetodoPago? @relation(fields: [metodoPagoId], references: [id])
+  precioCongelado    Decimal?    @db.Decimal(10, 2) // precio al solicitar
+  montoPagado        Decimal?    @db.Decimal(10, 2)
+  pagoConfirmado     Boolean     @default(false)
+  comprobanteUrl     String?
+  comprobanteNota    String?
+  transferenciaFecha DateTime? // fecha/hora declarada de la transferencia
+  rechazadoReason    String?
+  adminNota          String?
+  aprobadaPorId      String?
+  aprobadaPor        User?       @relation("CompraAprobadaPor", fields: [aprobadaPorId], references: [id])
+
+  // Beneficio activo
+  usosIncluidos    Int       @default(1)
+  usosRestantes    Int       @default(0)
+  fechaActivacion  DateTime?
+  fechaVencimiento DateTime? // null = sin vencimiento
+  consumidaAt      DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  transiciones ProductoCompraTransicion[]
+  qrTokens     QrToken[]
+
+  @@index([companyId, estado])
+  @@index([clienteId, estado])
+  @@index([promocionId, estado])
+  @@index([companyId, createdAt])
+  @@map("producto_compras")
+}
+
+// Bitácora inmutable de estados de una compra (quién, cuándo, por qué).
+model ProductoCompraTransicion {
+  id       String         @id @default(cuid())
+  compraId String
+  compra   ProductoCompra @relation(fields: [compraId], references: [id], onDelete: Cascade)
+  desde    CompraEstado?
+  hacia    CompraEstado
+  motivo   String?
+  userId   String?
+  user     User?          @relation(fields: [userId], references: [id])
+  createdAt DateTime      @default(now())
+
+  @@index([compraId, createdAt])
+  @@map("producto_compra_transiciones")
+}
+
+// QR de acceso de un producto activo: membresía O compra de promoción (E5).
+// Exactamente el mismo sistema de un solo uso con regeneración para ambos.
 model QrToken {
-  id               String     @id @default(cuid())
+  id               String      @id @default(cuid())
   clienteId        String
-  cliente          Cliente    @relation(fields: [clienteId], references: [id])
-  membresiaId      String
-  membership       Membership @relation(fields: [membresiaId], references: [id], onDelete: Cascade)
-  token            String     @unique @default(cuid())
-  activo           Boolean    @default(true)
+  cliente          Cliente     @relation(fields: [clienteId], references: [id])
+  membresiaId      String?
+  membership       Membership? @relation(fields: [membresiaId], references: [id], onDelete: Cascade)
+  // FASE E5: QR de una compra de promoción (excluyente con membresiaId).
+  compraId         String?
+  compra           ProductoCompra? @relation(fields: [compraId], references: [id], onDelete: Cascade)
+  token            String      @unique @default(cuid())
+  activo           Boolean     @default(true)
   // Compartir el QR (p. ej. por WhatsApp) no consume el token —sigue siendo de
   // un solo uso— pero sí queda registrado: cuántas veces y cuándo la última.
-  compartidoCount  Int        @default(0)
+  compartidoCount  Int         @default(0)
   ultimoCompartido DateTime?
-  createdAt        DateTime   @default(now())
+  createdAt        DateTime    @default(now())
 
   transaccionUso Transaction? @relation("TransactionQrUsado")
 
   @@index([clienteId, activo])
   @@index([membresiaId])
+  @@index([compraId])
   @@map("qr_tokens")
 }
 

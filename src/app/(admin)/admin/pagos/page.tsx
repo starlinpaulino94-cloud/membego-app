@@ -17,6 +17,10 @@ import {
   AprobarCambioButton,
   RechazarCambioButton,
 } from '@/components/admin/CambioPlanActions'
+import {
+  AprobarCompraButton,
+  RechazarCompraButton,
+} from '@/components/admin/ValidarCompraActions'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { PageHeader } from '@/components/ui/page-header'
@@ -69,7 +73,7 @@ export default async function PagosPage() {
   // el error como [] el admin dejaría de validar pagos sin darse cuenta.
   // null = la query falló (se distingue de [] = sin resultados) para poder
   // mostrar un aviso en vez de fingir "no hay pagos pendientes".
-  const [pendientesData, cambiosData] = await Promise.all([
+  const [pendientesData, cambiosData, comprasData] = await Promise.all([
     prisma.membership
       .findMany({
         where: {
@@ -125,11 +129,40 @@ export default async function PagosPage() {
         console.error('[admin-pagos] cambios query', e)
         return null
       }),
+    // Fase E5: compras de promociones esperando validación del pago.
+    prisma.productoCompra
+      .findMany({
+        where: {
+          estado: 'EN_VALIDACION',
+          ...(companyId ? { companyId } : {}),
+        },
+        select: {
+          id: true,
+          clienteId: true,
+          updatedAt: true,
+          comprobanteUrl: true,
+          comprobanteNota: true,
+          transferenciaFecha: true,
+          precioCongelado: true,
+          cliente: {
+            select: { nombre: true, email: true, company: { select: { name: true } } },
+          },
+          promocion: { select: { titulo: true } },
+          metodoPago: { select: { nombre: true } },
+        },
+        orderBy: { updatedAt: 'desc' },
+        take: 100,
+      })
+      .catch((e) => {
+        console.error('[admin-pagos] compras query', e)
+        return null
+      }),
   ])
 
-  const loadError = pendientesData === null || cambiosData === null
+  const loadError = pendientesData === null || cambiosData === null || comprasData === null
   const pendientes: PendienteRow[] = pendientesData ?? []
   const cambios = cambiosData ?? []
+  const compras = comprasData ?? []
 
   return (
     <div className="space-y-6">
@@ -143,6 +176,105 @@ export default async function PagosPage() {
         title="Validación de pagos"
         description={`${pendientes.length} comprobante${pendientes.length !== 1 ? 's' : ''} esperando revisión`}
       />
+
+      {/* Fase E5: compras de promociones por validar */}
+      {compras.length > 0 && (
+        <div className="space-y-3">
+          <h2 className="text-h4 text-foreground">
+            Compras de promociones ({compras.length})
+          </h2>
+          <div className="grid gap-4 md:grid-cols-2">
+            {compras.map((c) => (
+              <Card key={c.id} className="overflow-hidden border-primary/25">
+                <CardHeader className="border-b bg-primary/5 pb-4">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <CardTitle className="text-base">
+                        <Link
+                          href={`/admin/clientes/${c.clienteId}`}
+                          className="text-primary hover:underline"
+                        >
+                          {c.cliente.nombre}
+                        </Link>
+                      </CardTitle>
+                      <p className="text-sm text-muted-foreground">{c.cliente.email}</p>
+                      {user.metadata.role === 'SUPERADMIN' && (
+                        <Badge variant="outline" className="mt-1 text-xs">
+                          {c.cliente.company.name}
+                        </Badge>
+                      )}
+                    </div>
+                    <Badge variant="info">Promoción</Badge>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-4 pt-4">
+                  <div className="rounded-lg bg-muted p-3 text-sm">
+                    <p>
+                      <span className="text-muted-foreground">Promoción:</span>{' '}
+                      <strong>{c.promocion?.titulo ?? '—'}</strong>
+                    </p>
+                    <p>
+                      <span className="text-muted-foreground">Monto esperado:</span>{' '}
+                      <strong>{fmtMoney(Number(c.precioCongelado ?? 0))}</strong>
+                    </p>
+                    {c.metodoPago && (
+                      <p>
+                        <span className="text-muted-foreground">Método:</span> {c.metodoPago.nombre}
+                      </p>
+                    )}
+                    {c.transferenciaFecha && (
+                      <p>
+                        <span className="text-muted-foreground">Transferencia declarada:</span>{' '}
+                        {fmtDate(c.transferenciaFecha)}
+                      </p>
+                    )}
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Enviado: {fmtDate(c.updatedAt)}
+                    </p>
+                  </div>
+
+                  {c.comprobanteUrl &&
+                    (isImage(c.comprobanteUrl) ? (
+                      <a href={c.comprobanteUrl} target="_blank" rel="noopener noreferrer" className="block">
+                        <Image
+                          src={c.comprobanteUrl}
+                          alt="Comprobante de la compra"
+                          width={400}
+                          height={300}
+                          className="w-full rounded-lg border object-cover"
+                          style={{ maxHeight: '200px', objectFit: 'cover' }}
+                        />
+                      </a>
+                    ) : (
+                      <a
+                        href={c.comprobanteUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-2 rounded-lg border border-border p-3 text-sm text-primary hover:bg-muted"
+                      >
+                        <FileText className="h-5 w-5" />
+                        Ver comprobante (PDF)
+                        <ExternalLink className="ml-auto h-4 w-4" />
+                      </a>
+                    ))}
+
+                  {c.comprobanteNota && (
+                    <div className="rounded-lg bg-warning/15 p-3 text-sm text-warning-foreground">
+                      <p className="font-medium">Nota del cliente:</p>
+                      <p>{c.comprobanteNota}</p>
+                    </div>
+                  )}
+
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    <AprobarCompraButton compraId={c.id} />
+                    <RechazarCompraButton compraId={c.id} />
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Cambios de plan solicitados */}
       {cambios.length > 0 && (

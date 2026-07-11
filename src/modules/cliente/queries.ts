@@ -58,7 +58,7 @@ export async function getClienteAllMemberships(
         select: { id: true, token: true, membresiaId: true },
       })
       for (const q of qrs) {
-        if (!qrByMembership.has(q.membresiaId)) {
+        if (q.membresiaId && !qrByMembership.has(q.membresiaId)) {
           qrByMembership.set(q.membresiaId, { id: q.id, token: q.token })
         }
       }
