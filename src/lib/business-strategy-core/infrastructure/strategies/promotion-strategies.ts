@@ -32,7 +32,7 @@ import type { CreatePromotionData } from '@/lib/promotions'
 /**
  * PromotionStrategyCatalog — registry of all promotion strategies.
  */
-class PromotionStrategyCatalog implements StrategyCatalog {
+class PromotionStrategyCatalog implements StrategyCatalog<PromotionStrategy> {
   private strategies: readonly PromotionStrategy[]
 
   constructor() {

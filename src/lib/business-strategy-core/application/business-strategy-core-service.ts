@@ -29,19 +29,21 @@ export class BusinessStrategyCoreService implements BusinessStrategyCore {
     return Array.from(this.modules.keys())
   }
 
-  searchStrategiesByGoal(goal: string): readonly StrategyDescriptor[] {
+  searchStrategiesByGoal(goal: string): readonly Record<string, unknown>[] {
     const lowerGoal = goal.toLowerCase()
-    const results: StrategyDescriptor[] = []
+    const results: Record<string, unknown>[] = []
 
     for (const lib of this.modules.values()) {
       for (const strategy of lib.strategies.getAll()) {
+        const s = strategy as Record<string, unknown>
         if (
-          strategy.objective.toLowerCase().includes(lowerGoal) ||
-          strategy.problemSolved.toLowerCase().includes(lowerGoal) ||
-          strategy.description.toLowerCase().includes(lowerGoal) ||
-          (strategy.name && strategy.name.toLowerCase().includes(lowerGoal))
+          (typeof s.objective === 'string' && s.objective.toLowerCase().includes(lowerGoal)) ||
+          (typeof s.objective === 'object' && Array.isArray(s.objective) && s.objective.some((o: unknown) => typeof o === 'string' && o.toLowerCase().includes(lowerGoal))) ||
+          (typeof s.problemSolved === 'string' && s.problemSolved.toLowerCase().includes(lowerGoal)) ||
+          (typeof s.description === 'string' && s.description.toLowerCase().includes(lowerGoal)) ||
+          (typeof s.name === 'string' && s.name.toLowerCase().includes(lowerGoal))
         ) {
-          results.push(strategy)
+          results.push(s)
         }
       }
     }

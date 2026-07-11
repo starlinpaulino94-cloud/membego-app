@@ -19,19 +19,21 @@ import type { StrategyDescriptor } from '../domain/strategy-descriptor'
 
 /**
  * Strategy Catalog — registry of all strategies for a module.
+ * Each module's catalog contains module-specific strategy types (e.g., PromotionStrategy, MembershipStrategy).
+ * Module strategies may extend StrategyDescriptor with module-specific fields.
  */
-export interface StrategyCatalog {
+export interface StrategyCatalog<T = unknown> {
   /** Get all strategies. */
-  getAll(): readonly StrategyDescriptor[]
+  getAll(): readonly T[]
 
   /** Get strategy by ID. */
-  getById(id: string): StrategyDescriptor | null
+  getById(id: string): T | null
 
   /** Search strategies by text. */
-  search(term: string): readonly StrategyDescriptor[]
+  search(term: string): readonly T[]
 
   /** Get strategies by category. */
-  getByCategory(category: string): readonly StrategyDescriptor[]
+  getByCategory(category: string): readonly T[]
 }
 
 /**
@@ -62,5 +64,5 @@ export interface BusinessStrategyCore {
   listModules(): readonly string[]
 
   /** Cross-module search for strategies matching a goal. */
-  searchStrategiesByGoal(goal: string): readonly StrategyDescriptor[]
+  searchStrategiesByGoal(goal: string): readonly Record<string, unknown>[]
 }

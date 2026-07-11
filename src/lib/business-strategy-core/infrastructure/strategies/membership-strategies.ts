@@ -26,7 +26,7 @@ import type { CreatePlanData } from '@/lib/membership'
 /**
  * MembershipStrategyCatalog — registry of all membership strategies.
  */
-class MembershipStrategyCatalog implements StrategyCatalog {
+class MembershipStrategyCatalog implements StrategyCatalog<MembershipStrategy> {
   private strategies: readonly MembershipStrategy[]
 
   constructor() {
@@ -161,7 +161,7 @@ class MembershipTemplateInstantiator implements TemplateInstantiator {
       name: template.name,
       description: template.description,
       type: template.type,
-      price: template.price ?? 0,
+      price: template.suggestedPrice,
       currency: template.currency,
       periodicity: template.periodicity,
       durationDays: template.durationDays,
@@ -171,7 +171,7 @@ class MembershipTemplateInstantiator implements TemplateInstantiator {
       config: {
         sourceStrategyId: context.templateKey,
         sourceTemplateKey: context.templateKey,
-        ...template.config,
+        ...(template.config as Record<string, unknown>),
         ...context.overrides,
       },
       metadata: {
