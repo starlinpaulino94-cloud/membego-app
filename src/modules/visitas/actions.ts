@@ -16,6 +16,7 @@ import {
   type TicketPayload,
   type TransaccionScanInfo,
 } from '@/modules/transacciones/actions'
+import { validarConsumoCompra, registrarTransicionCompra } from '@/modules/promociones/compra'
 
 export interface VisitaReciente {
   id: string
@@ -51,6 +52,29 @@ export interface ClienteLookup {
   promocionesActivas: number
 }
 
+/** Fase E5: lookup de un QR de compra de promoción (mismo escáner). */
+export interface PromoCompraLookup {
+  compraId: string
+  qrTokenId: string
+  clienteId: string
+  nombre: string
+  avatarUrl: string | null
+  empresa: string
+  promoTitulo: string
+  promoDescripcion: string
+  promoTipo: string
+  descuento: number | null
+  codigo: string | null
+  estado: string
+  usosIncluidos: number
+  usosRestantes: number
+  fechaActivacion: string | null
+  fechaVencimiento: string | null
+  puedeUsar: boolean
+  mensaje?: string
+  alertas: string[]
+}
+
 export interface LookupResult {
   error?: string
   errorCode?: 'QR_NOT_FOUND' | 'QR_INACTIVE' | 'WRONG_COMPANY' | 'NO_MEMBERSHIP' | 'MEMBERSHIP_INACTIVE' | 'MEMBERSHIP_EXPIRED' | 'NO_USES_LEFT' | 'RATE_LIMITED' | 'UNAUTHORIZED' | 'INTERNAL'
@@ -58,6 +82,8 @@ export interface LookupResult {
   /** Fase E4: al escanear un QR ya utilizado o un QR de transacción (TX-…),
    *  se devuelve el registro oficial completo de la operación. */
   transaccion?: TransaccionScanInfo
+  /** Fase E5: QR de una promoción comprada (canje). */
+  promoCompra?: PromoCompraLookup
 }
 
 export async function buscarPorToken(token: string): Promise<LookupResult> {
@@ -97,6 +123,13 @@ export async function buscarPorToken(token: string): Promise<LookupResult> {
         membership: {
           include: { plan: true },
         },
+        // Fase E5: el mismo QR puede pertenecer a una compra de promoción.
+        compra: {
+          include: {
+            promocion: true,
+            company: { select: { name: true, zonaHoraria: true } },
+          },
+        },
       },
     })
 
@@ -120,7 +153,82 @@ export async function buscarPorToken(token: string): Promise<LookupResult> {
     }
 
     const cliente = qr.cliente
+
+    // ── Fase E5: QR de una compra de promoción — flujo de canje propio ──────
+    if (qr.compra) {
+      const compra = qr.compra
+      if (
+        user.metadata.role !== 'SUPERADMIN' &&
+        user.metadata.companyId &&
+        compra.companyId !== user.metadata.companyId
+      ) {
+        await logScanInvalido(user.metadata.dbUserId, clean, 'WRONG_COMPANY')
+        return { error: 'Esta promoción pertenece a otra empresa.', errorCode: 'WRONG_COMPANY' }
+      }
+      const promo = compra.promocion
+      const validacion = promo
+        ? validarConsumoCompra(
+            compra,
+            { diasPermitidos: promo.diasPermitidos, horaDesde: promo.horaDesde, horaHasta: promo.horaHasta },
+            new Date(),
+            compra.company.zonaHoraria
+          )
+        : { puedeUsar: false, mensaje: 'La promoción de esta compra ya no existe.' as string, expiro: false }
+
+      // Vencimiento detectado al escanear: se marca EXPIRADA (lazy) y queda
+      // registrado en la bitácora de transiciones.
+      if (validacion.expiro) {
+        await prisma.$transaction(async (tx) => {
+          const upd = await tx.productoCompra.updateMany({
+            where: { id: compra.id, estado: 'ACTIVA' },
+            data: { estado: 'EXPIRADA' },
+          })
+          if (upd.count > 0) {
+            await registrarTransicionCompra(tx, {
+              compraId: compra.id,
+              desde: 'ACTIVA',
+              hacia: 'EXPIRADA',
+              motivo: 'Vencimiento detectado al escanear',
+              userId: user.metadata.dbUserId ?? null,
+            })
+          }
+        }).catch(() => {})
+      }
+
+      return {
+        promoCompra: {
+          compraId: compra.id,
+          qrTokenId: qr.id,
+          clienteId: cliente.id,
+          nombre: cliente.nombre,
+          avatarUrl: cliente.avatarUrl ?? null,
+          empresa: compra.company.name,
+          promoTitulo: promo?.titulo ?? 'Promoción',
+          promoDescripcion: promo?.descripcion ?? '',
+          promoTipo: promo?.tipo ?? 'general',
+          descuento: promo?.descuento ?? null,
+          codigo: promo?.codigo ?? null,
+          estado: validacion.expiro ? 'EXPIRADA' : compra.estado,
+          usosIncluidos: compra.usosIncluidos,
+          usosRestantes: compra.usosRestantes,
+          fechaActivacion: compra.fechaActivacion?.toISOString() ?? null,
+          fechaVencimiento: compra.fechaVencimiento?.toISOString() ?? null,
+          puedeUsar: validacion.puedeUsar,
+          mensaje: validacion.mensaje,
+          alertas:
+            compra.usosRestantes === 1 && validacion.puedeUsar
+              ? ['Este es el último uso disponible de la promoción.']
+              : [],
+        },
+      }
+    }
+
     const membership = qr.membership
+    if (!membership) {
+      // QR sin membresía ni compra (no debería existir): trato como sin membresía.
+      await logScanInvalido(user.metadata.dbUserId, clean, 'NO_MEMBERSHIP')
+      return { error: 'Este código no está asociado a una membresía ni a una promoción.', errorCode: 'NO_MEMBERSHIP' }
+    }
 
     // Validate scanner's company matches membership's company
     if (
