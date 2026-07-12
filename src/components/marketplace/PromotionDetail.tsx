@@ -216,7 +216,7 @@ export function PromotionDetail({ mode, promotion, comprarSlot }: PromotionDetai
                     href={registroHref}
                     className="w-full block text-center bg-primary text-white px-6 py-4 rounded-lg hover:bg-primary transition-colors font-bold text-lg"
                   >
-                    Registrarse para acceder a esta promoción
+                    Adquirir promoción
                   </Link>
                 )}
               </div>
