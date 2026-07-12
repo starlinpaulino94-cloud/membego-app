@@ -185,6 +185,38 @@ correctos sin tocar las páginas.
 - Rutas de app que hoy responden en el dominio único (`/login`, `/registro`,
   paneles): al separarlas, 301 desde la Landing hacia `appUrlFor(path)`.
 
+## Etapa 6 · App independiente (arranque: cookie cross-subdominio)
+
+Pieza fundacional **hecha y segura** (env-driven, sin cambio de conducta):
+
+- `sessionCookieDomain()` en `src/lib/site.ts` lee `NEXT_PUBLIC_COOKIE_DOMAIN`.
+  Vacío ⇒ `undefined` ⇒ cookie **host-only** (comportamiento actual idéntico).
+- Cableado en los 4 puntos que fijan cookies de Supabase, aplicando `domain`
+  **solo si está definido**:
+  - `src/lib/supabase/client.ts` (browser, `cookieOptions`).
+  - `src/lib/supabase/server.ts` (RSC/server actions, `setAll`).
+  - `src/lib/supabase/route-client.ts` (callbacks OAuth/confirmar, `setAll`).
+  - `src/proxy.ts` (middleware: refresh/rotación de sesión, `setAll`).
+- Al separar dominios, definir en producción
+  `NEXT_PUBLIC_COOKIE_DOMAIN=".membego.com"` → SSO entre `app.membego.com` y
+  `membego.com` sin re-login. **No fijarlo en local ni previews** (host distinto
+  rompe la sesión).
+
+### Runbook del corte físico (pendiente — requiere verificación visual)
+El movimiento físico a dos proyectos/monorepo NO se ejecuta a ciegas porque
+afecta el estilado (Tailwind `content`) y la sesión (cookies), no verificables
+en entorno headless. Orden sugerido con verificación en navegador tras cada paso:
+1. **Cookies**: definir `NEXT_PUBLIC_COOKIE_DOMAIN=.membego.com` en producción y
+   verificar login/refresh/logout en `app.` y `membego.com`.
+2. **Monorepo**: crear `apps/app`, `apps/landing`, `packages/ui` (Turborepo);
+   mover según el manifiesto de Etapa 3; ajustar `content` de Tailwind y alias
+   tsconfig; verificar estilado visualmente.
+3. **Dominios**: apuntar `app.membego.com` al proyecto app y `membego.com` al de
+   landing/marketplace; definir `NEXT_PUBLIC_LANDING_URL`/`NEXT_PUBLIC_APP_ORIGIN`.
+4. **Cross-links y 301**: migrar call-sites a `landingUrlFor`/`appUrlFor`;
+   publicar 301 y reenviar sitemaps (ver Etapa 5).
+5. **QA**: sesión cross-subdominio, OG/share/QR/referidos, SEO/canónicos.
+
 ## Invariantes (no romper)
 
 DB, Prisma, Supabase, auth, membresías, promociones, referidos, Growth Engine,
