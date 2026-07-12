@@ -1,3 +1,4 @@
+import type { Metadata } from 'next'
 import Link from 'next/link'
 import { Star } from 'lucide-react'
 import { SearchBar } from '@/components/public/SearchBar'
@@ -13,6 +14,19 @@ interface EmpresasPageProps {
 }
 
 export const revalidate = 3600
+
+export const metadata: Metadata = {
+  title: 'Empresas',
+  description:
+    'Explora las empresas en MembeGo y descubre sus membresías, planes y promociones exclusivas.',
+  alternates: { canonical: '/empresas' },
+  openGraph: {
+    type: 'website',
+    title: 'Empresas · MembeGo',
+    description: 'Explora empresas, membresías y promociones en MembeGo.',
+    url: '/empresas',
+  },
+}
 
 export default async function EmpresasPage({ searchParams }: EmpresasPageProps) {
   const params = await searchParams

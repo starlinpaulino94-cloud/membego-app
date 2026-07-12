@@ -1,3 +1,4 @@
+import type { Metadata } from 'next'
 import Link from 'next/link'
 import { Tag } from 'lucide-react'
 import { SearchBar } from '@/components/public/SearchBar'
@@ -9,6 +10,19 @@ interface PromotionsPageProps {
 }
 
 export const revalidate = 3600
+
+export const metadata: Metadata = {
+  title: 'Promociones',
+  description:
+    'Descubre promociones y beneficios exclusivos de las empresas en MembeGo. Ofertas vigentes, cupones y descuentos.',
+  alternates: { canonical: '/promociones' },
+  openGraph: {
+    type: 'website',
+    title: 'Promociones · MembeGo',
+    description: 'Promociones y beneficios exclusivos de empresas en MembeGo.',
+    url: '/promociones',
+  },
+}
 
 export default async function PromotionsPage({
   searchParams,
