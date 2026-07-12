@@ -3,11 +3,12 @@ import Image from 'next/image'
 
 const COLUMNAS = [
   {
-    titulo: 'Explorar',
+    titulo: 'Producto',
     links: [
+      { href: '/caracteristicas', label: 'Características' },
       { href: '/empresas', label: 'Empresas' },
       { href: '/promociones', label: 'Promociones' },
-      { href: '/login', label: 'Ingresar' },
+      { href: '/descargar', label: 'Descargar la app' },
     ],
   },
   {
@@ -15,6 +16,15 @@ const COLUMNAS = [
     links: [
       { href: '/registro-empresa', label: 'Registrar mi empresa' },
       { href: '/empresas', label: 'Ver empresas' },
+      { href: '/login', label: 'Ingresar' },
+    ],
+  },
+  {
+    titulo: 'Recursos',
+    links: [
+      { href: '/faq', label: 'Preguntas frecuentes' },
+      { href: '/blog', label: 'Blog' },
+      { href: '/contact', label: 'Contacto' },
     ],
   },
   {
@@ -22,7 +32,6 @@ const COLUMNAS = [
     links: [
       { href: '/privacy', label: 'Privacidad' },
       { href: '/terms', label: 'Términos' },
-      { href: '/contact', label: 'Contacto' },
     ],
   },
 ]
