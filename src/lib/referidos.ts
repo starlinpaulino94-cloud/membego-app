@@ -15,11 +15,13 @@ export const PUNTOS: Record<ReferralEventTipo, number> = {
   LINK: 0, // generación del enlace: métrica, no gamificación
   SHARE: 2,
   CLICK: 5,
+  LANDING_VIEW: 0, // Growth Engine 3.0: vista de la landing del referido (embudo)
   REGISTRO_INICIADO: 0, // landing de registro con atribución: solo embudo
   REGISTRO: 20,
   VERIFICADO: 10,
   MEMBRESIA: 200,
   COMPRA: 0, // métrica de compra; la conversión por promoción pasa 200 override
+  PRIMER_USO: 0, // Growth Engine 3.0: primer canje del beneficio (embudo)
   RECOMPENSA: 0,
   FRAUDE: 0,
   // Centro global MembeGo: referidos que se unen a OTRA empresa de la plataforma.
