@@ -1,0 +1,44 @@
+import { NextResponse, type NextRequest } from 'next/server'
+import { ejecutarAutomatizacionesGlobal } from '@/modules/admin/automatizaciones'
+
+export const dynamic = 'force-dynamic'
+export const maxDuration = 60
+
+/**
+ * F4.7: endpoint de cron para ejecutar las automatizaciones de todas las
+ * empresas (cumpleaños, por vencer, inactivos). Idempotente.
+ *
+ * Protegido con CRON_SECRET: configura la variable en el entorno y llama
+ * con `Authorization: Bearer <CRON_SECRET>` (Vercel Cron, GitHub Actions,
+ * cron-job.org, etc.), idealmente una vez al día.
+ */
+export async function GET(request: NextRequest) {
+  const secret = process.env.CRON_SECRET
+  if (!secret) {
+    return NextResponse.json(
+      { error: 'CRON_SECRET no configurado en el servidor.' },
+      { status: 503 }
+    )
+  }
+
+  const auth = request.headers.get('authorization')
+  if (auth !== `Bearer ${secret}`) {
+    return NextResponse.json({ error: 'No autorizado.' }, { status: 401 })
+  }
+
+  try {
+    const resultados = await ejecutarAutomatizacionesGlobal()
+    const totales = resultados.reduce(
+      (acc, r) => ({
+        cumpleanos: acc.cumpleanos + r.resultado.cumpleanos,
+        porVencer: acc.porVencer + r.resultado.porVencer,
+        inactivos: acc.inactivos + r.resultado.inactivos,
+      }),
+      { cumpleanos: 0, porVencer: 0, inactivos: 0 }
+    )
+    return NextResponse.json({ ok: true, empresas: resultados.length, totales })
+  } catch (e) {
+    console.error('[cron-automatizaciones]', e)
+    return NextResponse.json({ error: 'Error interno.' }, { status: 500 })
+  }
+}

@@ -1,0 +1,310 @@
+'use server'
+
+import { revalidatePath } from 'next/cache'
+import { prisma } from '@/lib/prisma'
+import { getUser } from '@/lib/auth'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { ensureEmailIdentity } from '@/lib/supabase/identity'
+
+export interface ActionState {
+  error?: string
+  success?: boolean
+  message?: string
+}
+
+async function requireSuperadmin() {
+  const user = await getUser()
+  if (!user || user.metadata.role !== 'SUPERADMIN') return null
+  return user
+}
+
+/** Convierte un nombre en un slug URL-safe. */
+function slugify(input: string): string {
+  return input
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '') // quitar acentos
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 60)
+}
+
+/** Devuelve un slug único para Company, agregando sufijo si ya existe. */
+async function uniqueCompanySlug(name: string): Promise<string> {
+  const base = slugify(name) || 'empresa'
+  let slug = base
+  let n = 1
+  // Colisiones esperadas raras; el bucle termina rápido.
+  while (await prisma.company.findUnique({ where: { slug } })) {
+    n += 1
+    slug = `${base}-${n}`
+  }
+  return slug
+}
+
+/**
+ * Crea una empresa nueva junto con su usuario administrador (rol ADMINISTRADOR).
+ * Solo superadmin. Es la única vía soportada para dar de alta un negocio sin
+ * tocar SQL. Si la creación del admin falla, se revierte la empresa para no
+ * dejar una empresa huérfana sin acceso.
+ */
+export async function crearEmpresa(
+  _prev: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  const user = await requireSuperadmin()
+  if (!user) return { error: 'No autorizado.' }
+
+  const name = String(formData.get('name') ?? '').trim()
+  const type = String(formData.get('type') ?? 'otro').trim() || 'otro'
+  const adminNombre = String(formData.get('adminNombre') ?? '').trim()
+  const adminEmail = String(formData.get('adminEmail') ?? '').trim().toLowerCase()
+  const adminPassword = String(formData.get('adminPassword') ?? '')
+
+  if (!name) return { error: 'El nombre de la empresa es requerido.' }
+  if (!adminNombre || !adminEmail || !adminPassword) {
+    return { error: 'Nombre, correo y contraseña del administrador son obligatorios.' }
+  }
+  if (!/.+@.+\..+/.test(adminEmail)) {
+    return { error: 'El correo del administrador no es válido.' }
+  }
+  if (adminPassword.length < 6) {
+    return { error: 'La contraseña debe tener al menos 6 caracteres.' }
+  }
+
+  // El correo del admin no puede estar ya en uso.
+  const existing = await prisma.user.findUnique({ where: { email: adminEmail } })
+  if (existing) {
+    return { error: 'Ya existe un usuario con ese correo.' }
+  }
+
+  let companyId: string | null = null
+  const supabase = createAdminClient()
+  let supabaseId: string | null = null
+
+  try {
+    const slug = await uniqueCompanySlug(name)
+    const company = await prisma.company.create({
+      data: {
+        name,
+        slug,
+        type,
+        description: String(formData.get('description') ?? '').trim() || null,
+        email: String(formData.get('email') ?? '').trim() || null,
+        telefono: String(formData.get('telefono') ?? '').trim() || null,
+        direccion: String(formData.get('direccion') ?? '').trim() || null,
+        ciudad: String(formData.get('ciudad') ?? '').trim() || null,
+        categoria: String(formData.get('categoria') ?? '').trim() || null,
+        website: String(formData.get('website') ?? '').trim() || null,
+        isActive: true,
+      },
+    })
+    companyId = company.id
+
+    // Categorías de marketplace (relación many-to-many).
+    const categoryIds = formData
+      .getAll('categoryIds')
+      .map(String)
+      .filter(Boolean)
+    if (categoryIds.length > 0) {
+      await prisma.companyToCategory.createMany({
+        data: categoryIds.map((categoryId) => ({
+          companyId: company.id,
+          categoryId,
+        })),
+        skipDuplicates: true,
+      })
+    }
+
+    // Usuario admin en Supabase Auth.
+    const { data: created, error: createError } =
+      await supabase.auth.admin.createUser({
+        email: adminEmail,
+        password: adminPassword,
+        email_confirm: true,
+        user_metadata: { name: adminNombre },
+      })
+    if (createError || !created.user) {
+      throw new Error(createError?.message ?? 'No se pudo crear el usuario admin.')
+    }
+    supabaseId = created.user.id
+
+    await ensureEmailIdentity(supabaseId, adminEmail)
+
+    const dbUser = await prisma.user.create({
+      data: {
+        supabaseId,
+        email: adminEmail,
+        name: adminNombre,
+        role: 'ADMINISTRADOR',
+        companyId,
+      },
+    })
+
+    await supabase.auth.admin.updateUserById(supabaseId, {
+      app_metadata: {
+        role: 'ADMINISTRADOR',
+        dbUserId: dbUser.id,
+        companyId,
+      },
+    })
+
+    revalidatePath('/superadmin/empresas')
+    revalidatePath('/empresas')
+    return { success: true, message: `Empresa "${name}" creada con su administrador.` }
+  } catch (e) {
+    console.error('[empresa] crearEmpresa error:', e)
+    // Rollback: borrar el auth user y la empresa recién creada para no dejar
+    // registros huérfanos.
+    if (supabaseId) {
+      await supabase.auth.admin.deleteUser(supabaseId).catch(() => {})
+    }
+    if (companyId) {
+      await prisma.company.delete({ where: { id: companyId } }).catch(() => {})
+    }
+    return { error: 'No se pudo crear la empresa. Intenta de nuevo.' }
+  }
+}
+
+export async function actualizarEmpresa(
+  _prev: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  const user = await requireSuperadmin()
+  if (!user) return { error: 'No autorizado.' }
+
+  const id = String(formData.get('id') ?? '')
+  if (!id) return { error: 'Empresa no especificada.' }
+
+  const name = String(formData.get('name') ?? '').trim()
+  if (!name) return { error: 'El nombre es requerido.' }
+
+  try {
+    const existing = await prisma.company.findUnique({ where: { id } })
+    if (!existing) return { error: 'Empresa no encontrada.' }
+
+    const categoryIds = formData
+      .getAll('categoryIds')
+      .map(String)
+      .filter(Boolean)
+
+    // Actualiza la empresa y re-sincroniza sus categorías atómicamente.
+    await prisma.$transaction([
+      prisma.company.update({
+        where: { id },
+        data: {
+          name,
+          description: String(formData.get('description') ?? '').trim() || null,
+          type: String(formData.get('type') ?? existing.type),
+          email: String(formData.get('email') ?? '').trim() || null,
+          telefono: String(formData.get('telefono') ?? '').trim() || null,
+          direccion: String(formData.get('direccion') ?? '').trim() || null,
+          ciudad: String(formData.get('ciudad') ?? '').trim() || null,
+          categoria: String(formData.get('categoria') ?? '').trim() || null,
+          website: String(formData.get('website') ?? '').trim() || null,
+          logoUrl: String(formData.get('logoUrl') ?? '').trim() || null,
+        },
+      }),
+      prisma.companyToCategory.deleteMany({ where: { companyId: id } }),
+      ...(categoryIds.length > 0
+        ? [
+            prisma.companyToCategory.createMany({
+              data: categoryIds.map((categoryId) => ({
+                companyId: id,
+                categoryId,
+              })),
+              skipDuplicates: true,
+            }),
+          ]
+        : []),
+    ])
+
+    revalidatePath('/superadmin/empresas')
+    revalidatePath(`/superadmin/empresas/${id}`)
+    revalidatePath('/empresas')
+    return { success: true, message: 'Empresa actualizada.' }
+  } catch (e) {
+    console.error('[empresa]', e)
+    return { error: 'Ocurrió un error. Intenta de nuevo.' }
+  }
+}
+
+export async function toggleEmpresa(id: string, activate: boolean): Promise<ActionState> {
+  const user = await requireSuperadmin()
+  if (!user) return { error: 'No autorizado.' }
+
+  try {
+    const company = await prisma.company.findUnique({ where: { id } })
+    if (!company) return { error: 'Empresa no encontrada.' }
+
+    await prisma.company.update({
+      where: { id },
+      data: { isActive: activate },
+    })
+
+    revalidatePath('/superadmin/empresas')
+    return { success: true, message: activate ? 'Empresa activada.' : 'Empresa suspendida.' }
+  } catch (e) {
+    console.error('[empresa]', e)
+    return { error: 'Ocurrió un error. Intenta de nuevo.' }
+  }
+}
+
+export async function eliminarEmpresa(id: string): Promise<ActionState> {
+  const user = await requireSuperadmin()
+  if (!user) return { error: 'No autorizado.' }
+
+  try {
+    const company = await prisma.company.findUnique({
+      where: { id },
+      include: { _count: { select: { clientes: true, users: true } } },
+    })
+    if (!company) return { error: 'Empresa no encontrada.' }
+
+    if (company._count.clientes > 0 || company._count.users > 0) {
+      return { error: 'No se puede eliminar una empresa con clientes o usuarios activos.' }
+    }
+
+    await prisma.company.delete({ where: { id } })
+
+    revalidatePath('/superadmin/empresas')
+    return { success: true, message: 'Empresa eliminada.' }
+  } catch (e) {
+    console.error('[empresa]', e)
+    return { error: 'Ocurrió un error. Intenta de nuevo.' }
+  }
+}
+
+export async function duplicarEmpresa(id: string): Promise<ActionState> {
+  const user = await requireSuperadmin()
+  if (!user) return { error: 'No autorizado.' }
+
+  try {
+    const company = await prisma.company.findUnique({ where: { id } })
+    if (!company) return { error: 'Empresa no encontrada.' }
+
+    const slug = `${company.slug}-copia-${Date.now().toString(36)}`
+
+    await prisma.company.create({
+      data: {
+        name: `${company.name} (Copia)`,
+        slug,
+        type: company.type,
+        description: company.description,
+        email: company.email,
+        telefono: company.telefono,
+        direccion: company.direccion,
+        ciudad: company.ciudad,
+        categoria: company.categoria,
+        website: company.website,
+        isActive: false,
+      },
+    })
+
+    revalidatePath('/superadmin/empresas')
+    return { success: true, message: 'Empresa duplicada.' }
+  } catch (e) {
+    console.error('[empresa]', e)
+    return { error: 'Ocurrió un error. Intenta de nuevo.' }
+  }
+}

@@ -1,0 +1,152 @@
+'use server'
+
+import { prisma } from '@/lib/prisma'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { ensureEmailIdentity } from '@/lib/supabase/identity'
+import { registerLimiter } from '@/lib/rate-limit'
+import { getRequestMeta } from '@/lib/server-utils'
+import { TERMS_VERSION } from '@/lib/legal'
+import { isEmailVerificationEnabled, sendVerificationEmail } from '@/lib/auth/emailVerification'
+
+// F5.1: registro self-service de empresas (B2B). La empresa se crea
+// DESPUBLICADA (isPublished: false): no aparece en el marketplace hasta
+// completar el checklist de onboarding y publicarse desde su panel.
+
+export interface RegistroEmpresaState {
+  error?: string
+  success?: boolean
+  /** Cuenta creada pero pendiente de confirmar el correo (flag O-1). */
+  pendingVerification?: boolean
+}
+
+function slugify(input: string): string {
+  return input
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 60)
+}
+
+async function uniqueCompanySlug(name: string): Promise<string> {
+  const base = slugify(name) || 'empresa'
+  let slug = base
+  let n = 1
+  while (await prisma.company.findUnique({ where: { slug } })) {
+    n += 1
+    slug = `${base}-${n}`
+  }
+  return slug
+}
+
+export async function registrarEmpresa(
+  _prev: RegistroEmpresaState,
+  formData: FormData
+): Promise<RegistroEmpresaState> {
+  const meta = await getRequestMeta()
+  if (!registerLimiter(meta.ipAddress ?? 'unknown')) {
+    return { error: 'Demasiados intentos. Espera unos minutos e intenta de nuevo.' }
+  }
+
+  const nombrePropietario = String(formData.get('nombrePropietario') ?? '').trim()
+  const email = String(formData.get('email') ?? '').trim().toLowerCase()
+  const password = String(formData.get('password') ?? '')
+  const pais = String(formData.get('pais') ?? '').trim()
+  const nombreComercial = String(formData.get('nombreComercial') ?? '').trim()
+  const tipo = String(formData.get('tipo') ?? 'otro').trim() || 'otro'
+  const aceptaTerminos = formData.get('terminos') === 'on'
+  const marketingConsent = formData.getAll('marketingConsent').at(-1) === 'on'
+
+  if (!nombrePropietario || !email || !password || !nombreComercial) {
+    return { error: 'Completa todos los campos obligatorios.' }
+  }
+  if (!/.+@.+\..+/.test(email)) return { error: 'El correo no es válido.' }
+  if (password.length < 6) {
+    return { error: 'La contraseña debe tener al menos 6 caracteres.' }
+  }
+  if (!aceptaTerminos) {
+    return { error: 'Debes aceptar los términos y condiciones.' }
+  }
+
+  // Unicidad de correo (auth) y detección de duplicados básicos.
+  const existingUser = await prisma.user.findUnique({ where: { email } })
+  if (existingUser) {
+    return { error: 'Ya existe una cuenta con ese correo. Inicia sesión.' }
+  }
+
+  const supabase = createAdminClient()
+  let companyId: string | null = null
+  let supabaseId: string | null = null
+
+  try {
+    const slug = await uniqueCompanySlug(nombreComercial)
+    const company = await prisma.company.create({
+      data: {
+        name: nombreComercial,
+        slug,
+        type: tipo,
+        pais: pais || null,
+        isActive: true,
+        // Clave del onboarding: no aparece en el marketplace todavía.
+        isPublished: false,
+      },
+    })
+    companyId = company.id
+
+    const verificarCorreo = isEmailVerificationEnabled()
+    const { data: created, error: createError } =
+      await supabase.auth.admin.createUser({
+        email,
+        password,
+        // Con verificación activada la cuenta nace SIN confirmar.
+        email_confirm: !verificarCorreo,
+        user_metadata: { name: nombrePropietario },
+      })
+    if (createError || !created.user) {
+      throw new Error(createError?.message ?? 'No se pudo crear la cuenta.')
+    }
+    supabaseId = created.user.id
+
+    await ensureEmailIdentity(supabaseId, email)
+
+    const now = new Date()
+    const dbUser = await prisma.user.create({
+      data: {
+        supabaseId,
+        email,
+        name: nombrePropietario,
+        role: 'ADMINISTRADOR',
+        companyId,
+        termsAcceptedAt: now,
+        termsVersion: TERMS_VERSION,
+        marketingConsent,
+        marketingConsentAt: marketingConsent ? now : null,
+      },
+    })
+
+    await supabase.auth.admin.updateUserById(supabaseId, {
+      app_metadata: {
+        role: 'ADMINISTRADOR',
+        dbUserId: dbUser.id,
+        companyId,
+      },
+    })
+
+    if (verificarCorreo) {
+      await sendVerificationEmail(supabase, email, nombrePropietario)
+      return { pendingVerification: true }
+    }
+    return { success: true }
+  } catch (e) {
+    console.error('[registro-empresa]', e)
+    // Rollback para no dejar registros huérfanos.
+    if (supabaseId) {
+      await supabase.auth.admin.deleteUser(supabaseId).catch(() => {})
+    }
+    if (companyId) {
+      await prisma.company.delete({ where: { id: companyId } }).catch(() => {})
+    }
+    return { error: 'No se pudo completar el registro. Intenta de nuevo.' }
+  }
+}
