@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils'
 const LINKS = [
   { href: '/empresas', label: 'Explorar empresas' },
   { href: '/promociones', label: 'Promociones' },
+  { href: '/caracteristicas', label: 'Características' },
   { href: '/registro-empresa', label: 'Para empresas' },
 ]
 
