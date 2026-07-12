@@ -214,8 +214,23 @@ async function otorgarBeneficio(
   companyId: string
 ): Promise<string | null> {
   if (!rule.recompensaPromocionId) return null
+  return crearBeneficioCompra(tx, companyId, clienteId, rule.recompensaPromocionId, 'Recompensa del Growth Engine')
+}
+
+/**
+ * Crea un ProductoCompra ACTIVO (Beneficio Digital E8) con su QR para el
+ * cliente, sin pago ni consumo de cupo. Devuelve el id o null si la promoción
+ * no existe o no pertenece a la empresa.
+ */
+async function crearBeneficioCompra(
+  tx: Tx,
+  companyId: string,
+  clienteId: string,
+  promocionId: string,
+  motivo: string
+): Promise<string | null> {
   const promo = await tx.promocion.findUnique({
-    where: { id: rule.recompensaPromocionId },
+    where: { id: promocionId },
     select: {
       id: true, companyId: true, usosPorCompra: true,
       beneficioVigenciaDias: true, beneficioVigenciaHasta: true,
@@ -246,10 +261,41 @@ async function otorgarBeneficio(
     compraId: compra.id,
     desde: null,
     hacia: 'ACTIVA',
-    motivo: 'Recompensa del Growth Engine',
+    motivo,
   })
   await tx.qrToken.create({ data: { clienteId, compraId: compra.id } })
   return compra.id
+}
+
+/**
+ * Entrega DIRECTA del beneficio ofrecido por un enlace al invitado que se
+ * registra (req #4/#5): "solo por aceptar recibirás X". Es el ofrecimiento
+ * explícito del enlace (no una regla). Idempotente: no re-otorga si el cliente
+ * ya tiene una compra de esa promoción. Devuelve el compraId o null.
+ */
+export async function otorgarBeneficioReferido(input: {
+  companyId: string
+  clienteId: string
+  promocionId: string
+}): Promise<string | null> {
+  try {
+    const yaTiene = await prisma.productoCompra.count({
+      where: { clienteId: input.clienteId, promocionId: input.promocionId },
+    })
+    if (yaTiene > 0) return null
+    return await prisma.$transaction((tx) =>
+      crearBeneficioCompra(
+        tx,
+        input.companyId,
+        input.clienteId,
+        input.promocionId,
+        'Beneficio de bienvenida por invitación'
+      )
+    )
+  } catch (e) {
+    console.error('[growth] otorgarBeneficioReferido', e)
+    return null
+  }
 }
 
 /** Suma puntos/créditos al wallet del cliente (crea la fila si no existe). */
