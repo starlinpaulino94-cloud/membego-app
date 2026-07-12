@@ -103,6 +103,50 @@ Landing conserva el marketplace (opción B). **Nunca** claves `service_role` ni
 - [ ] **Etapa 7** — Migrar call-sites de `getAppUrl()` a `landingUrlFor`/
       `appUrlFor`, cablear cross-links y QA de sesión cross-subdominio.
 
+## Etapa 3 · Manifiesto de extracción de UI (auditado, límite verificado)
+
+Auditoría de fugas ejecutada sobre el conjunto compartido. **Resultado: el
+límite está limpio.** El design system no depende de negocio.
+
+### `packages/ui` (design system puro — listo para extraer)
+- `src/components/ui/*` — **27 componentes** (accordion, alert-dialog, alert,
+  badge, button, card, command, confirm-dialog, data-table, delete-button,
+  dialog, dropdown-menu, empty-state, input, label, page-header, pagination,
+  password-input, progress, select, skeleton, sonner, stat-card, status-banner,
+  switch, tabs, textarea).
+- Única dependencia interna: `cn` de `src/lib/utils.ts` (24 usos). `cn` es
+  **puro** (`clsx` + `tailwind-merge`), sin negocio → viaja con el paquete.
+  > Nota: `lib/utils.ts` mezcla `cn` (UI) con `safeInternalPath` (auth de app);
+  > al extraer conviene separar `cn` a `packages/ui` y dejar `safeInternalPath`
+  > en la app. Los tokens de diseño viven en `globals.css` + config de Tailwind
+  > (deben incluirse en el `content` del paquete).
+- Dependencias externas: `@radix-ui/*`, `lucide-react`, `class-variance-authority`,
+  `clsx`, `tailwind-merge`, `sonner`, `cmdk`, `@tanstack/react-table` (solo
+  `data-table`).
+- **Cero** imports de `@/modules`, Prisma, Supabase o auth. ✅
+
+### Genéricos compartibles (candidatos a `packages/ui` o `packages/shared`)
+- `src/components/public/ShareMenu.tsx`, `ShareButton.tsx` — limpios.
+- `src/components/growth/CountdownTimer.tsx` — limpio.
+- `src/components/ThemeProvider`, `ThemeToggle`, `EstadoBadge`, `PanelError`,
+  `PanelNotFound` — limpios.
+
+### Capa de FEATURE compartida (NO es UI pura — se queda con su dominio)
+- `src/components/marketplace/PromotionDetail`, `CompanyProfile` — dependen de
+  `@/modules/marketplace/{types,queries}`, `@/lib/format` y de wrappers de
+  dominio. Van a un paquete de feature o permanecen en la app (opción B).
+- `src/components/public/SharePromocionMenu`, `SharePromocion` — **wrappers de
+  dominio** que llaman al server action `recordPromotionShare`
+  (`@/modules/marketplace/actions`). NO son UI genérica: pertenecen a la feature
+  de marketplace. (Los genéricos `ShareMenu`/`ShareButton` sí son de UI.)
+
+### Movimiento físico (big-bang) — pendiente de verificación visual
+Convertir a monorepo (mover `src/` → `apps/app`, crear `packages/ui`, workspaces
++ `turbo.json`, alias tsconfig, `content` de Tailwind) reescribe imports y
+**afecta el estilado**, que no puede verificarse en un entorno headless. Se
+recomienda ejecutarlo en un paso dedicado con verificación visual del Tailwind.
+El manifiesto anterior lo hace **mecánico y de bajo riesgo**.
+
 ## Invariantes (no romper)
 
 DB, Prisma, Supabase, auth, membresías, promociones, referidos, Growth Engine,
