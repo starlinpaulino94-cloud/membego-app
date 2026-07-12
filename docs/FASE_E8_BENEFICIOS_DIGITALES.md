@@ -80,6 +80,28 @@ devuelve `label`, `badge` (color), `icon` y `hint`. Estados:
 Los dos **derivados** (Parcialmente utilizada, Suspendida) son lecturas del
 mismo dato: no añaden valores al enum ni tocan el motor de estados.
 
+## 8) Membresías promocionables
+
+Los planes de membresía también son **beneficios compartibles**:
+
+- **Landing público por plan** — `src/app/(public)/plan/[id]/page.tsx`: detalle
+  premium (empresa, precio, qué incluye, beneficios, descripción, condiciones)
+  con **Adquirir plan** y **Compartir** como acciones prioritarias.
+- **Vista previa al compartir** — `opengraph-image.tsx` del plan (tarjeta de
+  marca con nombre, empresa, precio y "qué incluye") + `generateMetadata`
+  (OG + Twitter Card). Datos vía `getPlanOg` / `getPlanPublic` (solo planes de
+  empresas publicadas/activas).
+- **Visibilidad** — desde el perfil público de la empresa cada plan enlaza a
+  su página compartible ("Ver y compartir plan").
+- **Adquisición** — reutiliza el flujo de membresía existente (registro →
+  membresía → QR de acceso), sin duplicar motores. `Adquirir plan` lleva al
+  registro de la empresa.
+
+> Decisión de arquitectura: se reutiliza el ciclo de membresía actual (con su
+> QR) en lugar de duplicarlo sobre `ProductoCompra`. El enum
+> `ProductoComercialTipo.MEMBRESIA` queda reservado para una unificación futura
+> del ciclo si el negocio lo requiere.
+
 ## 9) Tipo unificado de Beneficio Digital
 
 `enum BeneficioTipo { PROMOTION, MEMBERSHIP, COUPON, VOUCHER, GIFT, EVENT }` y
