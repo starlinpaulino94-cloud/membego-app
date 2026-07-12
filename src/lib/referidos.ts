@@ -180,6 +180,8 @@ export async function logReferralEvent(params: {
   visitorId?: string | null
   /** Fase E6: referido al que pertenece el evento (cuando ya hay cuenta). */
   referidoClienteId?: string | null
+  /** Growth Engine 3.0: enlace de invitación que originó el evento. */
+  growthLinkId?: string | null
   meta?: Record<string, unknown>
   /** Override de puntos (p. ej. 0 para eventos marcados como sospechosos). */
   puntos?: number
@@ -194,6 +196,7 @@ export async function logReferralEvent(params: {
         canal: params.canal ?? null,
         visitorId: params.visitorId ?? null,
         referidoClienteId: params.referidoClienteId ?? null,
+        growthLinkId: params.growthLinkId ?? null,
         meta: (params.meta ?? {}) as object,
       },
     })
