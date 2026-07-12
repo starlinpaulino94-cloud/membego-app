@@ -118,6 +118,8 @@ export interface GrowthLandingData {
   expiresAt: Date | null
   expirado: boolean
   referente: string
+  /** Código de referido del referente (para preservar la atribución al registrar). */
+  referenteCodigo: string
   empresa: { name: string; slug: string; logoUrl: string | null }
   titulo: string | null
   mensaje: string | null
@@ -148,7 +150,7 @@ export async function getGrowthLanding(code: string): Promise<GrowthLandingData 
       select: {
         code: true, companyId: true, clienteId: true, expiresAt: true,
         titulo: true, mensaje: true,
-        cliente: { select: { nombre: true } },
+        cliente: { select: { nombre: true, codigoReferido: true } },
         company: { select: { name: true, slug: true, logoUrl: true, isActive: true } },
         promocion: {
           select: {
@@ -189,6 +191,7 @@ export async function getGrowthLanding(code: string): Promise<GrowthLandingData 
     expiresAt: link.expiresAt,
     expirado,
     referente: link.cliente.nombre,
+    referenteCodigo: link.cliente.codigoReferido,
     empresa: {
       name: link.company.name,
       slug: link.company.slug,
