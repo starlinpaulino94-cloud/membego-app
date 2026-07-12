@@ -441,6 +441,51 @@ export async function getPromotionDetail(promotionId: string): Promise<Promotion
   }
 }
 
+/** Fase E8 · Datos mínimos para la vista previa al compartir (Open Graph).
+ *  Solo promociones PÚBLICAS (activa, publicada, no privada, no vencida). */
+export interface PromotionOg {
+  id: string
+  titulo: string
+  descripcion: string
+  imagenUrl: string | null
+  tipo: string
+  beneficioTipo: string
+  descuento: number | null
+  empresa: string
+  logoUrl: string | null
+}
+
+export async function getPromotionOg(promotionId: string): Promise<PromotionOg | null> {
+  if (!promotionId) return null
+  try {
+    const now = new Date()
+    const p = await prisma.promocion.findFirst({
+      where: {
+        id: promotionId,
+        activo: true,
+        archivada: false,
+        visibilidad: 'publica',
+        company: { isPublished: true, isActive: true },
+        OR: [{ vigenciaHasta: null }, { vigenciaHasta: { gte: now } }],
+      },
+      select: {
+        id: true, titulo: true, descripcion: true, imagenUrl: true, tipo: true,
+        beneficioTipo: true, descuento: true,
+        company: { select: { name: true, logoUrl: true } },
+      },
+    })
+    if (!p) return null
+    return {
+      id: p.id, titulo: p.titulo, descripcion: p.descripcion, imagenUrl: p.imagenUrl,
+      tipo: p.tipo, beneficioTipo: p.beneficioTipo, descuento: p.descuento,
+      empresa: p.company.name, logoUrl: p.company.logoUrl,
+    }
+  } catch (e) {
+    console.error('[getPromotionOg]', e)
+    return null
+  }
+}
+
 export async function getCategoriesPublic(): Promise<CategoryPublic[]> {
   try {
     const categories = await prisma.businessCategory.findMany({
