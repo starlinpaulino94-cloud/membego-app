@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { differenceInDays } from 'date-fns'
-import { QrCode, ChevronRight, Infinity as InfinityIcon, Clock } from 'lucide-react'
+import { QrCode, ChevronRight, Infinity as InfinityIcon, Clock, Shield } from 'lucide-react'
 
 interface MembershipCardProps {
   membership: {
@@ -36,11 +36,6 @@ const ESTADO_LABEL: Record<string, string> = {
   RECHAZADA: 'Rechazada',
 }
 
-/**
- * Membresía como tarjeta bancaria digital (estilo wallet): gradiente de marca
- * cuando está activa, versión apagada cuando no, chip de estado en glass y
- * el QR como acción principal. Toda la tarjeta es un solo enlace.
- */
 export function MembershipCard({ membership }: MembershipCardProps) {
   const now = new Date()
   const vencimiento = membership.fechaVencimiento
@@ -71,27 +66,34 @@ export function MembershipCard({ membership }: MembershipCardProps) {
   return (
     <Link href={`/membresia/${membership.id}`} className="group block">
       <div
-        className={`card-interactive relative overflow-hidden rounded-3xl p-5 text-white ${
+        className={`relative overflow-hidden rounded-2xl transition-all duration-300 group-hover:shadow-xl group-hover:-translate-y-0.5 ${
           isActive
-            ? 'bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-800 ring-1 ring-white/15'
+            ? 'bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 ring-1 ring-white/10'
             : isExpired
-              ? 'bg-gradient-to-br from-slate-500 to-slate-700 ring-1 ring-white/10'
-              : 'bg-gradient-to-br from-slate-600 to-slate-800 ring-1 ring-white/10'
+              ? 'bg-gradient-to-br from-slate-400 to-slate-500 ring-1 ring-white/10'
+              : 'bg-gradient-to-br from-slate-600 to-slate-700 ring-1 ring-white/10'
         }`}
       >
-        {/* Textura + brillo que cruza al hover */}
-        <div className="pointer-events-none absolute inset-0 bg-grid-light opacity-30" />
-        <div className="pointer-events-none absolute -inset-x-full inset-y-0 bg-gradient-to-r from-transparent via-white/10 to-transparent transition-transform duration-700 group-hover:translate-x-[200%]" />
+        {/* Ambient glow */}
         {isActive && (
-          <div className="pointer-events-none absolute -right-10 -top-16 h-40 w-40 rounded-full bg-sky-400/25 blur-2xl" />
+          <>
+            <div className="pointer-events-none absolute -left-20 -top-20 h-48 w-48 rounded-full bg-blue-500/20 blur-3xl" />
+            <div className="pointer-events-none absolute -bottom-16 -right-16 h-40 w-40 rounded-full bg-indigo-500/15 blur-3xl" />
+          </>
         )}
 
-        <div className="relative">
-          {/* Cabecera: empresa + estado */}
+        {/* Subtle pattern overlay */}
+        <div className="pointer-events-none absolute inset-0 opacity-[0.03]" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, white 1px, transparent 0)', backgroundSize: '24px 24px' }} />
+
+        {/* Shine effect on hover */}
+        <div className="pointer-events-none absolute -inset-x-full inset-y-0 bg-gradient-to-r from-transparent via-white/[0.07] to-transparent transition-transform duration-700 group-hover:translate-x-[200%]" />
+
+        <div className="relative p-5 sm:p-6">
+          {/* Top: Company info + Status */}
           <div className="flex items-start justify-between gap-3">
-            <div className="flex min-w-0 items-center gap-2.5">
+            <div className="flex min-w-0 items-center gap-3">
               {membership.company.logoUrl ? (
-                <span className="relative block h-10 w-10 shrink-0 overflow-hidden rounded-xl border border-white/20 bg-white">
+                <span className="relative block h-11 w-11 shrink-0 overflow-hidden rounded-xl border border-white/15 bg-white shadow-lg">
                   <Image
                     src={membership.company.logoUrl}
                     alt=""
@@ -100,65 +102,69 @@ export function MembershipCard({ membership }: MembershipCardProps) {
                   />
                 </span>
               ) : (
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/20 bg-white/10 text-xs font-bold">
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/15 bg-white/10 text-xs font-bold text-white backdrop-blur">
                   {membership.company.name.slice(0, 2).toUpperCase()}
                 </span>
               )}
               <div className="min-w-0">
-                <p className="truncate font-semibold leading-tight">
+                <p className="truncate text-[15px] font-semibold leading-tight text-white">
                   {membership.company.name}
                 </p>
-                <p className="truncate text-xs text-white/60">
+                <p className="mt-0.5 flex items-center gap-1 text-[11px] text-white/50">
+                  <Shield className="h-3 w-3" />
                   Membresía digital
                 </p>
               </div>
             </div>
             <span
-              className={`shrink-0 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold backdrop-blur ${
+              className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold ${
                 isActive
-                  ? 'border-emerald-300/30 bg-emerald-400/20 text-emerald-100'
+                  ? 'bg-emerald-500/20 text-emerald-300 ring-1 ring-emerald-400/30'
                   : isExpired
-                    ? 'border-red-300/30 bg-red-400/20 text-red-100'
-                    : 'border-amber-300/30 bg-amber-400/20 text-amber-100'
+                    ? 'bg-red-500/20 text-red-300 ring-1 ring-red-400/30'
+                    : 'bg-amber-500/20 text-amber-300 ring-1 ring-amber-400/30'
               }`}
             >
               {estadoLabel}
             </span>
           </div>
 
-          {/* Plan (nivel de la tarjeta) */}
+          {/* Plan name — large and prominent */}
           <div className="mt-6">
-            <p className="text-[10px] uppercase tracking-[0.18em] text-white/50">Plan</p>
-            <p className="mt-0.5 text-xl font-bold tracking-tight">
+            <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-white/40">Plan</p>
+            <p className="mt-1 text-2xl font-bold tracking-tight text-white">
               {membership.plan.nombre}
             </p>
           </div>
 
-          {/* Pie: vencimiento + usos + acción */}
-          <div className="mt-5 flex items-end justify-between gap-3">
-            <div className="min-w-0 space-y-1 text-xs">
+          {/* Divider */}
+          <div className="my-4 border-t border-white/[0.08]" />
+
+          {/* Bottom: Expiry + Usage + QR */}
+          <div className="flex items-end justify-between gap-3">
+            <div className="min-w-0 space-y-1.5">
               {expiryText ? (
                 <p
-                  className={`inline-flex items-center gap-1.5 ${
+                  className={`inline-flex items-center gap-1.5 text-xs ${
                     isExpired
-                      ? 'text-red-200'
+                      ? 'text-red-300'
                       : porVencer
-                        ? 'font-medium text-amber-200'
-                        : 'text-white/70'
+                        ? 'font-medium text-amber-300'
+                        : 'text-white/60'
                   }`}
                 >
                   <Clock className="h-3.5 w-3.5" /> {expiryText}
                 </p>
               ) : (
-                <p className="text-white/60">Sin fecha de vencimiento</p>
+                <p className="text-xs text-white/40">Sin vencimiento</p>
               )}
               {isActive &&
                 (membership.plan.esIlimitado ? (
-                  <p className="inline-flex items-center gap-1.5 font-medium text-sky-200">
+                  <p className="inline-flex items-center gap-1.5 text-xs font-medium text-blue-300">
                     <InfinityIcon className="h-3.5 w-3.5" /> Usos ilimitados
                   </p>
                 ) : (
-                  <p className="font-medium text-white/85">
+                  <p className="text-xs font-medium text-white/80">
                     {membership.lavadosRestantes} uso
                     {membership.lavadosRestantes !== 1 ? 's' : ''} restante
                     {membership.lavadosRestantes !== 1 ? 's' : ''}
@@ -167,10 +173,10 @@ export function MembershipCard({ membership }: MembershipCardProps) {
             </div>
 
             <span
-              className={`inline-flex shrink-0 items-center gap-1.5 rounded-xl px-3.5 py-2 text-sm font-semibold transition-colors ${
+              className={`inline-flex shrink-0 items-center gap-1.5 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-200 ${
                 isActive && membership.qrToken
-                  ? 'bg-white text-blue-700 group-hover:bg-sky-50'
-                  : 'border border-white/25 bg-white/10 text-white group-hover:bg-white/20'
+                  ? 'bg-white text-slate-900 shadow-lg group-hover:shadow-xl group-hover:scale-[1.02]'
+                  : 'border border-white/20 bg-white/5 text-white/80 backdrop-blur group-hover:bg-white/10'
               }`}
             >
               {isActive && membership.qrToken ? (
