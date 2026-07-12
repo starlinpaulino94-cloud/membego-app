@@ -147,6 +147,76 @@ Convertir a monorepo (mover `src/` → `apps/app`, crear `packages/ui`, workspac
 recomienda ejecutarlo en un paso dedicado con verificación visual del Tailwind.
 El manifiesto anterior lo hace **mecánico y de bajo riesgo**.
 
+## Etapa 5 · Ubicación del marketplace (opción B) + SEO
+
+Decisión R1 aplicada: **el marketplace público se queda con una capa de datos
+de solo-lectura** (hoy en el mismo proyecto; luego migrable a `api.membego.com`
+sin tocar UI). Auditoría confirmada:
+
+- `src/modules/marketplace/queries.ts` — **100% read-only** (cero
+  create/update/delete/upsert). Es la capa que la Landing conserva bajo opción B.
+- Únicas escrituras del marketplace: `recordPromotionView` y
+  `recordPromotionShare` (`marketplace/actions.ts`) — contadores de analítica
+  de bajo riesgo. Bajo la separación pueden (a) seguir como server actions en la
+  Landing, o (b) enviarse a `api.membego.com` en el futuro (fire-and-forget).
+
+### Canónicos (cerrado el gap de SEO)
+Ahora **todas** las páginas del marketplace declaran `canonical` + OG:
+
+| Ruta | Canónico |
+|---|---|
+| `/empresas` | metadata estática ✅ (nuevo) |
+| `/empresas/[companySlug]` | `generateMetadata` dinámica ✅ (nuevo) |
+| `/promociones` | metadata estática ✅ (nuevo) |
+| `/promocion/[id]` | `generateMetadata` ✅ (E8) |
+| `/plan/[id]` | `generateMetadata` ✅ (E8) |
+
+Los canónicos son **relativos** y se resuelven contra `metadataBase`
+(`getAppUrl()`). Al separar dominios, si el marketplace vive en la Landing,
+`metadataBase` de ese proyecto = `landingUrl()` → los canónicos quedan
+correctos sin tocar las páginas.
+
+### Plan de 301 / redirects para el corte de dominios (etapa 6–7)
+- Ya existe: `/empresa/:slug*` → `/empresas/:slug*` (301, `next.config.ts`) —
+  viaja con la Landing.
+- Al separar: si alguna URL de marketplace cambia de host, publicar 301 en el
+  origen antiguo hacia el nuevo host **conservando el path y el slug** (no
+  cambiar slugs). Registrar ambos dominios en Search Console y reenviar sitemaps.
+- Rutas de app que hoy responden en el dominio único (`/login`, `/registro`,
+  paneles): al separarlas, 301 desde la Landing hacia `appUrlFor(path)`.
+
+## Etapa 6 · App independiente (arranque: cookie cross-subdominio)
+
+Pieza fundacional **hecha y segura** (env-driven, sin cambio de conducta):
+
+- `sessionCookieDomain()` en `src/lib/site.ts` lee `NEXT_PUBLIC_COOKIE_DOMAIN`.
+  Vacío ⇒ `undefined` ⇒ cookie **host-only** (comportamiento actual idéntico).
+- Cableado en los 4 puntos que fijan cookies de Supabase, aplicando `domain`
+  **solo si está definido**:
+  - `src/lib/supabase/client.ts` (browser, `cookieOptions`).
+  - `src/lib/supabase/server.ts` (RSC/server actions, `setAll`).
+  - `src/lib/supabase/route-client.ts` (callbacks OAuth/confirmar, `setAll`).
+  - `src/proxy.ts` (middleware: refresh/rotación de sesión, `setAll`).
+- Al separar dominios, definir en producción
+  `NEXT_PUBLIC_COOKIE_DOMAIN=".membego.com"` → SSO entre `app.membego.com` y
+  `membego.com` sin re-login. **No fijarlo en local ni previews** (host distinto
+  rompe la sesión).
+
+### Runbook del corte físico (pendiente — requiere verificación visual)
+El movimiento físico a dos proyectos/monorepo NO se ejecuta a ciegas porque
+afecta el estilado (Tailwind `content`) y la sesión (cookies), no verificables
+en entorno headless. Orden sugerido con verificación en navegador tras cada paso:
+1. **Cookies**: definir `NEXT_PUBLIC_COOKIE_DOMAIN=.membego.com` en producción y
+   verificar login/refresh/logout en `app.` y `membego.com`.
+2. **Monorepo**: crear `apps/app`, `apps/landing`, `packages/ui` (Turborepo);
+   mover según el manifiesto de Etapa 3; ajustar `content` de Tailwind y alias
+   tsconfig; verificar estilado visualmente.
+3. **Dominios**: apuntar `app.membego.com` al proyecto app y `membego.com` al de
+   landing/marketplace; definir `NEXT_PUBLIC_LANDING_URL`/`NEXT_PUBLIC_APP_ORIGIN`.
+4. **Cross-links y 301**: migrar call-sites a `landingUrlFor`/`appUrlFor`;
+   publicar 301 y reenviar sitemaps (ver Etapa 5).
+5. **QA**: sesión cross-subdominio, OG/share/QR/referidos, SEO/canónicos.
+
 ## Invariantes (no romper)
 
 DB, Prisma, Supabase, auth, membresías, promociones, referidos, Growth Engine,

@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { getSupabaseAnonKey, getSupabaseUrl } from '@/lib/env'
+import { sessionCookieDomain } from '@/lib/site'
 
 type CookieToSet = { name: string; value: string; options?: CookieOptions }
 
@@ -18,8 +19,10 @@ export function createRouteClient(request: NextRequest, carrier: NextResponse) {
         return request.cookies.getAll()
       },
       setAll(cookiesToSet: CookieToSet[]) {
+        // Etapa 6 · dominio de cookie (SSO cross-subdominio). undefined = host-only.
+        const domain = sessionCookieDomain()
         cookiesToSet.forEach(({ name, value, options }) =>
-          carrier.cookies.set(name, value, options)
+          carrier.cookies.set(name, value, domain ? { ...options, domain } : options)
         )
       },
     },

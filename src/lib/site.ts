@@ -79,3 +79,21 @@ export function landingUrlFor(path = ''): string {
 export function appUrlFor(path = ''): string {
   return joinUrl(appUrl(), path)
 }
+
+/**
+ * FASE separación · Etapa 6 · Dominio de la cookie de sesión.
+ *
+ * Devuelve el dominio con el que deben fijarse las cookies de sesión de
+ * Supabase. Por defecto es `undefined` → cookie *host-only* (comportamiento
+ * ACTUAL, idéntico: la cookie solo vale para el host exacto). Cuando se separen
+ * `membego.com` y `app.membego.com`, definir `NEXT_PUBLIC_COOKIE_DOMAIN`
+ * (p. ej. `.membego.com`) para habilitar SSO entre subdominios.
+ *
+ * IMPORTANTE: NO fijarlo en local ni en previews (host distinto) — un dominio
+ * de cookie que no coincide con el host rompe la sesión. De ahí que el valor
+ * por defecto sea `undefined` y solo se active vía env en producción separada.
+ */
+export function sessionCookieDomain(): string | undefined {
+  const raw = process.env.NEXT_PUBLIC_COOKIE_DOMAIN?.trim()
+  return raw ? raw : undefined
+}

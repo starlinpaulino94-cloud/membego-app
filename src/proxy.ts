@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { getSupabaseAnonKey, getSupabaseUrl } from '@/lib/env'
+import { sessionCookieDomain } from '@/lib/site'
 import { ROLE_HOME, ROUTE_PROTECTION, FULL_ADMIN_ROLES, type AppMetadata } from '@/types'
 import { adminSectionForPath, canAccessAdminSection } from '@/lib/auth/permissions'
 
@@ -59,12 +60,14 @@ export async function proxy(request: NextRequest) {
             return request.cookies.getAll()
           },
           setAll(cookiesToSet: CookieToSet[]) {
+            // Etapa 6 · dominio de cookie (SSO cross-subdominio). undefined = host-only.
+            const domain = sessionCookieDomain()
             cookiesToSet.forEach(({ name, value }) =>
               request.cookies.set(name, value)
             )
             response = NextResponse.next({ request })
             cookiesToSet.forEach(({ name, value, options }) =>
-              response.cookies.set(name, value, options)
+              response.cookies.set(name, value, domain ? { ...options, domain } : options)
             )
           },
         },
