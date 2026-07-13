@@ -127,34 +127,41 @@ export default async function CampanaDetallePage({
         </CardHeader>
         <CardContent>
           <div className="space-y-2">
-            {FUNNEL_STEPS.map((step, i) => {
-              const count = embudoStats[step.key]
-              const max = embudoStats.compartidas || 1
-              const width = Math.max((count / max) * 100, 2)
-              const Icon = step.icon
-              return (
-                <div key={step.key} className="flex items-center gap-3">
-                  <div className="flex w-44 items-center gap-2 shrink-0">
-                    <Icon className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm text-muted-foreground">{step.label}</span>
-                  </div>
-                  <div className="flex-1 h-6 bg-muted rounded-md overflow-hidden">
-                    <div
-                      className="h-full bg-primary/80 rounded-md transition-all"
-                      style={{ width: `${width}%` }}
-                    />
-                  </div>
-                  <span className="w-16 text-right text-sm font-medium tabular-nums">
-                    {count}
-                  </span>
-                  {i > 0 && embudoStats.compartidas > 0 && (
-                    <span className="w-14 text-right text-xs text-muted-foreground tabular-nums">
-                      {pct(count, embudoStats.compartidas)}
-                    </span>
-                  )}
-                </div>
+            {(() => {
+              // Base del embudo = la etapa más alta (normalmente las visitas a
+              // la landing). Así las barras son proporcionales y ningún % supera
+              // el 100% (antes se calculaba contra "Compartidas", de ahí los
+              // 200%/233% sin sentido cuando un enlace se abre varias veces).
+              const funnelMax = Math.max(
+                ...FUNNEL_STEPS.map((s) => embudoStats[s.key]),
+                1
               )
-            })}
+              return FUNNEL_STEPS.map((step) => {
+                const count = embudoStats[step.key]
+                const width = Math.max((count / funnelMax) * 100, 2)
+                const Icon = step.icon
+                return (
+                  <div key={step.key} className="flex items-center gap-3">
+                    <div className="flex w-44 items-center gap-2 shrink-0">
+                      <Icon className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm text-muted-foreground">{step.label}</span>
+                    </div>
+                    <div className="flex-1 h-6 bg-muted rounded-md overflow-hidden">
+                      <div
+                        className="h-full bg-primary/80 rounded-md transition-all"
+                        style={{ width: `${width}%` }}
+                      />
+                    </div>
+                    <span className="w-16 text-right text-sm font-medium tabular-nums">
+                      {count}
+                    </span>
+                    <span className="w-14 text-right text-xs text-muted-foreground tabular-nums">
+                      {pct(count, funnelMax)}
+                    </span>
+                  </div>
+                )
+              })
+            })()}
           </div>
         </CardContent>
       </Card>

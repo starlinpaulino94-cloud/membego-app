@@ -21,9 +21,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   const title = campana.titulo
   const description = campana.descripcion
-  const image = campana.bannerUrl || campana.imagenUrl
   const url = absoluteUrl(`/invita/${slug}`)
 
+  // La imagen de vista previa la genera opengraph-image.tsx de esta misma ruta
+  // (tarjeta de marca dinámica). Next inyecta solo og:image y twitter:image, así
+  // que NO se declaran aquí para evitar duplicados o una URL que el crawler no
+  // pueda abrir.
   return {
     title: `${title} — ${campana.company.name}`,
     description,
@@ -33,13 +36,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       url,
       siteName: campana.company.name,
       type: 'website',
-      ...(image ? { images: [{ url: image, width: 1200, height: 630 }] } : {}),
     },
     twitter: {
-      card: image ? 'summary_large_image' : 'summary',
+      card: 'summary_large_image',
       title,
       description,
-      ...(image ? { images: [image] } : {}),
     },
   }
 }
