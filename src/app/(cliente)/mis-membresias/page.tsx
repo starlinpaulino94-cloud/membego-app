@@ -19,7 +19,9 @@ import { getUser } from '@/lib/auth'
 import { getClienteAllMemberships } from '@/modules/cliente/queries'
 import { getNovedadesInicio, getOnboardingCliente, getPromoFeed, type PromoFeed } from '@/modules/social/queries'
 import { getMomentosVivos, type MomentosVivos as MomentosData } from '@/modules/engagement/momentos'
+import { getCampanasVivas, type CampanaViva } from '@/modules/engagement/campanas'
 import { MomentosVivos } from '@/components/engagement/MomentosVivos'
+import { CampanasVivas } from '@/components/engagement/CampanasVivas'
 import { CarrouselesHome } from '@/components/engagement/CarrouselesHome'
 import { MembershipCard } from '@/components/cliente/MembershipCard'
 import { FeedNovedades } from '@/components/cliente/FeedNovedades'
@@ -114,11 +116,14 @@ export default async function MisMembresias() {
   // Engagement Engine · Fase 1: momentos vivos del Home (datos reales; falla
   // en silencio porque es realce, no núcleo).
   let momentos: MomentosData = { nombre: null, momentos: [] }
+  let campanas: CampanaViva[] = []
   if (user.metadata.clienteId && user.metadata.companyId) {
-    momentos = await getMomentosVivos(
-      user.metadata.clienteId,
-      user.metadata.companyId
-    ).catch(() => ({ nombre: null, momentos: [] }))
+    ;[momentos, campanas] = await Promise.all([
+      getMomentosVivos(user.metadata.clienteId, user.metadata.companyId).catch(
+        () => ({ nombre: null, momentos: [] }) as MomentosData
+      ),
+      getCampanasVivas(user.metadata.companyId).catch(() => []),
+    ])
   }
 
   const cookieStore = await cookies()
@@ -218,6 +223,9 @@ export default async function MisMembresias() {
           </div>
         )}
       </header>
+
+      {/* Engagement Engine · Fase 2: campañas de marketing vivas (banner + contador) */}
+      {!loadError && <CampanasVivas campanas={campanas} />}
 
       {/* Engagement Engine · Momentos vivos (datos reales, con urgencia) */}
       {!loadError && <MomentosVivos nombre={momentos.nombre} momentos={momentos.momentos} />}

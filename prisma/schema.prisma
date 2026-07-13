@@ -281,6 +281,9 @@ model Company {
   growthConfig GrowthConfig?
   growthRules  GrowthRule[]
 
+  // Engagement Engine · Fase 2 (Motor de Campañas de marketing).
+  marketingCampaigns MarketingCampaign[]
+
   @@index([isPublished, isFeatured])
   @@index([ciudad, provincia])
   @@index([type])
@@ -2503,4 +2506,70 @@ model InvitacionEvento {
   @@index([campanaId, tipo])
   @@index([campanaId, clienteId])
   @@map("invitacion_eventos")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Engagement Engine · Fase 2 — Motor de Campañas de marketing.
+// Campañas que aparecen VIVAS en el Home del cliente (banner + contador +
+// CTA), con ventana de fechas y, para Happy Hour / fin de semana, ventana
+// horaria y días de la semana. Un mismo motor para cualquier tipo de negocio.
+// ─────────────────────────────────────────────────────────────────────────
+
+enum MarketingCampaignTipo {
+  FLASH_SALE      // oferta relámpago con contador
+  OFERTA_DIA      // cambia cada día
+  FIN_DE_SEMANA   // solo viernes a domingo
+  HAPPY_HOUR      // ventana horaria diaria (p. ej. 2pm–4pm)
+  PRIMERA_COMPRA  // solo quien aún no ha comprado
+  BIENVENIDA      // al registrarse
+  REGRESO         // sin visitar hace +30 días
+  CUMPLEANOS      // cupón de cumpleaños
+  POR_VENCER      // recordatorio de beneficio por vencer
+  PERSONALIZADA   // genérica
+}
+
+enum MarketingCampaignEstado {
+  BORRADOR
+  ACTIVA
+  PAUSADA
+  FINALIZADA
+}
+
+model MarketingCampaign {
+  id          String                  @id @default(cuid())
+  companyId   String
+  company     Company                 @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  tipo        MarketingCampaignTipo   @default(FLASH_SALE)
+  estado      MarketingCampaignEstado @default(BORRADOR)
+
+  titulo          String
+  descripcion     String  @db.Text
+  imagenUrl       String?
+  bannerUrl       String?
+  ctaTexto        String? // "Aprovecha ahora"
+  ctaHref         String? // ruta interna, p. ej. /cliente/promociones
+  colorPrimario   String?
+  colorSecundario String?
+
+  fechaInicio DateTime
+  fechaFin    DateTime
+
+  // Happy Hour / fin de semana: ventana horaria (minutos desde medianoche,
+  // hora local RD) y días activos (0=Dom … 6=Sáb; vacío = todos los días).
+  horaInicioMin Int?
+  horaFinMin    Int?
+  diasSemana    Int[]
+
+  prioridad     Int     @default(0)
+  destacada     Boolean @default(false)
+  // Urgencia/stock: cupones disponibles (null = ilimitado).
+  maxReclamos   Int?
+  reclamosCount Int     @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId, estado, fechaInicio, fechaFin])
+  @@index([estado, fechaFin])
+  @@map("marketing_campaigns")
 }
