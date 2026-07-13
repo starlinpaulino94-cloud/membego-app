@@ -2,6 +2,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { SharePromocionMenu } from '@/components/public/SharePromocionMenu'
 import type { PromotionPublic } from '@/modules/marketplace/types'
+import { formatDescuento, PROMO_TIPO_LABEL } from '@/lib/promociones'
 
 export interface PromotionDetailProps {
   /**
@@ -111,7 +112,7 @@ export function PromotionDetail({ mode, promotion, comprarSlot }: PromotionDetai
               {promotion.descuento && (
                 <div className="bg-destructive/10 p-4 rounded-lg text-center">
                   <div className="text-3xl font-bold text-destructive">
-                    -{promotion.descuento}%
+                    {formatDescuento(promotion.descuento, promotion.tipo)}
                   </div>
                   <div className="text-sm text-muted-foreground">Descuento</div>
                 </div>
@@ -129,8 +130,8 @@ export function PromotionDetail({ mode, promotion, comprarSlot }: PromotionDetai
 
               {/* Type */}
               <div className="rounded-xl bg-muted p-4 text-center">
-                <div className="text-lg font-bold text-foreground capitalize">
-                  {promotion.tipo}
+                <div className="text-lg font-bold text-foreground">
+                  {PROMO_TIPO_LABEL[promotion.tipo] ?? promotion.tipo}
                 </div>
                 <div className="text-sm text-muted-foreground">Tipo</div>
               </div>

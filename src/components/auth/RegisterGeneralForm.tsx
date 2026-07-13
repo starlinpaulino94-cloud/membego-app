@@ -131,11 +131,12 @@ export function RegisterGeneralForm() {
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="telefono">Teléfono</Label>
+            <Label htmlFor="telefono">Teléfono *</Label>
             <Input
               id="telefono"
               name="telefono"
               type="tel"
+              required
               className="bg-white/10 text-white placeholder:text-white/50"
               placeholder="809-555-0000"
             />
