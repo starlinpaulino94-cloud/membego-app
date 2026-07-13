@@ -78,6 +78,55 @@ function titleCase(s: string) {
 /** Escalonado de entrada por posición de la tarjeta. */
 const DELAYS = ['', 'delay-100', 'delay-200', 'delay-300'] as const
 
+/**
+ * Tema de color por posición de la tarjeta: da variedad visual y hace que
+ * cada plan se sienta distinto (agua/sky, premium/violeta, oro/ámbar). Los
+ * gradientes van sobre fichas y textos, legibles en claro y oscuro.
+ */
+interface Theme {
+  bar: string
+  icon: string
+  glow: string
+  priceGrad: string
+  metric: string
+  chip: string
+  hover: string
+  cta: string
+}
+
+const THEMES: Theme[] = [
+  {
+    bar: 'from-sky-400 to-cyan-500',
+    icon: 'from-sky-400 to-cyan-600',
+    glow: 'bg-sky-400/25',
+    priceGrad: 'from-sky-500 to-cyan-500',
+    metric: 'bg-sky-500/10 text-sky-500',
+    chip: 'bg-sky-500/12 text-sky-600 dark:text-sky-400',
+    hover: 'hover:border-sky-400/40 hover:shadow-[0_20px_40px_-16px] hover:shadow-sky-500/30',
+    cta: 'from-sky-500 to-cyan-600',
+  },
+  {
+    bar: 'from-indigo-500 via-violet-500 to-purple-500',
+    icon: 'from-indigo-500 to-violet-600',
+    glow: 'bg-violet-500/30',
+    priceGrad: 'from-indigo-500 to-violet-500',
+    metric: 'bg-violet-500/10 text-violet-500',
+    chip: 'bg-violet-500/12 text-violet-600 dark:text-violet-400',
+    hover: 'hover:border-violet-400/50',
+    cta: 'from-indigo-500 to-violet-600',
+  },
+  {
+    bar: 'from-amber-400 to-orange-500',
+    icon: 'from-amber-400 to-orange-500',
+    glow: 'bg-amber-400/30',
+    priceGrad: 'from-amber-500 to-orange-500',
+    metric: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
+    chip: 'bg-amber-500/12 text-amber-600 dark:text-amber-400',
+    hover: 'hover:border-amber-400/40 hover:shadow-[0_20px_40px_-16px] hover:shadow-amber-500/30',
+    cta: 'from-amber-500 to-orange-600',
+  },
+]
+
 function SubmitButton({
   children,
   variant,
@@ -159,6 +208,7 @@ export function PlanesGrid({
           !plan.esIlimitado && plan.lavadosIncluidos > 0
             ? Math.round(precioFinal / plan.lavadosIncluidos)
             : null
+        const theme = THEMES[idx % THEMES.length]
 
         return (
           <div
@@ -168,21 +218,26 @@ export function PlanesGrid({
               'animate-fade-up',
               DELAYS[idx % DELAYS.length],
               isCurrent
-                ? 'border-success/30 ring-2 ring-success/15'
+                ? 'border-success/40 ring-2 ring-success/20'
                 : isFeatured
-                  ? 'z-10 border-primary/40 bg-gradient-to-b from-primary/[0.05] to-card shadow-premium ring-2 ring-primary/20 lg:-translate-y-2 lg:hover:-translate-y-3'
-                  : 'border-border/70 hover:-translate-y-1 hover:border-primary/25 hover:shadow-premium'
+                  ? 'z-10 border-transparent shadow-premium ring-2 ring-violet-500/30 lg:-translate-y-3 lg:hover:-translate-y-4'
+                  : cn('border-border/70 hover:-translate-y-1.5', theme.hover)
             )}
           >
+            {/* Glow decorativo del tema (esquina superior) */}
+            <div
+              className={cn(
+                'pointer-events-none absolute -right-16 -top-20 h-48 w-48 rounded-full blur-3xl transition-opacity duration-500',
+                isCurrent ? 'bg-success/20' : theme.glow,
+                isFeatured ? 'opacity-100' : 'opacity-60 group-hover:opacity-100'
+              )}
+            />
+
             {/* Barra de acento superior */}
             <div
               className={cn(
-                'h-1.5',
-                isCurrent
-                  ? 'bg-success'
-                  : isFeatured
-                    ? 'bg-gradient-to-r from-primary via-sky-400 to-info'
-                    : 'bg-transparent'
+                'relative h-1.5 bg-gradient-to-r',
+                isCurrent ? 'from-success to-emerald-400' : theme.bar
               )}
             />
 
@@ -196,31 +251,31 @@ export function PlanesGrid({
             )}
             {isFeatured && !isCurrent && (
               <div className="absolute left-1/2 top-0 z-10 -translate-x-1/2">
-                <span className="inline-flex items-center gap-1.5 rounded-b-xl bg-gradient-to-r from-primary to-info px-4 py-1.5 text-[11px] font-bold uppercase tracking-wider text-white shadow-glow">
+                <span className="inline-flex items-center gap-1.5 rounded-b-xl bg-gradient-to-r from-indigo-500 to-violet-600 px-4 py-1.5 text-[11px] font-bold uppercase tracking-wider text-white shadow-glow">
                   <Star className="h-3 w-3 fill-current" />
                   Recomendado
                 </span>
               </div>
             )}
 
-            <div className={cn('flex flex-1 flex-col p-6', isFeatured && 'pt-8')}>
+            <div className={cn('relative flex flex-1 flex-col p-6', isFeatured && 'pt-9')}>
               {/* Encabezado del plan */}
               <div className="mb-5">
                 <div className="flex items-start gap-3">
                   <span
                     className={cn(
-                      'flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl',
-                      plan.esIlimitado
-                        ? 'bg-gradient-to-br from-amber-300 to-amber-500 text-white shadow-sm'
-                        : isFeatured
-                          ? 'bg-gradient-to-br from-primary to-info text-white shadow-sm'
-                          : 'bg-muted text-muted-foreground'
+                      'flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br text-white shadow-md ring-1 ring-inset ring-white/20',
+                      isCurrent
+                        ? 'from-success to-emerald-400'
+                        : plan.esIlimitado
+                          ? 'from-amber-300 to-amber-500'
+                          : theme.icon
                     )}
                   >
                     {plan.esIlimitado ? (
-                      <Crown className="h-5.5 w-5.5" />
+                      <Crown className="h-6 w-6" />
                     ) : (
-                      <Sparkles className="h-5.5 w-5.5" />
+                      <Sparkles className="h-6 w-6" />
                     )}
                   </span>
                   <div className="min-w-0">
@@ -232,9 +287,7 @@ export function PlanesGrid({
                         <span
                           className={cn(
                             'inline-flex rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider',
-                            isFeatured
-                              ? 'bg-primary/10 text-primary'
-                              : 'bg-muted text-muted-foreground'
+                            theme.chip
                           )}
                         >
                           {variante}
@@ -265,10 +318,8 @@ export function PlanesGrid({
                 <div className="flex items-baseline gap-1.5">
                   <span
                     className={cn(
-                      'text-4xl font-extrabold tracking-tight',
-                      isFeatured
-                        ? 'bg-gradient-to-r from-primary to-info bg-clip-text text-transparent'
-                        : 'text-foreground'
+                      'bg-gradient-to-r bg-clip-text text-[2.75rem] font-extrabold leading-none tracking-tight text-transparent',
+                      theme.priceGrad
                     )}
                   >
                     {formatMoney(precioFinal, prefs)}
@@ -276,7 +327,8 @@ export function PlanesGrid({
                   <span className="text-sm font-medium text-muted-foreground">/mes</span>
                 </div>
                 {precioPorUso != null && (
-                  <p className="mt-1 text-xs font-semibold text-success">
+                  <p className="mt-1.5 inline-flex items-center gap-1 text-xs font-bold text-success">
+                    <Zap className="h-3.5 w-3.5 fill-current" />
                     Sale a {formatMoney(precioPorUso, prefs)} por uso
                   </p>
                 )}
@@ -290,34 +342,14 @@ export function PlanesGrid({
 
               {/* Métricas clave */}
               <div className="mb-5 flex gap-2">
-                <div
-                  className={cn(
-                    'flex flex-1 items-center gap-2 rounded-xl px-3 py-2.5',
-                    isFeatured ? 'bg-primary/[0.07]' : 'bg-muted/60'
-                  )}
-                >
-                  <Zap
-                    className={cn(
-                      'h-4 w-4 shrink-0',
-                      isFeatured ? 'text-primary' : 'text-muted-foreground'
-                    )}
-                  />
+                <div className={cn('flex flex-1 items-center gap-2 rounded-xl px-3 py-2.5', theme.metric)}>
+                  <Zap className="h-4 w-4 shrink-0" />
                   <span className="text-sm font-semibold text-foreground">
                     {plan.esIlimitado ? 'Ilimitados' : `${plan.lavadosIncluidos} usos`}
                   </span>
                 </div>
-                <div
-                  className={cn(
-                    'flex flex-1 items-center gap-2 rounded-xl px-3 py-2.5',
-                    isFeatured ? 'bg-primary/[0.07]' : 'bg-muted/60'
-                  )}
-                >
-                  <Calendar
-                    className={cn(
-                      'h-4 w-4 shrink-0',
-                      isFeatured ? 'text-primary' : 'text-muted-foreground'
-                    )}
-                  />
+                <div className={cn('flex flex-1 items-center gap-2 rounded-xl px-3 py-2.5', theme.metric)}>
+                  <Calendar className="h-4 w-4 shrink-0" />
                   <span className="text-sm font-semibold text-foreground">
                     {plan.vigenciaDias} días
                   </span>
@@ -359,11 +391,10 @@ export function PlanesGrid({
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
                       <Button
-                        variant={isFeatured ? 'default' : 'outline'}
                         className={cn(
-                          'w-full font-bold',
-                          isFeatured &&
-                            'relative overflow-hidden bg-gradient-to-r from-primary to-info text-white shadow-glow hover:opacity-95'
+                          'relative w-full overflow-hidden bg-gradient-to-r font-bold text-white shadow-md transition hover:opacity-95',
+                          theme.cta,
+                          isFeatured && 'py-5 shadow-glow'
                         )}
                       >
                         {isFeatured && <Shine />}
@@ -398,11 +429,10 @@ export function PlanesGrid({
                   <form action={selectAction}>
                     <input type="hidden" name="planId" value={plan.id} />
                     <SubmitButton
-                      variant={isFeatured ? 'default' : 'outline'}
                       className={cn(
-                        'w-full font-bold',
-                        isFeatured &&
-                          'relative overflow-hidden bg-gradient-to-r from-primary to-info py-5 text-white shadow-glow hover:opacity-95'
+                        'relative w-full overflow-hidden bg-gradient-to-r font-bold text-white shadow-md transition hover:opacity-95',
+                        theme.cta,
+                        isFeatured && 'py-5 shadow-glow'
                       )}
                     >
                       {isFeatured && <Shine />}
