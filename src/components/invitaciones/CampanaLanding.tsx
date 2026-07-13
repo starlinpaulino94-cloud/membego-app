@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { landingUrlFor } from '@/lib/site'
 
 interface CampanaData {
   id: string
@@ -424,7 +425,7 @@ export function CampanaLanding({ campana, refCode, invitanteNombre }: Props) {
                 : 'Esta campaña no está activa en este momento.'}
             </p>
             <a
-              href={`/empresas/${campana.empresa.slug}`}
+              href={landingUrlFor(`/empresas/${campana.empresa.slug}`)}
               className="mt-4 inline-block text-sm font-medium underline"
               style={{ color: primary }}
             >

@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { landingUrlFor } from '@/lib/site'
 
 const init: InvitacionState = {}
 
@@ -60,9 +61,9 @@ export function AceptarInvitacionForm({
           <input type="checkbox" name="terminos" value="on" required className="mt-0.5 h-4 w-4 rounded border-border" />
           <span>
             Acepto los{' '}
-            <a href="/terms" target="_blank" className="text-primary underline">términos</a>{' '}
+            <a href={landingUrlFor('/terms')} target="_blank" className="text-primary underline">términos</a>{' '}
             y la{' '}
-            <a href="/privacy" target="_blank" className="text-primary underline">política de privacidad</a>.
+            <a href={landingUrlFor('/privacy')} target="_blank" className="text-primary underline">política de privacidad</a>.
           </span>
         </label>
 

@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
+import { landingUrlFor } from '@/lib/site'
 import {
   registrarCuentaGeneral,
   type RegistroState,
@@ -152,11 +153,11 @@ export function RegisterGeneralForm() {
             />
             <span>
               Acepto los{' '}
-              <a href="/terms" target="_blank" className="text-primary hover:underline">
+              <a href={landingUrlFor('/terms')} target="_blank" className="text-primary hover:underline">
                 términos y condiciones
               </a>{' '}
               y la{' '}
-              <a href="/privacy" target="_blank" className="text-primary hover:underline">
+              <a href={landingUrlFor('/privacy')} target="_blank" className="text-primary hover:underline">
                 política de privacidad
               </a>
               .

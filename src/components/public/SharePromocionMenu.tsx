@@ -1,6 +1,7 @@
 'use client'
 
 import { recordPromotionShare } from '@/modules/marketplace/actions'
+import { landingUrlFor } from '@/lib/site'
 import { ShareMenu } from './ShareMenu'
 
 interface SharePromocionMenuProps {
@@ -22,7 +23,7 @@ export function SharePromocionMenu({
     <ShareMenu
       title={titulo}
       text={`${titulo} — promoción de ${companyName} en MembeGo.`}
-      path={`/promocion/${promocionId}`}
+      path={landingUrlFor(`/promocion/${promocionId}`)}
       onShared={() => {
         recordPromotionShare(promocionId).catch(console.error)
       }}

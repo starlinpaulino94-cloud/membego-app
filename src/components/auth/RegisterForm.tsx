@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { GoogleSignInButton } from '@/components/auth/GoogleSignInButton'
+import { landingUrlFor } from '@/lib/site'
 import { isGoogleAuthEnabled } from '@/lib/auth/googleAuth'
 
 const initial: RegistroState = {}
@@ -221,11 +222,11 @@ export function RegisterForm({
               />
               <span>
                 Acepto los{' '}
-                <a href="/terms" target="_blank" className="text-primary hover:underline">
+                <a href={landingUrlFor('/terms')} target="_blank" className="text-primary hover:underline">
                   términos y condiciones
                 </a>{' '}
                 y la{' '}
-                <a href="/privacy" target="_blank" className="text-primary hover:underline">
+                <a href={landingUrlFor('/privacy')} target="_blank" className="text-primary hover:underline">
                   política de privacidad
                 </a>
                 .
@@ -267,11 +268,11 @@ export function RegisterForm({
               <GoogleSignInButton companySlug={companySlug} refCode={refCode || null} />
               <p className="text-center text-xs text-white/50">
                 Al continuar con Google aceptas los{' '}
-                <a href="/terms" target="_blank" className="text-primary hover:underline">
+                <a href={landingUrlFor('/terms')} target="_blank" className="text-primary hover:underline">
                   términos
                 </a>{' '}
                 y la{' '}
-                <a href="/privacy" target="_blank" className="text-primary hover:underline">
+                <a href={landingUrlFor('/privacy')} target="_blank" className="text-primary hover:underline">
                   política de privacidad
                 </a>
                 .

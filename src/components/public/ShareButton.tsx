@@ -7,7 +7,12 @@ import { toast } from 'sonner'
 interface ShareButtonProps {
   title: string
   text: string
-  /** Ruta relativa (se resuelve contra el dominio actual). */
+  /**
+   * URL a compartir. Si es relativa (`/promocion/x`) se resuelve contra el
+   * dominio actual; si ya es absoluta (`https://…`) se usa tal cual. Para
+   * contenido público compartido desde el app conviene pasar `landingUrlFor()`
+   * para que el enlace apunte a la landing y lo abra quien no tenga sesión.
+   */
   path: string
   /** Se llama tras compartir con éxito (p. ej. registrar shareCount). */
   onShared?: () => void
@@ -30,7 +35,7 @@ export function ShareButton({
   const [copied, setCopied] = useState(false)
 
   async function handleShare() {
-    const url = `${window.location.origin}${path}`
+    const url = path.startsWith('http') ? path : `${window.location.origin}${path}`
     try {
       if (navigator.share) {
         await navigator.share({ title, text, url })

@@ -1,6 +1,7 @@
 'use client'
 
 import { recordPromotionShare } from '@/modules/marketplace/actions'
+import { landingUrlFor } from '@/lib/site'
 import { ShareButton } from './ShareButton'
 
 interface SharePromocionProps {
@@ -19,7 +20,7 @@ export function SharePromocion({
     <ShareButton
       title={titulo}
       text={`${titulo} — promoción de ${companyName} en MembeGo.`}
-      path={`/promocion/${promocionId}`}
+      path={landingUrlFor(`/promocion/${promocionId}`)}
       onShared={() => {
         recordPromotionShare(promocionId).catch(console.error)
       }}
