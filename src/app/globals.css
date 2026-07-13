@@ -432,6 +432,10 @@
   .animate-pulse-glow { animation: pulse-glow 5s ease-in-out infinite; }
   .animate-shimmer    { animation: shimmer 2.6s linear infinite; }
   .animate-pulse-soft { animation: pulse-soft 1.8s ease-in-out infinite; }
+
+  /* Carruseles tipo Netflix: scroll horizontal sin barra visible. */
+  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
   .scanner-line       { animation: scanner-line 2.2s ease-in-out infinite; }
 
   .delay-75  { animation-delay: 75ms; }
