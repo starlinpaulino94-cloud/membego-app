@@ -146,7 +146,7 @@ const CLIENTE_NAV: NavGroup[] = [
       { href: '/cliente/empresas', label: 'Mis empresas', icon: Building2 },
       { href: '/cliente/promociones', label: 'Promociones', icon: Megaphone },
       { href: '/cliente/mis-promociones', label: 'Mis promociones', icon: Ticket },
-      { href: '/cliente/referidos', label: 'Referidos', icon: Gift },
+      // Unificación: el antiguo módulo "Referidos" vive dentro de Invita y Gana.
       { href: '/cliente/invita-y-gana', label: 'Invita y Gana', icon: Gift },
     ],
   },

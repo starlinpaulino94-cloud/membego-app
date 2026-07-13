@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { QRDisplay } from '@/components/qr/QRDisplay'
 import { landingUrlFor } from '@/lib/site'
 
 interface CampanaData {
@@ -209,6 +210,16 @@ export function CampanaLanding({ campana, refCode, invitanteNombre }: Props) {
               ) : null}
             </div>
           )}
+          {/* QR del regalo, inmediato: se entregó durante el propio registro. */}
+          {state.qrBienvenida && (
+            <div className="flex flex-col items-center gap-3">
+              <QRDisplay token={state.qrBienvenida} size={200} />
+              <p className="text-xs text-slate-500">
+                Este es tu código QR. Preséntalo en el negocio para usar tu beneficio.
+              </p>
+            </div>
+          )}
+
           {!state.pendingVerification && (
             <Button
               onClick={() => router.push('/login?next=/cliente/mis-promociones')}
@@ -216,26 +227,25 @@ export function CampanaLanding({ campana, refCode, invitanteNombre }: Props) {
               style={{ backgroundColor: primary }}
             >
               <Wallet className="mr-2 h-5 w-5" />
-              Reclamar mi premio
+              Usar mi beneficio
             </Button>
           )}
           <p className="text-xs text-slate-500">
-            Tu regalo ya está en tu wallet de MembeGo con su código QR. Preséntalo en el
-            negocio para usarlo.
+            Tu regalo también queda guardado en tu wallet de MembeGo con su código QR.
           </p>
 
-          {/* Comparte esta oportunidad: momento de máxima emoción → invitar. */}
+          {/* Invitar amigos: momento de máxima emoción → cadena viral. */}
           {state.codigoInvitacion && (
             <div className="rounded-2xl border-2 border-amber-200 bg-gradient-to-br from-amber-50 to-white p-6 text-left shadow-xl space-y-3">
               <h2 className="text-center text-xl font-bold text-slate-900">
                 Comparte esta oportunidad
               </h2>
               <p className="text-center text-sm text-slate-600">
-                Tus amigos también pueden obtener{' '}
+                Ahora invita a tus amigos para que ellos también reciban{' '}
                 <span className="font-semibold text-slate-800">
                   {campana.beneficioInvitado?.descripcion || 'su regalo de bienvenida'}
-                </span>
-                . Invítalos ahora y ayúdalos a aprovechar esta promoción.
+                </span>{' '}
+                y tú obtengas más recompensas.
               </p>
               <Button
                 onClick={compartirCelebracion}
@@ -243,7 +253,7 @@ export function CampanaLanding({ campana, refCode, invitanteNombre }: Props) {
                 style={{ backgroundColor: secondary }}
               >
                 <Share2 className="mr-2 h-5 w-5" />
-                Compartir
+                Invitar amigos
               </Button>
             </div>
           )}

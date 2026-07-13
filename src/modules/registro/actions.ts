@@ -23,6 +23,13 @@ export interface RegistroState {
    * (/invitar/[code]) sin necesitar sesión iniciada.
    */
   codigoInvitacion?: string
+  /**
+   * Token del QR del regalo de bienvenida (campañas "Invita y Gana"): la
+   * entrega del beneficio ocurre dentro del propio registro, así que la
+   * celebración puede mostrar el QR inmediatamente, sin esperar el login.
+   * Solo viaja en la respuesta al propio registrante.
+   */
+  qrBienvenida?: string
 }
 
 /** Código de invitación del cliente; nunca bloquea el registro si falla. */
@@ -31,6 +38,30 @@ async function codigoInvitacionDe(clienteId: string): Promise<string | undefined
     return await ensureCodigoCorto(clienteId)
   } catch (e) {
     console.error('[registro] codigoInvitacion error:', e)
+    return undefined
+  }
+}
+
+/**
+ * QR del regalo de bienvenida que la campaña acaba de entregar a la wallet
+ * (vincularReferido → motorProgreso → ProductoCompra + QrToken, todo dentro
+ * del mismo registro). El cliente es recién creado: su único QR activo de
+ * compra ES el del regalo. Nunca bloquea el registro si falla.
+ */
+async function qrBienvenidaDe(
+  clienteId: string,
+  campanaInvitacionId?: string
+): Promise<string | undefined> {
+  if (!campanaInvitacionId) return undefined
+  try {
+    const qr = await prisma.qrToken.findFirst({
+      where: { clienteId, activo: true, compraId: { not: null } },
+      orderBy: { createdAt: 'desc' },
+      select: { token: true },
+    })
+    return qr?.token
+  } catch (e) {
+    console.error('[registro] qrBienvenida error:', e)
     return undefined
   }
 }
@@ -174,7 +205,11 @@ export async function registrarCliente(
         payload: { cliente: { nombre: cliente.nombre, compras: 0, visitas: 0 } },
       })
 
-      return { success: true, codigoInvitacion: await codigoInvitacionDe(cliente.id) }
+      return {
+        success: true,
+        codigoInvitacion: await codigoInvitacionDe(cliente.id),
+        qrBienvenida: await qrBienvenidaDe(cliente.id, campanaInvitacionId),
+      }
     } catch (e) {
       console.error('[registro] afiliación a nueva empresa error:', e)
       return { error: 'No se pudo completar el registro. Intenta de nuevo.' }
@@ -290,12 +325,15 @@ export async function registrarCliente(
       payload: { cliente: { nombre: result.cliente.nombre, compras: 0, visitas: 0 } },
     })
 
-    const codigoInvitacion = await codigoInvitacionDe(result.cliente.id)
+    const [codigoInvitacion, qrBienvenida] = await Promise.all([
+      codigoInvitacionDe(result.cliente.id),
+      qrBienvenidaDe(result.cliente.id, campanaInvitacionId),
+    ])
     if (verificarCorreo) {
       await sendVerificationEmail(admin, email, nombre)
       return { pendingVerification: true, codigoInvitacion }
     }
-    return { success: true, codigoInvitacion }
+    return { success: true, codigoInvitacion, qrBienvenida }
   } catch (e) {
     // Roll back the Supabase user if DB write failed
     await admin.auth.admin.deleteUser(supabaseId).catch(e => console.error('[registro-cleanup]', e))

@@ -18,7 +18,7 @@ const CLIENTE_ITEMS: BottomNavItem[] = [
   { href: '/mis-membresias', label: 'Inicio', icon: LayoutDashboard, match: ['/cliente/dashboard', '/membresia'] },
   { href: '/cliente/explorar', label: 'Explorar', icon: Compass, match: ['/cliente/empresas'] },
   { href: '/cliente/promociones', label: 'Ofertas', icon: Megaphone },
-  { href: '/cliente/referidos', label: 'Referidos', icon: Gift },
+  { href: '/cliente/invita-y-gana', label: 'Invitar', icon: Gift, match: ['/cliente/referidos'] },
   { href: '/cliente/perfil', label: 'Perfil', icon: User, match: ['/cliente/pagos', '/cliente/historial', '/cliente/ayuda'] },
 ]
 
