@@ -23,6 +23,10 @@ import {
   type ReferidosDashboard,
 } from '@/modules/referidos/actions'
 import { ReferralShareCard } from '@/components/cliente/ReferralShareCard'
+import { GenerarInvitacionCard } from '@/components/growth/GenerarInvitacionCard'
+import { getPromosParaInvitar, getGrowthWallet } from '@/modules/growth/queries'
+import { GROWTH_DURACIONES, getGrowthConfig } from '@/modules/growth/config'
+import { Coins, Sparkles } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
@@ -148,6 +152,14 @@ export default async function ReferidosClientePage() {
   }
 
   const shareUrl = absoluteUrl(`/r/${codigoCorto}`)
+
+  // Growth Engine 3.0: beneficios ofrecibles, duración por defecto y wallet.
+  const [promosInvitar, growthCfg, wallet] = await Promise.all([
+    getPromosParaInvitar(cliente.companyId),
+    getGrowthConfig(cliente.companyId),
+    getGrowthWallet(cliente.companyId, cliente.id),
+  ])
+
   const { stats, historial, ranking, miPosicion, retos, global } = dashboard
   const { nivel, siguiente, progresoPct } = calcularNivel(stats.puntos)
   const logros = calcularLogros({
@@ -182,6 +194,39 @@ export default async function ReferidosClientePage() {
           <ReferralShareCard url={shareUrl} companyName={cliente.company.name} />
         </CardContent>
       </Card>
+
+      {/* Growth Engine 3.0: crear invitación con beneficio + wallet */}
+      <div className="grid gap-4 md:grid-cols-2">
+        <GenerarInvitacionCard
+          promos={promosInvitar}
+          duraciones={GROWTH_DURACIONES}
+          duracionDefault={growthCfg.duracionHorasDefault}
+        />
+        <div className="rounded-2xl border border-border/80 bg-card p-5 shadow-card">
+          <div className="mb-3 flex items-center gap-2">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-warning/15">
+              <Coins className="h-4 w-4 text-warning-foreground" />
+            </span>
+            <h3 className="font-semibold text-foreground">Mi wallet de recompensas</h3>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="rounded-xl bg-muted p-4 text-center">
+              <p className="text-2xl font-bold text-foreground">{wallet.puntos}</p>
+              <p className="text-xs text-muted-foreground">puntos</p>
+            </div>
+            <div className="rounded-xl bg-muted p-4 text-center">
+              <p className="text-2xl font-bold text-foreground">
+                {new Intl.NumberFormat('es-DO', { style: 'currency', currency: 'DOP', maximumFractionDigits: 0 }).format(wallet.creditos)}
+              </p>
+              <p className="text-xs text-muted-foreground">créditos</p>
+            </div>
+          </div>
+          <p className="mt-3 flex items-center gap-1.5 text-xs text-muted-foreground">
+            <Sparkles className="h-3.5 w-3.5 text-primary" />
+            Ganas recompensas según el programa de {cliente.company.name}.
+          </p>
+        </div>
+      </div>
 
       {/* Nivel de embajador */}
       <Card>
@@ -238,35 +283,66 @@ export default async function ReferidosClientePage() {
         ))}
       </div>
 
-      {/* Embudo de conversión */}
+      {/* Fase E6 · Embudo real: cada etapa sale de eventos registrados, con su
+          tasa respecto a la anterior. Visitantes = personas únicas, no hits. */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Tu conversión</CardTitle>
+          <CardTitle className="text-base">Tu embudo</CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Conversión real: {stats.conversionPct}% de tus registros terminan
+            comprando.
+          </p>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-wrap items-center justify-center gap-2 text-center text-sm">
-            <div className="rounded-lg bg-primary/10 px-4 py-2">
-              <p className="text-lg font-bold text-primary">{stats.clicks}</p>
-              <p className="text-xs text-muted-foreground">clics</p>
-            </div>
-            <span className="text-muted-foreground/40">→</span>
-            <div className="rounded-lg bg-warning/15 px-4 py-2">
-              <p className="text-lg font-bold text-warning-foreground">{stats.registros}</p>
-              <p className="text-xs text-muted-foreground">registros</p>
-            </div>
-            <span className="text-muted-foreground/40">→</span>
-            <div className="rounded-lg bg-success/10 px-4 py-2">
-              <p className="text-lg font-bold text-success">{stats.membresias}</p>
-              <p className="text-xs text-muted-foreground">membresías</p>
-            </div>
-            <span className="text-muted-foreground/40">=</span>
-            <div className="rounded-lg bg-info/10 px-4 py-2">
-              <p className="text-lg font-bold text-info">{stats.conversionPct}%</p>
-              <p className="text-xs text-muted-foreground">conversión</p>
-            </div>
+          <div className="space-y-2">
+            {dashboard.embudo.map((e) => {
+              const max = Math.max(...dashboard.embudo.map((x) => x.valor), 1)
+              const ancho = Math.max(3, Math.round((e.valor / max) * 100))
+              return (
+                <div key={e.etapa} className="flex items-center gap-3 text-sm">
+                  <span className="w-36 shrink-0 text-muted-foreground">{e.etapa}</span>
+                  <div className="h-2 w-full rounded-full bg-muted">
+                    <div className="h-2 rounded-full bg-primary/70" style={{ width: `${ancho}%` }} />
+                  </div>
+                  <span className="w-10 shrink-0 text-right font-semibold tabular-nums text-foreground">
+                    {e.valor}
+                  </span>
+                  <span className="w-12 shrink-0 text-right text-xs tabular-nums text-muted-foreground">
+                    {e.tasaPct != null ? `${e.tasaPct}%` : ''}
+                  </span>
+                </div>
+              )
+            })}
           </div>
         </CardContent>
       </Card>
+
+      {/* Fase E6 · Recompensas reales (con estado) */}
+      {dashboard.misRecompensas.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Tus recompensas</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ul className="space-y-2">
+              {dashboard.misRecompensas.map((r) => (
+                <li key={r.id} className="flex items-center justify-between gap-2 text-sm">
+                  <span className="text-foreground">🎁 {r.descripcion}</span>
+                  <span className="flex shrink-0 items-center gap-2 text-xs text-muted-foreground">
+                    {new Intl.DateTimeFormat('es-DO', { dateStyle: 'medium' }).format(r.fecha)}
+                    <Badge
+                      variant={r.estado === 'ENTREGADA' ? 'success' : r.estado === 'PENDIENTE' ? 'warning' : 'secondary'}
+                      className="text-[10px]"
+                    >
+                      {r.estado === 'ENTREGADA' ? 'Entregada' : r.estado === 'PENDIENTE' ? 'Pendiente de aplicar' : r.estado}
+                    </Badge>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Retos activos de la empresa */}
       {retos.length > 0 && (
@@ -362,7 +438,10 @@ export default async function ReferidosClientePage() {
                       {r.nombre}
                       {r.esYo && <Badge variant="secondary">Tú</Badge>}
                     </span>
-                    <span className="font-medium">{r.puntos} pts</span>
+                    <span className="font-medium">
+                      {r.membresias} conv
+                      <span className="ml-1 text-xs font-normal text-muted-foreground">· {r.puntos} pts</span>
+                    </span>
                   </li>
                 ))}
               </ul>

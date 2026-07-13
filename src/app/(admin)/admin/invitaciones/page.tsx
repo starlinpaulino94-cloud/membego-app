@@ -75,7 +75,7 @@ export default async function AdminInvitacionesPage() {
         <div className="grid gap-4">
           {campanas.map((c) => {
             const badge = ESTADO_BADGE[c.estado] ?? ESTADO_BADGE.BORRADOR
-            const url = absoluteUrl(`/i/${c.slug}`)
+            const url = absoluteUrl(`/invita/${c.slug}`)
             return (
               <Card key={c.id}>
                 <CardContent className="py-4">

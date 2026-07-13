@@ -268,7 +268,7 @@ export async function getEmpresaDashboard(companyId: string): Promise<EmpresaDas
   try { totalSucursales = await prisma.sucursal.count({ where: { companyId } }) } catch (e) { console.error('[empresas-dash] Error counting sucursales:', e) }
   try { totalPromociones = await prisma.promocion.count({ where: { companyId } }) } catch (e) { console.error('[empresas-dash] Error counting promociones:', e) }
   try { promocionesActivas = await prisma.promocion.count({ where: { companyId, activo: true } }) } catch (e) { console.error('[empresas-dash] Error counting active promociones:', e) }
-  try { totalReferidos = await prisma.referido.count({ where: { companyId } }) } catch (e) { console.error('[empresas-dash] Error counting referidos:', e) }
+  try { totalReferidos = await prisma.referido.count({ where: { companyId, sospechoso: false } }) } catch (e) { console.error('[empresas-dash] Error counting referidos:', e) }
   try { membresiasPendientes = await prisma.membership.count({ where: { estado: 'PENDIENTE_PAGO', cliente: { companyId } } }) } catch (e) { console.error('[empresas-dash] Error counting pending memberships:', e) }
   try { pagosConfirmados = await prisma.membership.count({ where: { pagoConfirmado: true, cliente: { companyId } } }) } catch (e) { console.error('[empresas-dash] Error counting confirmed payments:', e) }
   try {

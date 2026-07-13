@@ -4,6 +4,7 @@ import {
   CreditCard,
   Megaphone,
   Gift,
+  Rocket,
   ScanLine,
   Wallet,
   Building2,
@@ -71,7 +72,8 @@ const ADMIN_NAV: NavGroup[] = [
       { href: '/admin/planes', label: 'Planes', icon: Package },
       { href: '/admin/promociones', label: 'Promociones', icon: Megaphone },
       { href: '/admin/referidos', label: 'Referidos', icon: Gift },
-      { href: '/admin/invitaciones', label: 'Invitaciones', icon: Gift },
+      { href: '/admin/invitaciones', label: 'Invitaciones', icon: Ticket },
+      { href: '/admin/crecimiento', label: 'Crecimiento', icon: Rocket },
     ],
   },
   {

@@ -37,7 +37,7 @@ export default async function InvitaYGanaPage() {
   const codigoCorto = await ensureCodigoCorto(clienteId)
   const progreso = await getProgresoOCrear(campana.id, clienteId, companyId)
 
-  const inviteUrl = absoluteUrl(`/i/${campana.slug}?ref=${codigoCorto}`)
+  const inviteUrl = absoluteUrl(`/invita/${campana.slug}?ref=${codigoCorto}`)
   const pct = Math.min(100, Math.round((progreso.registrosCompletados / campana.metaRegistros) * 100))
 
   const beneficioInvitante = campana.beneficioInvitante as {

@@ -73,7 +73,7 @@ export default async function CampanaDetallePage({
 
   const { campana, embudoStats, participantes, metasAlcanzadas, premiosReclamados, topCompartidores } = data
   const badge = ESTADO_BADGE[campana.estado] ?? ESTADO_BADGE.BORRADOR
-  const url = absoluteUrl(`/i/${campana.slug}`)
+  const url = absoluteUrl(`/invita/${campana.slug}`)
 
   return (
     <div className="space-y-6">

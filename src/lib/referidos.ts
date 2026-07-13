@@ -9,25 +9,42 @@ import type { ReferralEventTipo } from '@prisma/client'
  * consideran eventos de SU empresa.
  */
 
-/** Puntos por cada evento del embudo. */
+/** Puntos por cada evento del embudo (los eventos guardan su valor al crearse:
+ *  cambiar estas constantes NUNCA reescribe la historia). */
 export const PUNTOS: Record<ReferralEventTipo, number> = {
+  LINK: 0, // generación del enlace: métrica, no gamificación
   SHARE: 2,
   CLICK: 5,
+  LANDING_VIEW: 0, // Growth Engine 3.0: vista de la landing del referido (embudo)
+  REGISTRO_INICIADO: 0, // landing de registro con atribución: solo embudo
   REGISTRO: 20,
+  VERIFICADO: 10,
   MEMBRESIA: 200,
+  COMPRA: 0, // métrica de compra; la conversión por promoción pasa 200 override
+  PRIMER_USO: 0, // Growth Engine 3.0: primer canje del beneficio (embudo)
+  RECOMPENSA: 0,
+  FRAUDE: 0,
   // Centro global MembeGo: referidos que se unen a OTRA empresa de la plataforma.
   REGISTRO_GLOBAL: 20,
   MEMBRESIA_GLOBAL: 100,
 }
 
-/** Tipos que cuentan para el programa de la EMPRESA (stats/ranking/nivel). */
-export const TIPOS_EMPRESA: ReferralEventTipo[] = ['SHARE', 'CLICK', 'REGISTRO', 'MEMBRESIA']
+/** Tipos que cuentan PUNTOS del programa de la EMPRESA (nivel/gamificación). */
+export const TIPOS_EMPRESA: ReferralEventTipo[] = [
+  'SHARE', 'CLICK', 'REGISTRO', 'VERIFICADO', 'MEMBRESIA', 'COMPRA',
+]
 /** Tipos del programa global MembeGo. */
 export const TIPOS_GLOBAL: ReferralEventTipo[] = ['REGISTRO_GLOBAL', 'MEMBRESIA_GLOBAL']
 
 /** Cookie de atribución del Centro global MembeGo. */
 export const REF_COOKIE = 'mg_ref'
 export const REF_COOKIE_DIAS = 30
+
+/** Fase E6 · Attribution Tracking: cookie del identificador anónimo de
+ *  visitante. Se siembra en el clic (/r/[code]) y se lee al registrarse:
+ *  permite visitas ÚNICAS reales y unir clic → registro → conversión. */
+export const VISITOR_COOKIE = 'mg_vid'
+export const VISITOR_COOKIE_DIAS = 365
 
 /**
  * Huella anónima de IP para anti-fraude: hash truncado, nunca se guarda la IP
@@ -122,7 +139,7 @@ function randomCode(len = 6): string {
 export async function ensureCodigoCorto(clienteId: string): Promise<string> {
   const cliente = await prisma.cliente.findUnique({
     where: { id: clienteId },
-    select: { codigoCorto: true },
+    select: { codigoCorto: true, companyId: true },
   })
   if (cliente?.codigoCorto) return cliente.codigoCorto
 
@@ -133,6 +150,15 @@ export async function ensureCodigoCorto(clienteId: string): Promise<string> {
         where: { id: clienteId },
         data: { codigoCorto: code },
       })
+      // Fase E6: la generación del enlace es la primera etapa del embudo.
+      if (cliente) {
+        await logReferralEvent({
+          clienteId,
+          companyId: cliente.companyId,
+          tipo: 'LINK',
+          meta: { codigoCorto: code },
+        })
+      }
       return code
     } catch {
       // Colisión con el unique: reintenta con otro código.
@@ -150,6 +176,12 @@ export async function logReferralEvent(params: {
   companyId: string
   tipo: ReferralEventTipo
   canal?: string | null
+  /** Fase E6: identificador anónimo del visitante (attribution tracking). */
+  visitorId?: string | null
+  /** Fase E6: referido al que pertenece el evento (cuando ya hay cuenta). */
+  referidoClienteId?: string | null
+  /** Growth Engine 3.0: enlace de invitación que originó el evento. */
+  growthLinkId?: string | null
   meta?: Record<string, unknown>
   /** Override de puntos (p. ej. 0 para eventos marcados como sospechosos). */
   puntos?: number
@@ -162,6 +194,9 @@ export async function logReferralEvent(params: {
         tipo: params.tipo,
         puntos: params.puntos ?? PUNTOS[params.tipo],
         canal: params.canal ?? null,
+        visitorId: params.visitorId ?? null,
+        referidoClienteId: params.referidoClienteId ?? null,
+        growthLinkId: params.growthLinkId ?? null,
         meta: (params.meta ?? {}) as object,
       },
     })
