@@ -214,26 +214,8 @@ export default async function PlanesPage() {
           </div>
         )}
 
-        {isActive && !pendingChange && (
-          <div className="flex flex-col gap-3 rounded-2xl border border-success/20 bg-success/5 p-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-start gap-3">
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-success/12">
-                <CheckCircle2 className="h-4.5 w-4.5 text-success" />
-              </span>
-              <div className="min-w-0">
-                <p className="font-semibold text-foreground">
-                  Tu plan {membership?.plan.nombre} está activo
-                </p>
-                <p className="mt-0.5 text-sm text-muted-foreground">
-                  Puedes cambiar a otro plan cuando quieras; el actual sigue vigente hasta que se apruebe el cambio.
-                </p>
-              </div>
-            </div>
-            <Button asChild variant="outline" size="sm" className="shrink-0">
-              <Link href="/mis-membresias">Ver mi membresía</Link>
-            </Button>
-          </div>
-        )}
+        {/* El plan activo ya se señala en su propia tarjeta (badge "Tu plan");
+            un banner extra aquí era redundante y quitaba protagonismo al grid. */}
       </div>
 
       {/* ── Grid de planes ────────────────────────────────────────────────── */}
