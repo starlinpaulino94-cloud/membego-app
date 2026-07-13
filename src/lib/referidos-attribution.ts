@@ -181,8 +181,13 @@ export async function vincularReferido(
       } catch { /* fuera de request scope */ }
     }
 
-    const referente = await prisma.cliente.findUnique({
-      where: { codigoReferido: code },
+    // El código puede ser el corto (/r/XXXXXX y campañas "Invita y Gana",
+    // ?ref=codigoCorto) o el largo (codigoReferido) — mismo criterio que
+    // el resolvedor de /r/[code].
+    const referente = await prisma.cliente.findFirst({
+      where: {
+        OR: [{ codigoCorto: code.toUpperCase() }, { codigoReferido: code }],
+      },
     })
     if (!referente) return
 
@@ -252,7 +257,7 @@ export async function vincularReferido(
         })
 
         if (campanaId) {
-          await incrementarProgresoCampana(campanaId, referente.id, companyId)
+          await incrementarProgresoCampana(campanaId, referente.id, companyId, referidoClienteId)
         }
       }
       return

@@ -37,11 +37,16 @@ async function uniqueSlug(base: string): Promise<string> {
 }
 
 function parseBeneficio(fd: FormData, prefix: string): object {
+  // promocionId vincula la recompensa al Motor de Beneficios Digitales (E8):
+  // al entregarla se crea un ProductoCompra con QR canjeable en el escáner y
+  // visible en la wallet del cliente. Sin él, se registra como BenefitGrant.
+  const promocionId = String(fd.get(`${prefix}PromocionId`) ?? '').trim()
   return {
     tipo: String(fd.get(`${prefix}Tipo`) ?? 'SERVICIO_GRATIS'),
     valor: String(fd.get(`${prefix}Valor`) ?? ''),
     descripcion: String(fd.get(`${prefix}Descripcion`) ?? ''),
     vigenciaDias: Number(fd.get(`${prefix}VigenciaDias`) ?? 30),
+    ...(promocionId && promocionId !== 'none' ? { promocionId } : {}),
   }
 }
 

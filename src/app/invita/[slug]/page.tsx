@@ -1,5 +1,7 @@
 import type { Metadata } from 'next'
+import { headers } from 'next/headers'
 import { notFound } from 'next/navigation'
+import { prisma } from '@/lib/prisma'
 import { getCampanaBySlug } from '@/modules/invitaciones/queries'
 import { registrarEventoCampana } from '@/modules/invitaciones/clienteActions'
 import { absoluteUrl } from '@/lib/site'
@@ -53,10 +55,39 @@ export default async function CampanaLandingPage({ params, searchParams }: Props
   const expirada = campana.estado === 'FINALIZADA' || new Date(campana.fechaFin) < new Date()
   const abierta = campana.estado === 'ACTIVA' && !expirada
 
-  await registrarEventoCampana(campana.id, 'LANDING_VISTA', {
+  // Personalización: "Juan quiere regalarte..." — nombre del invitante a
+  // partir del código de referido (corto o largo). Nunca bloquea la landing.
+  let invitanteNombre: string | null = null
+  if (refCode) {
+    const invitante = await prisma.cliente
+      .findFirst({
+        where: {
+          OR: [{ codigoCorto: refCode.toUpperCase() }, { codigoReferido: refCode }],
+        },
+        select: { nombre: true },
+      })
+      .catch(() => null)
+    // Solo el primer nombre: suficiente para personalizar sin exponer datos.
+    invitanteNombre = invitante?.nombre?.split(' ')[0] ?? null
+  }
+
+  // Contexto de auditoría de eventos: origen y dispositivo (spec Growth Engine).
+  const hdrs = await headers()
+  const userAgent = hdrs.get('user-agent') ?? ''
+  const contexto = {
     slug,
     ...(refCode ? { refCode } : {}),
-  })
+    origen: hdrs.get('referer') ?? 'directo',
+    dispositivo: /mobile|android|iphone|ipad/i.test(userAgent) ? 'movil' : 'escritorio',
+    userAgent: userAgent.slice(0, 150),
+  }
+
+  // Embudo: la llegada con ?ref es el clic sobre un enlace compartido;
+  // la vista de landing se registra siempre (con o sin atribución).
+  if (refCode) {
+    await registrarEventoCampana(campana.id, 'ENLACE_ABIERTO', contexto)
+  }
+  await registrarEventoCampana(campana.id, 'LANDING_VISTA', contexto)
 
   const beneficioInvitado = campana.beneficioInvitado as {
     tipo?: string
@@ -88,6 +119,7 @@ export default async function CampanaLandingPage({ params, searchParams }: Props
         },
       }}
       refCode={refCode}
+      invitanteNombre={invitanteNombre}
     />
   )
 }

@@ -1,10 +1,11 @@
 'use client'
 
-import { useActionState, useEffect, useState, useCallback } from 'react'
+import { useActionState, useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { Loader2, Gift, Clock, Shield, CheckCircle2, PartyPopper } from 'lucide-react'
+import { Loader2, Gift, Clock, Shield, CheckCircle2, PartyPopper, Wallet } from 'lucide-react'
 import { toast } from 'sonner'
 import { registrarCliente, type RegistroState } from '@/modules/registro/actions'
+import { registrarEventoCampana } from '@/modules/invitaciones/clienteActions'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -39,6 +40,7 @@ interface CampanaData {
 interface Props {
   campana: CampanaData
   refCode: string
+  invitanteNombre?: string | null
 }
 
 function useCountdown(fechaFin: string) {
@@ -62,13 +64,60 @@ function useCountdown(fechaFin: string) {
   return time
 }
 
+const CONFETTI_COLORS = ['#10b981', '#f59e0b', '#3b82f6', '#ec4899', '#8b5cf6', '#ef4444']
+
+/** Lluvia de confeti en CSS puro (sin dependencias). */
+function Confetti() {
+  const pieces = useMemo(
+    () =>
+      Array.from({ length: 60 }, (_, i) => ({
+        left: Math.random() * 100,
+        delay: Math.random() * 2.5,
+        duration: 2.5 + Math.random() * 2,
+        size: 6 + Math.random() * 6,
+        color: CONFETTI_COLORS[i % CONFETTI_COLORS.length],
+        rotate: Math.random() * 360,
+      })),
+    []
+  )
+  return (
+    <div className="pointer-events-none fixed inset-0 overflow-hidden" aria-hidden>
+      <style>{`
+        @keyframes confetti-fall {
+          0% { transform: translateY(-10vh) rotate(0deg); opacity: 1; }
+          100% { transform: translateY(110vh) rotate(720deg); opacity: 0.6; }
+        }
+      `}</style>
+      {pieces.map((p, i) => (
+        <span
+          key={i}
+          className="absolute top-0 block"
+          style={{
+            left: `${p.left}%`,
+            width: p.size,
+            height: p.size * 0.45,
+            backgroundColor: p.color,
+            transform: `rotate(${p.rotate}deg)`,
+            animation: `confetti-fall ${p.duration}s linear ${p.delay}s infinite`,
+          }}
+        />
+      ))}
+    </div>
+  )
+}
+
 const init: RegistroState = {}
 
-export function CampanaLanding({ campana, refCode }: Props) {
+export function CampanaLanding({ campana, refCode, invitanteNombre }: Props) {
   const router = useRouter()
   const countdown = useCountdown(campana.fechaFin)
   const [state, action, pending] = useActionState(registrarCliente, init)
   const [registrado, setRegistrado] = useState(false)
+  // Flujo en dos pasos (spec): primero VENDER el beneficio, el formulario
+  // solo aparece cuando el visitante pulsa "Quiero mi regalo".
+  const [mostrarFormulario, setMostrarFormulario] = useState(false)
+  const formRef = useRef<HTMLDivElement>(null)
+  const inicioTracked = useRef(false)
 
   const primary = campana.colorPrimario || '#10b981'
   const secondary = campana.colorSecundario || '#059669'
@@ -84,39 +133,67 @@ export function CampanaLanding({ campana, refCode }: Props) {
     }
   }, [state.success, state.pendingVerification])
 
+  const quieroMiRegalo = () => {
+    setMostrarFormulario(true)
+    if (!inicioTracked.current) {
+      inicioTracked.current = true
+      void registrarEventoCampana(campana.id, 'REGISTRO_INICIADO', {
+        ...(refCode ? { refCode } : {}),
+      })
+    }
+    // El formulario se monta en este mismo render: esperar al próximo frame.
+    requestAnimationFrame(() => {
+      formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    })
+  }
+
+  // ── Celebración post-registro (pantalla completa + confeti) ──────────────
   if (registrado) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-emerald-50 to-white px-4">
-        <div className="w-full max-w-md text-center space-y-6 py-12">
-          <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-emerald-100">
-            <PartyPopper className="h-10 w-10 text-emerald-600" />
+      <div className="relative flex min-h-screen items-center justify-center bg-gradient-to-br from-emerald-50 via-white to-amber-50 px-4">
+        <Confetti />
+        <div className="relative z-10 w-full max-w-md text-center space-y-6 py-12">
+          <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-full bg-emerald-100 shadow-lg animate-bounce">
+            <PartyPopper className="h-12 w-12 text-emerald-600" />
           </div>
-          <h1 className="text-3xl font-bold text-slate-900">
-            {state.pendingVerification ? 'Casi listo...' : '!Bienvenido!'}
+          <h1 className="text-4xl font-extrabold text-slate-900">
+            🎉 ¡¡Bienvenido a MembeGo!!
           </h1>
-          <p className="text-slate-600">
+          <p className="text-lg text-slate-600">
             {state.pendingVerification
-              ? 'Revisa tu correo y confirma tu cuenta para activar tu beneficio.'
-              : `Ya eres parte de ${campana.empresa.name}. Tu beneficio te espera.`}
+              ? 'Revisa tu correo y confirma tu cuenta para activar tu regalo.'
+              : `Ya eres parte de ${campana.empresa.name}.`}
           </p>
           {campana.beneficioInvitado?.descripcion && (
-            <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5">
-              <Gift className="mx-auto h-8 w-8 text-emerald-600 mb-2" />
-              <p className="font-semibold text-emerald-900">Tu regalo de bienvenida</p>
-              <p className="text-sm text-emerald-700 mt-1">
+            <div className="rounded-2xl border-2 border-emerald-300 bg-white p-6 shadow-xl">
+              <Gift className="mx-auto h-10 w-10 text-emerald-600 mb-2" />
+              <p className="text-sm font-medium text-emerald-700 uppercase tracking-wide">
+                Acabas de obtener
+              </p>
+              <p className="mt-1 text-xl font-bold text-slate-900">
                 {campana.beneficioInvitado.descripcion}
               </p>
+              {campana.beneficioInvitado.vigenciaDias ? (
+                <p className="mt-1 text-xs text-slate-500">
+                  Vigencia: {campana.beneficioInvitado.vigenciaDias} días
+                </p>
+              ) : null}
             </div>
           )}
           {!state.pendingVerification && (
             <Button
-              onClick={() => router.push('/login')}
-              className="w-full"
+              onClick={() => router.push('/login?next=/cliente/mis-promociones')}
+              className="w-full py-6 text-lg font-bold text-white shadow-lg"
               style={{ backgroundColor: primary }}
             >
-              Iniciar sesión
+              <Wallet className="mr-2 h-5 w-5" />
+              Reclamar mi premio
             </Button>
           )}
+          <p className="text-xs text-slate-500">
+            Tu regalo ya está en tu wallet de MembeGo con su código QR. Preséntalo en el
+            negocio para usarlo.
+          </p>
         </div>
       </div>
     )
@@ -147,6 +224,14 @@ export function CampanaLanding({ campana, refCode }: Props) {
             />
           )}
           <p className="text-sm font-medium opacity-90">{campana.empresa.name}</p>
+          <p className="text-base font-semibold opacity-95">
+            🎉 Has recibido una invitación exclusiva
+          </p>
+          {invitanteNombre && (
+            <p className="text-lg opacity-95">
+              <span className="font-bold">{invitanteNombre}</span> quiere regalarte:
+            </p>
+          )}
           <h1 className="text-3xl font-extrabold sm:text-4xl leading-tight">
             {campana.titulo}
           </h1>
@@ -154,9 +239,12 @@ export function CampanaLanding({ campana, refCode }: Props) {
 
           {/* Countdown */}
           {campana.abierta && !countdown.expired && (
-            <div className="flex items-center justify-center gap-3 pt-4">
-              <Clock className="h-5 w-5" />
-              <div className="flex gap-2 text-center">
+            <div className="pt-4 space-y-2">
+              <p className="text-sm opacity-90 flex items-center justify-center gap-1.5">
+                <Clock className="h-4 w-4" />
+                La promoción termina en:
+              </p>
+              <div className="flex justify-center gap-2 text-center">
                 {[
                   { val: countdown.d, label: 'd' },
                   { val: countdown.h, label: 'h' },
@@ -179,28 +267,56 @@ export function CampanaLanding({ campana, refCode }: Props) {
         </div>
       </section>
 
-      {/* Benefits & Trust */}
+      {/* Venta del beneficio */}
       <section className="mx-auto max-w-3xl px-4 py-12 space-y-10">
+        {campana.imagenUrl && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={campana.imagenUrl}
+            alt={campana.titulo}
+            className="mx-auto max-h-64 rounded-2xl object-cover shadow-md"
+          />
+        )}
+
         {campana.textoLanding && (
           <p className="text-center text-lg text-slate-700 leading-relaxed">
             {campana.textoLanding}
           </p>
         )}
 
-        {campana.beneficioInvitado && (
-          <div className="rounded-2xl border border-slate-200 bg-gradient-to-br from-slate-50 to-white p-6 text-center shadow-sm">
-            <Gift className="mx-auto h-10 w-10 mb-3" style={{ color: primary }} />
-            <h3 className="text-xl font-bold text-slate-900">
-              Tu beneficio al registrarte
-            </h3>
-            {campana.beneficioInvitado.descripcion && (
-              <p className="mt-2 text-slate-600">{campana.beneficioInvitado.descripcion}</p>
+        <div className="rounded-2xl border border-slate-200 bg-gradient-to-br from-slate-50 to-white p-6 shadow-sm">
+          <h3 className="text-center text-xl font-bold text-slate-900 mb-4">Obtendrás:</h3>
+          <ul className="mx-auto max-w-sm space-y-3">
+            {campana.beneficioInvitado?.descripcion && (
+              <li className="flex items-start gap-2.5">
+                <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0" style={{ color: primary }} />
+                <span className="font-semibold text-slate-800">
+                  {campana.beneficioInvitado.descripcion}
+                </span>
+              </li>
             )}
-            {campana.beneficioInvitado.vigenciaDias && (
-              <p className="mt-1 text-sm text-slate-500">
-                Vigencia: {campana.beneficioInvitado.vigenciaDias} dias
-              </p>
-            )}
+            <li className="flex items-start gap-2.5">
+              <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0" style={{ color: primary }} />
+              <span className="text-slate-700">Cuenta gratuita en MembeGo</span>
+            </li>
+            <li className="flex items-start gap-2.5">
+              <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0" style={{ color: primary }} />
+              <span className="text-slate-700">Acceso a promociones exclusivas</span>
+            </li>
+          </ul>
+        </div>
+
+        {/* CTA principal: el formulario NO aparece hasta pulsar aquí */}
+        {campana.abierta && !mostrarFormulario && (
+          <div className="text-center">
+            <Button
+              onClick={quieroMiRegalo}
+              className="w-full max-w-md py-7 text-xl font-bold text-white shadow-xl transition-transform hover:scale-[1.02]"
+              style={{ backgroundColor: primary }}
+            >
+              <Gift className="mr-2 h-6 w-6" />
+              Quiero mi regalo
+            </Button>
           </div>
         )}
 
@@ -222,9 +338,9 @@ export function CampanaLanding({ campana, refCode }: Props) {
         </div>
       </section>
 
-      {/* Registration Form */}
-      {campana.abierta ? (
-        <section id="registro" className="mx-auto max-w-md px-4 pb-16">
+      {/* Registro (solo tras "Quiero mi regalo") */}
+      {campana.abierta && mostrarFormulario ? (
+        <section id="registro" ref={formRef} className="mx-auto max-w-md px-4 pb-16">
           <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
             <h2 className="text-xl font-bold text-slate-900 text-center mb-6">
               Crea tu cuenta gratis
@@ -295,7 +411,7 @@ export function CampanaLanding({ campana, refCode }: Props) {
             </form>
           </div>
         </section>
-      ) : (
+      ) : !campana.abierta ? (
         <section className="mx-auto max-w-md px-4 pb-16 text-center">
           <div className="rounded-2xl border border-slate-200 bg-slate-50 p-8">
             <Clock className="mx-auto h-10 w-10 text-slate-400 mb-3" />
@@ -316,7 +432,7 @@ export function CampanaLanding({ campana, refCode }: Props) {
             </a>
           </div>
         </section>
-      )}
+      ) : null}
     </div>
   )
 }

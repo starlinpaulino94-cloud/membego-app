@@ -19,6 +19,13 @@ export default async function EditarCampanaPage({
   const campana = await prisma.campanaInvitacion.findUnique({ where: { id } })
   if (!campana) notFound()
 
+  // Promociones vigentes de la empresa: candidatas a beneficio digital (E8).
+  const promociones = await prisma.promocion.findMany({
+    where: { companyId: campana.companyId, activo: true, archivada: false },
+    select: { id: true, titulo: true },
+    orderBy: { titulo: 'asc' },
+  })
+
   const existing = {
     id: campana.id,
     nombre: campana.nombre,
@@ -33,12 +40,14 @@ export default async function EditarCampanaPage({
       valor: string
       descripcion: string
       vigenciaDias: number
+      promocionId?: string
     },
     beneficioInvitado: campana.beneficioInvitado as {
       tipo: string
       valor: string
       descripcion: string
       vigenciaDias: number
+      promocionId?: string
     },
     fechaInicio: campana.fechaInicio.toISOString(),
     fechaFin: campana.fechaFin.toISOString(),
@@ -53,7 +62,7 @@ export default async function EditarCampanaPage({
         title="Editar campaña"
         description={`Editando: ${campana.nombre}`}
       />
-      <CampanaInvitacionForm existing={existing} />
+      <CampanaInvitacionForm existing={existing} promociones={promociones} />
     </div>
   )
 }

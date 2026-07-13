@@ -1,11 +1,11 @@
-import { Gift, Share2, Users, Trophy, CheckCircle2, Clock } from 'lucide-react'
+import Link from 'next/link'
+import { Gift, Share2, Users, Trophy, CheckCircle2, Clock, Wallet } from 'lucide-react'
 import { requireRole } from '@/lib/auth/guards'
 import { absoluteUrl } from '@/lib/site'
 import { ensureCodigoCorto } from '@/lib/referidos'
 import { getCampanaActiva } from '@/modules/invitaciones/queries'
 import { getProgresoOCrear } from '@/modules/invitaciones/queries'
 import { InvitaShareButton } from '@/components/invitaciones/InvitaShareButton'
-import { ReclamarPremioButton } from '@/components/invitaciones/ReclamarPremioButton'
 import { Card, CardContent } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
 
@@ -84,18 +84,29 @@ export default async function InvitaYGanaPage() {
 
           {progreso.metaAlcanzada ? (
             progreso.premioReclamado ? (
-              <div className="flex items-center gap-2 text-emerald-600 text-sm font-medium">
-                <CheckCircle2 className="h-5 w-5" />
-                Premio reclamado
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-emerald-600 text-sm font-medium">
+                  <CheckCircle2 className="h-5 w-5" />
+                  ¡Meta cumplida! Tu premio fue entregado.
+                </div>
+                <Link
+                  href="/cliente/mis-promociones"
+                  className="inline-flex items-center gap-1.5 text-sm font-medium text-primary underline underline-offset-2"
+                >
+                  <Wallet className="h-4 w-4" />
+                  Ver mi premio en la wallet
+                </Link>
               </div>
             ) : (
-              <ReclamarPremioButton campanaId={campana.id} />
+              <p className="text-sm text-amber-600 font-medium">
+                Alcanzaste la meta, pero los premios de esta campaña se agotaron.
+              </p>
             )
           ) : (
             <p className="text-xs text-muted-foreground">
-              Invita a {campana.metaRegistros - progreso.registrosCompletados} amigo
-              {campana.metaRegistros - progreso.registrosCompletados !== 1 ? 's' : ''} más para
-              ganar tu premio.
+              Te faltan {campana.metaRegistros - progreso.registrosCompletados} amigo
+              {campana.metaRegistros - progreso.registrosCompletados !== 1 ? 's' : ''} para ganar
+              tu premio. Se entrega automáticamente al llegar a la meta.
             </p>
           )}
         </CardContent>
