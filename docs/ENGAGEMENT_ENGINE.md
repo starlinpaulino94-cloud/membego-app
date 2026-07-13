@@ -19,11 +19,20 @@ Sin cambios de base de datos. Todo con datos que ya existen.
   que vence pronto (contador), progreso de Invita y Gana.
 - Resolver central `modules/engagement/momentos.ts` que arma el feed desde la BD.
 
-## Fase 2 — Motor de Campañas (requiere schema)
-Modelo `MarketingCampaign` con tipo, fechas, prioridad, empresas, beneficio, banner,
-animación. Tipos: Flash Sale, Oferta del día, Fin de semana, Happy Hour, Primera
-compra, Bienvenida, Regreso (+30 días), Cumpleaños, Cerca de vencer, Personalizada.
-Admin para crearlas y programarlas; activación/expiración automática.
+## Fase 2 — Motor de Campañas  ✅
+Modelo `MarketingCampaign` (`marketing_campaigns`) con tipo, fechas, ventana horaria
+(Happy Hour) y días de la semana, prioridad, `destacada`, banner/imagen, colores,
+CTA y cupos (`maxReclamos`/`reclamosCount`). Tipos: Flash Sale, Oferta del día, Fin de
+semana, Happy Hour, Primera compra, Bienvenida, Regreso, Cumpleaños, Por vencer,
+Personalizada.
+- Resolver `modules/engagement/campanas.ts` — `getCampanasVivas(companyId)` filtra por
+  estado ACTIVA + ventana de fechas + día de la semana + ventana horaria (hora local
+  de RD, UTC-4) + stock, y calcula `terminaEn` para el contador.
+- Home (`/mis-membresias`): banner vivo `CampanasVivas` con contador y urgencia
+  ("¡Solo quedan X cupos!"), arriba de Momentos vivos.
+- Admin `/admin/marketing`: CRUD con vista previa en vivo, activar/pausar y eliminar.
+  Server actions con `requireSection('marketing')` + `resolveCompanyId`.
+- Migración `20260713_marketing_campaigns` (validada contra Postgres efímera).
 
 ## Fase 3 — Carruseles tipo Netflix
 Filas horizontales reutilizando datos: 🔥 Ofertas · ❤️ Empresas que sigues ·

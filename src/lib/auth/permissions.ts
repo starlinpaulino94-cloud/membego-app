@@ -35,6 +35,7 @@ export const ADMIN_SECTIONS = [
   'reportes',
   'audiencia',
   'invitaciones',
+  'marketing',
 ] as const
 
 // Tipo derivado de la lista: una sola fuente de verdad (evita drift).
@@ -44,7 +45,7 @@ export type AdminSection = (typeof ADMIN_SECTIONS)[number]
 // MARKETING = difusión; SUPERVISOR = operación. Ambos incluyen 'dashboard'
 // como aterrizaje. Todo lo no listado queda denegado (fail-closed).
 const RESTRICTED_ACCESS: Partial<Record<AppRole, AdminSection[]>> = {
-  MARKETING: ['dashboard', 'promociones', 'publicaciones', 'campanas', 'audiencia', 'notificaciones', 'automatizaciones'],
+  MARKETING: ['dashboard', 'promociones', 'publicaciones', 'campanas', 'marketing', 'audiencia', 'notificaciones', 'automatizaciones'],
   SUPERVISOR: ['dashboard', 'reportes', 'clientes', 'membresias', 'pagos', 'scanner'],
 }
 

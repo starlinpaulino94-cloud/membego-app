@@ -26,6 +26,7 @@ import {
   Flag,
   Zap,
   Ticket,
+  Sparkles,
   type LucideIcon,
 } from 'lucide-react'
 import type { AppRole } from '@/types'
@@ -80,6 +81,7 @@ const ADMIN_NAV: NavGroup[] = [
     id: 'marketing',
     label: 'Marketing',
     items: [
+      { href: '/admin/marketing', label: 'Campañas vivas', icon: Sparkles },
       { href: '/admin/campanas', label: 'Campañas', icon: Flag },
       { href: '/admin/publicaciones', label: 'Publicaciones', icon: Newspaper },
       { href: '/admin/notificaciones', label: 'Notificaciones', icon: Bell },
