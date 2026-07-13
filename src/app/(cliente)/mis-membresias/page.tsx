@@ -17,9 +17,10 @@ import {
 import { differenceInDays } from 'date-fns'
 import { getUser } from '@/lib/auth'
 import { getClienteAllMemberships } from '@/modules/cliente/queries'
-import { getNovedadesInicio, getOnboardingCliente } from '@/modules/social/queries'
+import { getNovedadesInicio, getOnboardingCliente, getPromoFeed, type PromoFeed } from '@/modules/social/queries'
 import { getMomentosVivos, type MomentosVivos as MomentosData } from '@/modules/engagement/momentos'
 import { MomentosVivos } from '@/components/engagement/MomentosVivos'
+import { CarrouselesHome } from '@/components/engagement/CarrouselesHome'
 import { MembershipCard } from '@/components/cliente/MembershipCard'
 import { FeedNovedades } from '@/components/cliente/FeedNovedades'
 import { OnboardingClienteFirstVisit } from '@/components/cliente/OnboardingClienteFirstVisit'
@@ -123,17 +124,27 @@ export default async function MisMembresias() {
   const cookieStore = await cookies()
   const onboardingSeen = cookieStore.has('membego_onboarding_seen')
 
-  // Feed de novedades y onboarding (fallan en silencio: son secundarios).
-  const [novedades, onboarding] = user.metadata.dbUserId
+  // Feed de novedades, carruseles y onboarding (fallan en silencio: realce).
+  const [novedades, feed, onboarding] = user.metadata.dbUserId
     ? await Promise.all([
         getNovedadesInicio(user.metadata.dbUserId),
+        getPromoFeed(user.metadata.dbUserId).catch(
+          (): PromoFeed => ({
+            seguidas: [],
+            destacadas: [],
+            nuevas: [],
+            expiranPronto: [],
+            recomendadas: [],
+            empresasRecomendadas: [],
+          })
+        ),
         onboardingSeen
           ? Promise.resolve(null)
           : getOnboardingCliente(user.metadata.dbUserId, user.supabaseId).catch(
               () => null
             ),
       ])
-    : [[], null]
+    : [[], null, null]
 
   // Resumen para la cabecera (solo presentación, derivado de lo ya cargado).
   const now = new Date()
@@ -264,6 +275,7 @@ export default async function MisMembresias() {
               </div>
             </div>
           </div>
+          {feed && <CarrouselesHome feed={feed} />}
           <FeedNovedades novedades={novedades} />
         </div>
       ) : (
@@ -317,6 +329,9 @@ export default async function MisMembresias() {
               />
             </div>
           </section>
+
+          {/* ── Carruseles tipo Netflix (Engagement Engine · Fase 3) ──────── */}
+          {feed && <CarrouselesHome feed={feed} />}
 
           {/* ── Novedades ─────────────────────────────────────────────────── */}
           <FeedNovedades novedades={novedades} />
