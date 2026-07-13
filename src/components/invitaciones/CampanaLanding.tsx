@@ -57,8 +57,12 @@ function useCountdown(fechaFin: string) {
     }
   }, [fechaFin])
 
-  const [time, setTime] = useState(calc)
+  // Estado inicial DETERMINISTA (sin Date.now()): así el HTML del servidor y el
+  // primer render del cliente coinciden y no hay error de hidratación. El valor
+  // real se calcula ya montado, en el efecto.
+  const [time, setTime] = useState({ d: 0, h: 0, m: 0, s: 0, expired: false })
   useEffect(() => {
+    setTime(calc())
     const id = setInterval(() => setTime(calc()), 1000)
     return () => clearInterval(id)
   }, [calc])
