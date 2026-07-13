@@ -412,6 +412,10 @@
   0%, 100% { opacity: 0.4; }
   50%      { opacity: 0.7; }
 }
+@keyframes pulse-soft {
+  0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255,255,255,0); }
+  50%      { transform: scale(1.04); box-shadow: 0 0 0 6px rgba(255,255,255,0.18); }
+}
 @keyframes scanner-line {
   0%   { top: 4%;  opacity: 0.4; }
   50%  { top: 92%; opacity: 1; }
@@ -427,6 +431,7 @@
   .animate-float-slow { animation: float-slow 8s ease-in-out infinite; }
   .animate-pulse-glow { animation: pulse-glow 5s ease-in-out infinite; }
   .animate-shimmer    { animation: shimmer 2.6s linear infinite; }
+  .animate-pulse-soft { animation: pulse-soft 1.8s ease-in-out infinite; }
   .scanner-line       { animation: scanner-line 2.2s ease-in-out infinite; }
 
   .delay-75  { animation-delay: 75ms; }
@@ -442,6 +447,7 @@
     .animate-float-slow,
     .animate-pulse-glow,
     .animate-shimmer,
+    .animate-pulse-soft,
     .animate-fade-up,
     .animate-fade-in,
     .animate-slide-up,

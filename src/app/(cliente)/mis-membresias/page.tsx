@@ -18,6 +18,8 @@ import { differenceInDays } from 'date-fns'
 import { getUser } from '@/lib/auth'
 import { getClienteAllMemberships } from '@/modules/cliente/queries'
 import { getNovedadesInicio, getOnboardingCliente } from '@/modules/social/queries'
+import { getMomentosVivos, type MomentosVivos as MomentosData } from '@/modules/engagement/momentos'
+import { MomentosVivos } from '@/components/engagement/MomentosVivos'
 import { MembershipCard } from '@/components/cliente/MembershipCard'
 import { FeedNovedades } from '@/components/cliente/FeedNovedades'
 import { OnboardingClienteFirstVisit } from '@/components/cliente/OnboardingClienteFirstVisit'
@@ -108,6 +110,16 @@ export default async function MisMembresias() {
     )
   }
 
+  // Engagement Engine · Fase 1: momentos vivos del Home (datos reales; falla
+  // en silencio porque es realce, no núcleo).
+  let momentos: MomentosData = { nombre: null, momentos: [] }
+  if (user.metadata.clienteId && user.metadata.companyId) {
+    momentos = await getMomentosVivos(
+      user.metadata.clienteId,
+      user.metadata.companyId
+    ).catch(() => ({ nombre: null, momentos: [] }))
+  }
+
   const cookieStore = await cookies()
   const onboardingSeen = cookieStore.has('membego_onboarding_seen')
 
@@ -195,6 +207,9 @@ export default async function MisMembresias() {
           </div>
         )}
       </header>
+
+      {/* Engagement Engine · Momentos vivos (datos reales, con urgencia) */}
+      {!loadError && <MomentosVivos nombre={momentos.nombre} momentos={momentos.momentos} />}
 
       {/* Onboarding B2C: solo la primera visita */}
       {onboarding && (
