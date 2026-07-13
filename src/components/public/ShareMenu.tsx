@@ -9,7 +9,11 @@ export interface ShareMenuProps {
   title: string
   /** Texto que acompaña al enlace. */
   text: string
-  /** Ruta relativa (se resuelve contra el dominio actual). */
+  /**
+   * URL a compartir. Relativa (`/promocion/x`) se resuelve contra el dominio
+   * actual; absoluta (`https://…`) se usa tal cual. Para contenido público
+   * compartido desde el app, pasar `landingUrlFor()`.
+   */
   path: string
   /** Se llama tras compartir con éxito (p. ej. registrar un contador). */
   onShared?: () => void
@@ -46,7 +50,7 @@ export function ShareMenu({ title, text, path, onShared, label = 'Compartir' }: 
   }, [open])
 
   function fullUrl() {
-    return `${window.location.origin}${path}`
+    return path.startsWith('http') ? path : `${window.location.origin}${path}`
   }
 
   async function handlePrimary() {
