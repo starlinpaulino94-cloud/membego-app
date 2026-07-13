@@ -3,11 +3,13 @@ import { otorgarBeneficioCampana } from '@/modules/invitaciones/beneficios'
 import { crearNotificacion } from '@/modules/notificaciones/service'
 
 /**
- * Incrementa el progreso de un invitante dentro de una campaña cuando uno de
- * sus referidos completa el registro. Crea el registro de progreso si no
- * existe, incrementa `registrosCompletados`, y marca `metaAlcanzada` cuando
- * se cumple la meta de la campaña. Además entrega el beneficio de bienvenida
- * al invitado y notifica al invitante cuando alcanza su meta.
+ * Motor de Progreso del Growth Engine (campañas "Invita y Gana").
+ *
+ * Cuando un referido completa el registro: incrementa `registrosCompletados`
+ * del invitante, entrega el regalo de bienvenida al invitado, y al alcanzar
+ * la meta entrega AUTOMÁTICAMENTE el premio del invitante (beneficio digital
+ * con QR en su wallet) — sin ninguna intervención manual, respetando el
+ * stock de premios de la campaña (`maxPremios`).
  *
  * No lanza: un fallo del motor nunca rompe el registro del referido.
  */
@@ -35,16 +37,6 @@ export async function incrementarProgresoCampana(
       },
     })
 
-    const alcanzaMeta =
-      !progreso.metaAlcanzada && progreso.registrosCompletados >= campana.metaRegistros
-    if (alcanzaMeta) {
-      await prisma.invitacionProgreso.update({
-        where: { id: progreso.id },
-        data: { metaAlcanzada: true },
-      })
-      await notificarMetaAlcanzada(referenteClienteId, campana.nombre)
-    }
-
     await prisma.invitacionEvento.create({
       data: {
         campanaId,
@@ -64,9 +56,69 @@ export async function incrementarProgresoCampana(
         rol: 'INVITADO',
       })
     }
+
+    // Meta cumplida → premio automático del INVITANTE.
+    if (!progreso.metaAlcanzada && progreso.registrosCompletados >= campana.metaRegistros) {
+      await entregarPremioMeta(campanaId, referenteClienteId, companyId, campana.nombre)
+    }
   } catch (e) {
     console.error('[invitaciones] incrementarProgresoCampana error:', e)
   }
+}
+
+/**
+ * Entrega automática del premio al alcanzar la meta (spec: "no debe existir
+ * intervención manual"). El guard atómico sobre `maxPremios` en el UPDATE
+ * evita sobre-otorgar cuando varios invitantes alcanzan la meta a la vez;
+ * `metaAlcanzada: false` en el WHERE hace la operación idempotente.
+ */
+async function entregarPremioMeta(
+  campanaId: string,
+  clienteId: string,
+  companyId: string,
+  campanaNombre: string
+): Promise<void> {
+  const conStock = await prisma.$transaction(async (tx) => {
+    const campana = await tx.campanaInvitacion.findUnique({
+      where: { id: campanaId },
+      select: { maxPremios: true, premiosOtorgados: true },
+    })
+    if (!campana) return false
+
+    const agotado =
+      campana.maxPremios !== null && campana.premiosOtorgados >= campana.maxPremios
+
+    const upd = await tx.invitacionProgreso.updateMany({
+      where: { campanaId, clienteId, metaAlcanzada: false },
+      data: { metaAlcanzada: true, premioReclamado: !agotado },
+    })
+    if (upd.count === 0) return false // otra ejecución ya lo procesó
+
+    if (agotado) return false
+    await tx.campanaInvitacion.update({
+      where: { id: campanaId },
+      data: { premiosOtorgados: { increment: 1 } },
+    })
+    return true
+  })
+
+  if (!conStock) return
+
+  await prisma.invitacionEvento.create({
+    data: {
+      campanaId,
+      clienteId,
+      companyId,
+      tipo: 'PREMIO_RECLAMADO',
+      meta: { automatico: true },
+    },
+  })
+
+  // Beneficio digital real (QR + wallet) + su notificación de entrega.
+  await otorgarBeneficioCampana({ campanaId, clienteId, rol: 'INVITANTE' })
+
+  // Celebración de la meta (además de la notificación del beneficio).
+  await notificarMetaAlcanzada(clienteId, campanaNombre)
 }
 
 async function notificarMetaAlcanzada(clienteId: string, campanaNombre: string) {
@@ -84,8 +136,8 @@ async function notificarMetaAlcanzada(clienteId: string, campanaNombre: string) 
     await crearNotificacion({
       userId: user.id,
       tipo: 'RECOMPENSA_REFERIDO',
-      titulo: '¡Meta alcanzada! 🎉',
-      mensaje: `Completaste la meta de "${campanaNombre}". Entra y reclama tu premio.`,
+      titulo: '🏆 ¡Meta alcanzada!',
+      mensaje: `Completaste la meta de "${campanaNombre}". Tu premio ya fue entregado automáticamente.`,
       href: '/cliente/invita-y-gana',
     })
   } catch (e) {

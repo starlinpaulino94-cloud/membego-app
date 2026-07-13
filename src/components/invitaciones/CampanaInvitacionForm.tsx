@@ -28,6 +28,13 @@ interface Beneficio {
   valor: string
   descripcion: string
   vigenciaDias: number
+  /** Promoción (Beneficio Digital E8) que materializa la recompensa. */
+  promocionId?: string
+}
+
+export interface PromocionOption {
+  id: string
+  titulo: string
 }
 
 interface Existing {
@@ -63,7 +70,13 @@ function toDateInput(d: string | null) {
   return new Date(d).toISOString().slice(0, 10)
 }
 
-export function CampanaInvitacionForm({ existing }: { existing?: Existing }) {
+export function CampanaInvitacionForm({
+  existing,
+  promociones = [],
+}: {
+  existing?: Existing
+  promociones?: PromocionOption[]
+}) {
   const router = useRouter()
   const action = existing ? actualizarCampanaInvitacion : crearCampanaInvitacion
   const [state, formAction, pending] = useActionState(action, init)
@@ -197,6 +210,7 @@ export function CampanaInvitacionForm({ existing }: { existing?: Existing }) {
           tipo={invitanteTipo}
           onTipoChange={setInvitanteTipo}
           defaults={existing?.beneficioInvitante}
+          promociones={promociones}
         />
       </div>
 
@@ -207,6 +221,7 @@ export function CampanaInvitacionForm({ existing }: { existing?: Existing }) {
           tipo={invitadoTipo}
           onTipoChange={setInvitadoTipo}
           defaults={existing?.beneficioInvitado}
+          promociones={promociones}
         />
       </div>
 
@@ -274,14 +289,37 @@ function BeneficioFields({
   tipo,
   onTipoChange,
   defaults,
+  promociones,
 }: {
   prefix: string
   tipo: string
   onTipoChange: (v: string) => void
   defaults?: Beneficio
+  promociones: PromocionOption[]
 }) {
   return (
     <div className="space-y-4">
+      <div className="space-y-2">
+        <Label>Beneficio digital (recomendado)</Label>
+        <Select name={`${prefix}PromocionId`} defaultValue={defaults?.promocionId ?? 'none'}>
+          <SelectTrigger>
+            <SelectValue placeholder="Selecciona una promoción" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">— Sin beneficio digital —</SelectItem>
+            {promociones.map((p) => (
+              <SelectItem key={p.id} value={p.id}>
+                {p.titulo}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <p className="text-xs text-muted-foreground">
+          Al vincular una promoción, el premio se entrega automáticamente como beneficio
+          digital: aparece en la wallet del cliente con su código QR, canjeable en el
+          escáner.
+        </p>
+      </div>
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
           <Label>Tipo de beneficio</Label>
