@@ -1,48 +1,60 @@
+import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
-import { prisma } from '@/lib/prisma'
-import { getCampanaActiva } from '@/modules/invitaciones/queries'
+import { getCampanaPorCodigoInvitacion } from '@/modules/invitaciones/queries'
+import { absoluteUrl } from '@/lib/site'
+import { CampanaLandingScreen } from '@/components/invitaciones/CampanaLandingScreen'
 
 export const dynamic = 'force-dynamic'
 
 /**
  * MVP "Invita y Gana" · Enlace corto personal: membego.com/invitar/XXXXXX.
  *
- * Cada cliente comparte SU código (no un slug de campaña). La ruta resuelve
- * el código → la campaña ACTIVA de su empresa → redirige a la landing
- * canónica /invita/[slug]?ref=code, que ya trae vista previa OG, embudo de
- * eventos y el flujo landing → registro → celebración → premio.
- *
- * Mantener una sola landing evita duplicar lógica; cuando existan campañas
- * múltiples por cliente, solo cambia la resolución de este archivo.
+ * Renderiza la landing DIRECTAMENTE (no redirige): los robots de vista previa
+ * de WhatsApp/Facebook no siguen redirecciones, así que la URL compartida
+ * debe responder 200 con sus propios metadatos OG y su opengraph-image para
+ * que el enlace siempre muestre la tarjeta grande con imagen.
  */
-export default async function InvitarCodePage({
-  params,
-}: {
+interface Props {
   params: Promise<{ code: string }>
-}) {
+}
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { code } = await params
-  const clean = decodeURIComponent(code).trim()
+  const res = await getCampanaPorCodigoInvitacion(code)
+  if (!res) return {}
 
-  if (clean) {
-    const cliente = await prisma.cliente
-      .findFirst({
-        where: {
-          OR: [{ codigoCorto: clean.toUpperCase() }, { codigoReferido: clean }],
-        },
-        select: { companyId: true, codigoCorto: true, codigoReferido: true },
-      })
-      .catch(() => null)
+  const { campana } = res
+  const title = campana.titulo
+  const description = campana.descripcion
+  const url = absoluteUrl(`/invitar/${code}`)
 
-    if (cliente) {
-      const campana = await getCampanaActiva(cliente.companyId).catch(() => null)
-      if (campana) {
-        const ref = cliente.codigoCorto ?? cliente.codigoReferido
-        redirect(`/invita/${campana.slug}?ref=${encodeURIComponent(ref)}`)
-      }
-    }
+  // La imagen la genera opengraph-image.tsx de esta misma ruta (misma tarjeta
+  // de marca que /invita/[slug]); Next inyecta og:image y twitter:image solos.
+  return {
+    title: `${title} — ${campana.company.name}`,
+    description,
+    openGraph: {
+      title,
+      description,
+      url,
+      siteName: campana.company.name,
+      type: 'website',
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description,
+    },
   }
+}
+
+export default async function InvitarCodePage({ params }: Props) {
+  const { code } = await params
+  const res = await getCampanaPorCodigoInvitacion(code)
 
   // Código desconocido o sin campaña activa: a la portada (nunca un 404 feo
   // para un enlace que alguien recibió por WhatsApp).
-  redirect('/')
+  if (!res) redirect('/')
+
+  return <CampanaLandingScreen campana={res.campana} refCode={res.ref} />
 }
