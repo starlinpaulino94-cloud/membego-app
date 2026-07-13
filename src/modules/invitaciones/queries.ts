@@ -12,6 +12,46 @@ export async function getCampanaActiva(companyId: string) {
   })
 }
 
+/**
+ * Enlace corto personal /invitar/[code]: resuelve el código del cliente a la
+ * campaña ACTIVA de su empresa (con la empresa incluida, para la landing y la
+ * tarjeta OG). Devuelve también el ref normalizado para la atribución.
+ */
+export async function getCampanaPorCodigoInvitacion(code: string) {
+  const clean = decodeURIComponent(code).trim()
+  if (!clean) return null
+
+  const cliente = await prisma.cliente
+    .findFirst({
+      where: {
+        OR: [{ codigoCorto: clean.toUpperCase() }, { codigoReferido: clean }],
+      },
+      select: { companyId: true, codigoCorto: true, codigoReferido: true },
+    })
+    .catch(() => null)
+  if (!cliente) return null
+
+  const campana = await prisma.campanaInvitacion
+    .findFirst({
+      where: {
+        companyId: cliente.companyId,
+        estado: 'ACTIVA',
+        fechaInicio: { lte: new Date() },
+        fechaFin: { gte: new Date() },
+      },
+      orderBy: { orden: 'asc' },
+      include: {
+        company: {
+          select: { id: true, name: true, slug: true, logoUrl: true, colorPrimario: true, type: true },
+        },
+      },
+    })
+    .catch(() => null)
+  if (!campana) return null
+
+  return { campana, ref: cliente.codigoCorto ?? cliente.codigoReferido }
+}
+
 export async function getCampanaBySlug(slug: string) {
   return prisma.campanaInvitacion.findUnique({
     where: { slug },
