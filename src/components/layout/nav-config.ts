@@ -72,6 +72,7 @@ const ADMIN_NAV: NavGroup[] = [
       { href: '/admin/planes', label: 'Planes', icon: Package },
       { href: '/admin/promociones', label: 'Promociones', icon: Megaphone },
       { href: '/admin/referidos', label: 'Referidos', icon: Gift },
+      { href: '/admin/invitaciones', label: 'Invitaciones', icon: Ticket },
       { href: '/admin/crecimiento', label: 'Crecimiento', icon: Rocket },
     ],
   },
@@ -146,6 +147,7 @@ const CLIENTE_NAV: NavGroup[] = [
       { href: '/cliente/promociones', label: 'Promociones', icon: Megaphone },
       { href: '/cliente/mis-promociones', label: 'Mis promociones', icon: Ticket },
       { href: '/cliente/referidos', label: 'Referidos', icon: Gift },
+      { href: '/cliente/invita-y-gana', label: 'Invita y Gana', icon: Gift },
     ],
   },
   {

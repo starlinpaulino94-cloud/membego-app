@@ -273,6 +273,8 @@ model Company {
   transacciones   Transaction[]
   receiptTemplate ReceiptTemplate?
   compras         ProductoCompra[]
+  // Growth Engine: Campañas de Invitación ("Invita y Gana").
+  campanasInvitacion CampanaInvitacion[]
 
   // Growth Engine 3.0 (sistema viral de referidos).
   growthLinks  GrowthLink[]
@@ -495,6 +497,9 @@ model Cliente {
 
   transacciones Transaction[]
   compras       ProductoCompra[]
+  // Growth Engine: progreso y eventos de campañas de invitación.
+  invitacionProgresos InvitacionProgreso[]
+  invitacionEventos   InvitacionEvento[]
 
   // Growth Engine 3.0.
   growthLinks   GrowthLink[]   @relation("GrowthLinks")
@@ -589,11 +594,14 @@ model Referido {
   // dispositivo del referente o de otro referido reciente). Se conserva el
   // vínculo para auditoría, pero NO cuenta en el embudo ni otorga puntos.
   sospechoso         Boolean        @default(false)
+  campanaInvitacionId String?
+  campanaInvitacion   CampanaInvitacion? @relation(fields: [campanaInvitacionId], references: [id])
   createdAt          DateTime       @default(now())
   completadoEn       DateTime?
 
   @@index([companyId, referenteClienteId])
   @@index([companyId, sospechoso])
+  @@index([campanaInvitacionId])
   @@map("referidos")
 }
 
@@ -2400,4 +2408,99 @@ model ReceiptTemplate {
   updatedAt DateTime @updatedAt
 
   @@map("receipt_templates")
+}
+
+// ---------------------------------------------------------------------------
+// Growth Engine — Campañas de Invitación ("Invita y Gana")
+// ---------------------------------------------------------------------------
+
+enum CampanaInvitacionEstado {
+  BORRADOR
+  ACTIVA
+  PAUSADA
+  FINALIZADA
+}
+
+enum InvitacionEventoTipo {
+  COMPARTIDA
+  ENLACE_ABIERTO
+  LANDING_VISTA
+  REGISTRO_INICIADO
+  REGISTRO_COMPLETADO
+  PREMIO_RECLAMADO
+  MEMBRESIA_ADQUIRIDA
+  PRIMER_CANJE
+  CONVERSION_FINAL
+}
+
+model CampanaInvitacion {
+  id             String                   @id @default(cuid())
+  companyId      String
+  company        Company                  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  slug           String                   @unique
+  nombre         String
+  titulo         String
+  descripcion    String                   @db.Text
+  textoLanding   String?                  @db.Text
+  imagenUrl      String?
+  bannerUrl      String?
+  metaRegistros  Int
+  beneficioInvitante Json
+  beneficioInvitado  Json
+  fechaInicio    DateTime
+  fechaFin       DateTime
+  maxPremios     Int?
+  premiosOtorgados Int                    @default(0)
+  estado         CampanaInvitacionEstado  @default(BORRADOR)
+  colorPrimario  String?
+  colorSecundario String?
+  orden          Int                      @default(0)
+  createdAt      DateTime                 @default(now())
+  updatedAt      DateTime                 @updatedAt
+
+  progresos      InvitacionProgreso[]
+  eventos        InvitacionEvento[]
+  referidos      Referido[]
+
+  @@index([companyId, estado])
+  @@index([estado, fechaFin])
+  @@map("campanas_invitacion")
+}
+
+model InvitacionProgreso {
+  id                    String             @id @default(cuid())
+  campanaId             String
+  campana               CampanaInvitacion  @relation(fields: [campanaId], references: [id], onDelete: Cascade)
+  clienteId             String
+  cliente               Cliente            @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  companyId             String
+  registrosCompletados  Int                @default(0)
+  metaAlcanzada         Boolean            @default(false)
+  premioReclamado       Boolean            @default(false)
+  benefitGrantId        String?
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
+
+  @@unique([campanaId, clienteId])
+  @@index([clienteId])
+  @@map("invitacion_progresos")
+}
+
+model InvitacionEvento {
+  id          String                  @id @default(cuid())
+  campanaId   String
+  campana     CampanaInvitacion       @relation(fields: [campanaId], references: [id], onDelete: Cascade)
+  clienteId   String?
+  cliente     Cliente?                @relation(fields: [clienteId], references: [id])
+  companyId   String
+  tipo        InvitacionEventoTipo
+  canal       String?
+  dispositivo String?
+  ipHash      String?
+  meta        Json                    @default("{}")
+  createdAt   DateTime                @default(now())
+
+  @@index([campanaId, tipo])
+  @@index([campanaId, clienteId])
+  @@map("invitacion_eventos")
 }

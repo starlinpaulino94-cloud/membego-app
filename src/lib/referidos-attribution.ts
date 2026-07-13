@@ -2,6 +2,7 @@ import { cookies } from 'next/headers'
 import { prisma } from '@/lib/prisma'
 import { emitirEventoEstrategia } from '@/modules/estrategias/eventos'
 import { logReferralEvent, hashIp, REF_COOKIE, VISITOR_COOKIE } from '@/lib/referidos'
+import { incrementarProgresoCampana } from '@/modules/invitaciones/motorProgreso'
 
 /**
  * Atribución de referidos al momento del registro (por contraseña u OAuth).
@@ -151,7 +152,12 @@ export async function vincularReferido(
   companyId: string,
   referidoClienteId: string,
   ipAddress: string | null,
-  opts?: { permitirCookie?: boolean; visitorId?: string | null }
+  opts?: {
+    permitirCookie?: boolean
+    visitorId?: string | null
+    /** Campaña "Invita y Gana" que originó el registro (si aplica). */
+    campanaInvitacionId?: string
+  }
 ) {
   try {
     let code = refCode
@@ -195,16 +201,16 @@ export async function vincularReferido(
     const huella = hashIp(ipAddress)
 
     if (referente.companyId === companyId) {
-      // Programa de la empresa.
+      // Programa de la empresa (+ campaña "Invita y Gana" si aplica).
+      const campanaId = opts?.campanaInvitacionId ?? null
       const sospechoso = await esRegistroSospechoso(referente.id, huella, visitorId, 'REGISTRO')
       await prisma.referido.create({
         data: {
           companyId,
           referenteClienteId: referente.id,
           referidoClienteId,
-          // El vínculo se guarda para auditoría, pero marcado: no cuenta en el
-          // embudo ni otorga puntos si la huella es sospechosa.
           sospechoso,
+          ...(campanaId ? { campanaInvitacionId: campanaId } : {}),
         },
       })
       await logReferralEvent({
@@ -217,6 +223,7 @@ export async function vincularReferido(
           ipHash: huella,
           ...(viaCookie ? { viaCookie: true } : {}),
           ...(sospechoso ? { sospechoso: true } : {}),
+          ...(campanaId ? { campanaInvitacionId: campanaId } : {}),
         },
         ...(sospechoso ? { puntos: 0 } : {}),
       })
@@ -232,9 +239,6 @@ export async function vincularReferido(
         })
       }
 
-      // Bus de estrategias: un invitado se registró con el código. Solo si el
-      // vínculo NO es sospechoso (el antifraude ya lo marcó); el sujeto es el
-      // REFERENTE (a él le llegan las automatizaciones del journey).
       if (!sospechoso) {
         await emitirEventoEstrategia({
           companyId,
@@ -246,6 +250,10 @@ export async function vincularReferido(
             referido: { codigo: code },
           },
         })
+
+        if (campanaId) {
+          await incrementarProgresoCampana(campanaId, referente.id, companyId)
+        }
       }
       return
     }

@@ -38,6 +38,8 @@ export async function registrarCliente(
   const password = String(formData.get('password') ?? '')
   const telefono = String(formData.get('telefono') ?? '').trim()
   const refCode = String(formData.get('refCode') ?? '').trim()
+  // Campaña "Invita y Gana" (si el registro vino de una campaña de invitación).
+  const campanaInvitacionId = String(formData.get('campanaId') ?? '').trim() || undefined
   // Growth Engine 3.0: código del enlace de invitación (landing) que trajo al
   // usuario. Atribuye el registro al enlace y dispara el beneficio/recompensas.
   const glCode = String(formData.get('glCode') ?? '').trim()
@@ -143,10 +145,9 @@ export async function registrarCliente(
         },
       })
 
-      // Usuario EXISTENTE afiliándose: solo cuenta con ?ref explícito, nunca
-      // por la cookie silenciosa (evita atribuciones fantasma de 30 días).
       await vincularReferido(refCode, company.id, cliente.id, ipAddress, {
         permitirCookie: false,
+        campanaInvitacionId,
       })
 
       await emitirEventoEstrategia({
@@ -253,7 +254,9 @@ export async function registrarCliente(
       },
     })
 
-    await vincularReferido(refCode, company.id, result.cliente.id, ipAddress)
+    await vincularReferido(refCode, company.id, result.cliente.id, ipAddress, {
+      campanaInvitacionId,
+    })
 
     // Growth Engine 3.0: atribución al enlace + beneficio de bienvenida +
     // reglas del evento REGISTRO (no bloquea el registro si falla).

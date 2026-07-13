@@ -30,6 +30,7 @@ export default function robots(): MetadataRoute.Robots {
           '/auth',
           '/r/',
           '/i/',
+          '/invita/',
           '/invitacion',
           '/mis-membresias',
           '/membresia',
