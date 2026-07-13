@@ -1,7 +1,7 @@
 import { requireRole } from '@/lib/auth/guards'
 import { ADMIN_ROLES } from '@/types'
 import { prisma } from '@/lib/prisma'
-import { companyFilter } from '@/modules/admin/queries'
+import { resolveCompanyId } from '@/lib/auth/company-context'
 import { PageHeader } from '@/components/ui/page-header'
 import { CampanaInvitacionForm } from '@/components/invitaciones/CampanaInvitacionForm'
 
@@ -10,7 +10,9 @@ export const metadata = { title: 'Nueva campaña de invitación' }
 
 export default async function NuevaCampanaInvitacionPage() {
   const user = await requireRole(ADMIN_ROLES)
-  const companyId = companyFilter(user)
+  // Empresa activa del selector (respeta la selección del superadmin), para que
+  // las promociones (candidatas a beneficio digital) sean las de esa empresa.
+  const companyId = await resolveCompanyId(user)
 
   // Promociones vigentes de la empresa: candidatas a beneficio digital (E8).
   const promociones = companyId
