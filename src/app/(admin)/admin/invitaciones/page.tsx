@@ -7,7 +7,7 @@ import {
 } from 'lucide-react'
 import { requireRole } from '@/lib/auth/guards'
 import { ADMIN_ROLES } from '@/types'
-import { companyFilter } from '@/modules/admin/queries'
+import { resolveCompanyId } from '@/lib/auth/company-context'
 import { getCampanasEmpresa } from '@/modules/invitaciones/queries'
 import { absoluteUrl } from '@/lib/site'
 import { PageHeader } from '@/components/ui/page-header'
@@ -35,7 +35,10 @@ function fmtDate(d: Date) {
 
 export default async function AdminInvitacionesPage() {
   const user = await requireRole(ADMIN_ROLES)
-  const companyId = companyFilter(user)
+  // Las campañas son por empresa: un superadmin debe tener una empresa ACTIVA
+  // en el selector del panel. resolveCompanyId respeta esa selección
+  // (app_metadata.companyId) y verifica que exista.
+  const companyId = await resolveCompanyId(user)
   if (!companyId) {
     return (
       <div className="py-20 text-center text-muted-foreground">

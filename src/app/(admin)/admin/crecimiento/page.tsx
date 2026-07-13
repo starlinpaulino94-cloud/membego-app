@@ -1,6 +1,6 @@
 import { ADMIN_ROLES } from '@/types'
 import { requireRole } from '@/lib/auth/guards'
-import { companyFilter } from '@/modules/admin/queries'
+import { resolveCompanyId } from '@/lib/auth/company-context'
 import { getGrowthAdminData } from '@/modules/growth/queries'
 import { GROWTH_DURACIONES } from '@/modules/growth/config'
 import {
@@ -53,7 +53,8 @@ function Toggle({ name, checked, label }: { name: string; checked: boolean; labe
 
 export default async function CrecimientoPage() {
   const user = await requireRole(ADMIN_ROLES)
-  const companyId = companyFilter(user)
+  // Config por empresa: el superadmin usa la empresa ACTIVA del selector.
+  const companyId = await resolveCompanyId(user)
 
   if (!companyId) {
     return (
