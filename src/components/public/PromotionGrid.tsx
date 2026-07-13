@@ -13,6 +13,8 @@ interface PromotionGridProps {
   emptyMessage?: string
   /** Base de la ruta del detalle (se propaga a cada PromotionCard). */
   hrefBase?: string
+  /** Destino del CTA del estado vacío (depende del contexto: landing vs app). */
+  exploreHref?: string
 }
 
 export function PromotionGrid({
@@ -21,6 +23,7 @@ export function PromotionGrid({
   variant = 'default',
   emptyMessage = 'No se encontraron promociones',
   hrefBase,
+  exploreHref = '/empresas',
 }: PromotionGridProps) {
   const cols =
     variant === 'compact'
@@ -45,7 +48,7 @@ export function PromotionGrid({
         description="Vuelve pronto o explora las empresas afiliadas: publican nuevas ofertas con frecuencia."
         action={
           <Button asChild variant="outline">
-            <Link href="/empresas">Explorar empresas</Link>
+            <Link href={exploreHref}>Explorar empresas</Link>
           </Button>
         }
       />

@@ -419,6 +419,7 @@ export function CompanyProfile({
                 isLoading={false}
                 variant="default"
                 hrefBase={promoHrefBase}
+                exploreHref={discoverHref}
               />
             </div>
           </section>
