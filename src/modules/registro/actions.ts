@@ -51,7 +51,7 @@ export async function registrarCliente(
   const color = String(formData.get('color') ?? '').trim()
   const placa = String(formData.get('placa') ?? '').trim()
 
-  if (!nombre || !email || !password) {
+  if (!nombre || !email || !password || !telefono) {
     return { error: 'Completa todos los campos obligatorios.' }
   }
   if (password.length < 6) {
@@ -298,7 +298,7 @@ export async function registrarCuentaGeneral(
     const aceptaTerminos = formData.get('terminos') === 'on'
     const marketingConsent = formData.getAll('marketingConsent').at(-1) === 'on'
 
-    if (!nombre || !email || !password) {
+    if (!nombre || !email || !password || !telefono) {
       return { error: 'Completa todos los campos obligatorios.' }
     }
     if (password.length < 6) {
@@ -342,16 +342,13 @@ export async function registrarCuentaGeneral(
           name: nombre,
           role: 'CLIENTE',
           companyId: null,
+          telefono: telefono || null,
           termsAcceptedAt: now,
           termsVersion: TERMS_VERSION,
           marketingConsent,
           marketingConsentAt: marketingConsent ? now : null,
         },
       })
-
-      // Nota: el teléfono se guarda cuando el usuario se afilie a una empresa
-      // (la ficha Cliente es por empresa); aquí solo existe la cuenta global.
-      void telefono
 
       await admin.auth.admin.updateUserById(supabaseId, {
         app_metadata: {
