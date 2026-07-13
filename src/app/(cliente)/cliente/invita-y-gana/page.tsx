@@ -1,8 +1,13 @@
-import { Gift, Share2, Users, Clock } from 'lucide-react'
+import Image from 'next/image'
+import { Gift, Share2, Users, Clock, Trophy, Send, Ticket, CheckCircle2 } from 'lucide-react'
 import { requireRole } from '@/lib/auth/guards'
 import { absoluteUrl } from '@/lib/site'
 import { ensureCodigoCorto } from '@/lib/referidos'
-import { getCampanaActiva, getInvitadosPorCliente } from '@/modules/invitaciones/queries'
+import {
+  getCampanaActiva,
+  getInvitadosPorCliente,
+  getInvitaYGanaStats,
+} from '@/modules/invitaciones/queries'
 import { InvitaShareButton } from '@/components/invitaciones/InvitaShareButton'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -13,7 +18,7 @@ export const metadata = {
   title: 'Invita y Gana',
 }
 
-/** "Hoy", "Ayer", "hace 2 días", "hace 3 meses" — para la lista de invitados. */
+/** "Hoy", "Ayer", "hace 2 días", "hace 3 meses" — para el historial. */
 function tiempoRelativo(fecha: Date): string {
   const dias = Math.round((fecha.getTime() - Date.now()) / 86400000)
   const rtf = new Intl.RelativeTimeFormat('es', { numeric: 'auto' })
@@ -23,10 +28,13 @@ function tiempoRelativo(fecha: Date): string {
 }
 
 /**
- * MVP "Invita y Gana" (fase 1): módulo simple del cliente.
- * Solo dos cosas: compartir tu invitación y ver quiénes se registraron
- * gracias a ti. Sin metas, barras de progreso ni niveles — eso llega en la
- * fase Growth Engine; el backend ya registra todo (Referido/InvitacionEvento).
+ * 🎁 Invita y Gana — ÚNICO módulo de invitaciones del cliente (unifica el
+ * antiguo módulo Referidos). El cliente no ve el concepto técnico de
+ * "referidos": solo invita amigos y obtiene beneficios.
+ *
+ * Contenido: campaña activa (imagen, título, beneficios), botón Compartir
+ * ahora, Mi progreso e Historial. Las metas/niveles/gamificación llegan en
+ * la fase Growth Engine; el backend ya registra toda la auditoría.
  */
 export default async function InvitaYGanaPage() {
   const user = await requireRole(['CLIENTE'])
@@ -47,47 +55,78 @@ export default async function InvitaYGanaPage() {
     )
   }
 
-  const [codigoCorto, invitados] = await Promise.all([
+  const [codigoCorto, invitados, stats] = await Promise.all([
     ensureCodigoCorto(clienteId),
     getInvitadosPorCliente(clienteId),
+    getInvitaYGanaStats(clienteId, companyId),
   ])
 
-  // Enlace corto personal: membego.com/invitar/CODIGO.
+  // Enlace corto personal: membego.com/invitar/CODIGO. El mensaje, la imagen
+  // (OG) y el enlace los genera el sistema; el cliente no los modifica.
   const inviteUrl = absoluteUrl(`/invitar/${codigoCorto}`)
 
-  const beneficioInvitado = campana.beneficioInvitado as {
-    descripcion?: string
-  } | null
+  const beneficioInvitado = campana.beneficioInvitado as { descripcion?: string } | null
+  const beneficioInvitante = campana.beneficioInvitante as { descripcion?: string } | null
   const regalo = beneficioInvitado?.descripcion || 'un regalo de bienvenida'
 
   const mensajeCompartir = `🎉 Te regalan ${regalo} solo por crear tu cuenta gratis en MembeGo. ¡Aprovéchalo!`
 
+  const statCards = [
+    { label: 'Invitaciones enviadas', valor: stats.invitacionesEnviadas, icon: Send },
+    { label: 'Personas registradas', valor: stats.personasRegistradas, icon: Users },
+    { label: 'Recompensas obtenidas', valor: stats.recompensasObtenidas, icon: Trophy },
+    { label: 'Beneficios activos', valor: stats.beneficiosActivos, icon: Ticket },
+  ]
+
   return (
-    <div className="mx-auto max-w-lg space-y-6">
+    <div className="mx-auto max-w-2xl space-y-6">
       {/* Header */}
       <div className="text-center space-y-1">
         <h1 className="text-2xl font-bold text-foreground flex items-center justify-center gap-2">
           <Gift className="h-6 w-6 text-emerald-500" />
           Invita y Gana
         </h1>
-        <p className="text-muted-foreground text-sm">{campana.titulo}</p>
+        <p className="text-muted-foreground text-sm">
+          Comparte, tus amigos ganan y tú también.
+        </p>
       </div>
 
-      {/* Share hero */}
-      <Card className="border-emerald-200 bg-gradient-to-br from-emerald-50 to-white">
-        <CardContent className="py-7 space-y-4 text-center">
-          <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-100">
-            <Share2 className="h-7 w-7 text-emerald-600" />
-          </span>
-          <div className="space-y-1.5">
-            <p className="text-lg font-bold text-foreground">
-              Comparte esta oportunidad con tus amigos
-            </p>
-            <p className="text-sm text-muted-foreground">
-              Ellos recibirán <span className="font-semibold text-foreground">{regalo}</span>{' '}
-              cuando creen su cuenta.
-            </p>
+      {/* Campaña activa */}
+      <Card className="overflow-hidden border-emerald-200">
+        {(campana.bannerUrl || campana.imagenUrl) && (
+          <div className="relative h-40 w-full sm:h-52">
+            <Image
+              src={(campana.bannerUrl || campana.imagenUrl)!}
+              alt={campana.titulo}
+              fill
+              className="object-cover"
+              sizes="(max-width: 672px) 100vw, 672px"
+            />
           </div>
+        )}
+        <CardContent className="space-y-4 bg-gradient-to-br from-emerald-50 to-white py-6 text-center">
+          <div className="space-y-1.5">
+            <p className="text-xl font-bold text-foreground">{campana.titulo}</p>
+            <p className="text-sm text-muted-foreground">{campana.descripcion}</p>
+          </div>
+
+          <div className="grid gap-2 sm:grid-cols-2">
+            <div className="rounded-xl border border-emerald-200 bg-white p-3 text-left">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-700">
+                Tus amigos reciben
+              </p>
+              <p className="mt-0.5 text-sm font-semibold text-foreground">{regalo}</p>
+            </div>
+            <div className="rounded-xl border border-amber-200 bg-white p-3 text-left">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-700">
+                Tú obtienes
+              </p>
+              <p className="mt-0.5 text-sm font-semibold text-foreground">
+                {beneficioInvitante?.descripcion || 'Recompensas por cada nuevo registro'}
+              </p>
+            </div>
+          </div>
+
           <InvitaShareButton
             campanaId={campana.id}
             url={inviteUrl}
@@ -97,7 +136,26 @@ export default async function InvitaYGanaPage() {
         </CardContent>
       </Card>
 
-      {/* Personas registradas gracias a ti */}
+      {/* Mi progreso */}
+      <div>
+        <h2 className="mb-3 flex items-center gap-2 font-semibold text-foreground">
+          <Trophy className="h-4.5 w-4.5 text-muted-foreground" />
+          Mi progreso
+        </h2>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {statCards.map((s) => (
+            <Card key={s.label}>
+              <CardContent className="flex flex-col items-center gap-1 py-4 text-center">
+                <s.icon className="h-5 w-5 text-emerald-600" />
+                <p className="text-2xl font-bold text-foreground">{s.valor}</p>
+                <p className="text-xs leading-tight text-muted-foreground">{s.label}</p>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+
+      {/* Historial */}
       <Card>
         <CardContent className="py-5 space-y-4">
           <div className="flex items-center gap-2">
@@ -131,9 +189,17 @@ export default async function InvitaYGanaPage() {
                       {tiempoRelativo(inv.createdAt)}
                     </p>
                   </div>
-                  <Badge variant={inv.estado === 'COMPLETADO' ? 'default' : 'secondary'}>
-                    {inv.estado === 'COMPLETADO' ? 'Cliente activo' : 'Registrado'}
-                  </Badge>
+                  <div className="flex shrink-0 flex-col items-end gap-1">
+                    <Badge variant={inv.estado === 'COMPLETADO' ? 'default' : 'secondary'}>
+                      {inv.estado === 'COMPLETADO' ? 'Cliente activo' : 'Registrado'}
+                    </Badge>
+                    {inv.recompensaAplicada && (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-600">
+                        <CheckCircle2 className="h-3 w-3" />
+                        Recompensa obtenida
+                      </span>
+                    )}
+                  </div>
                 </li>
               ))}
             </ul>

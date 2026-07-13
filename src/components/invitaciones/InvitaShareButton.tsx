@@ -50,9 +50,9 @@ export function InvitaShareButton({ campanaId, url, titulo, descripcion }: Props
 
   return (
     <div className="flex flex-col gap-2">
-      <Button onClick={handleShare} className="w-full gap-2">
-        <Share2 className="h-4 w-4" />
-        Compartir invitación
+      <Button onClick={handleShare} size="lg" className="w-full gap-2 text-base font-bold">
+        <Share2 className="h-5 w-5" />
+        Compartir ahora
       </Button>
       <Button variant="outline" onClick={handleCopy} className="w-full gap-2">
         {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}

@@ -163,8 +163,53 @@ export async function getInvitadosPorCliente(clienteId: string, limit = 50) {
     select: {
       id: true,
       estado: true,
+      recompensaAplicada: true,
       createdAt: true,
       referidoCliente: { select: { nombre: true } },
     },
   })
+}
+
+export interface InvitaYGanaStats {
+  invitacionesEnviadas: number
+  personasRegistradas: number
+  recompensasObtenidas: number
+  beneficiosActivos: number
+}
+
+/**
+ * Unificación Referidos → Invita y Gana · "Mi progreso" del cliente.
+ * Reutiliza las fuentes existentes (sin estadísticas duplicadas): eventos
+ * COMPARTIDA, atribuciones Referido, recompensas del programa
+ * (ReferralRecompensa + premios de campaña) y beneficios activos en wallet.
+ */
+export async function getInvitaYGanaStats(
+  clienteId: string,
+  companyId: string
+): Promise<InvitaYGanaStats> {
+  const [compartidas, registrados, recompensas, premiosCampana, activos] =
+    await Promise.all([
+      prisma.invitacionEvento.count({
+        where: { clienteId, companyId, tipo: 'COMPARTIDA' },
+      }),
+      prisma.referido.count({
+        where: { referenteClienteId: clienteId, sospechoso: false },
+      }),
+      prisma.referralRecompensa.count({
+        where: { referenteClienteId: clienteId, companyId },
+      }),
+      prisma.invitacionProgreso.count({
+        where: { clienteId, companyId, premioReclamado: true },
+      }),
+      prisma.productoCompra.count({
+        where: { clienteId, companyId, estado: 'ACTIVA' },
+      }),
+    ])
+
+  return {
+    invitacionesEnviadas: compartidas,
+    personasRegistradas: registrados,
+    recompensasObtenidas: recompensas + premiosCampana,
+    beneficiosActivos: activos,
+  }
 }

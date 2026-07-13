@@ -295,9 +295,9 @@ async function evaluarRecompensas(referenteClienteId: string, companyId: string)
       notificacionesACrear.push({
         userId: referenteUser.id,
         tipo: 'RECOMPENSA_REFERIDO' as const,
-        titulo: '¡Recompensa por referidos!',
+        titulo: '¡Recompensa por invitar!',
         mensaje,
-        href: '/cliente/referidos',
+        href: '/cliente/invita-y-gana',
       })
     }
   }
