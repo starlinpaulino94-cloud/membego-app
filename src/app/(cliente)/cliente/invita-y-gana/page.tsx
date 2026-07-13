@@ -1,13 +1,11 @@
-import Link from 'next/link'
-import { Gift, Share2, Users, Trophy, CheckCircle2, Clock, Wallet } from 'lucide-react'
+import { Gift, Share2, Users, Clock } from 'lucide-react'
 import { requireRole } from '@/lib/auth/guards'
 import { absoluteUrl } from '@/lib/site'
 import { ensureCodigoCorto } from '@/lib/referidos'
-import { getCampanaActiva } from '@/modules/invitaciones/queries'
-import { getProgresoOCrear } from '@/modules/invitaciones/queries'
+import { getCampanaActiva, getInvitadosPorCliente } from '@/modules/invitaciones/queries'
 import { InvitaShareButton } from '@/components/invitaciones/InvitaShareButton'
 import { Card, CardContent } from '@/components/ui/card'
-import { Progress } from '@/components/ui/progress'
+import { Badge } from '@/components/ui/badge'
 
 export const dynamic = 'force-dynamic'
 
@@ -15,6 +13,21 @@ export const metadata = {
   title: 'Invita y Gana',
 }
 
+/** "Hoy", "Ayer", "hace 2 días", "hace 3 meses" — para la lista de invitados. */
+function tiempoRelativo(fecha: Date): string {
+  const dias = Math.round((fecha.getTime() - Date.now()) / 86400000)
+  const rtf = new Intl.RelativeTimeFormat('es', { numeric: 'auto' })
+  const texto =
+    Math.abs(dias) < 30 ? rtf.format(dias, 'day') : rtf.format(Math.round(dias / 30), 'month')
+  return texto.charAt(0).toUpperCase() + texto.slice(1)
+}
+
+/**
+ * MVP "Invita y Gana" (fase 1): módulo simple del cliente.
+ * Solo dos cosas: compartir tu invitación y ver quiénes se registraron
+ * gracias a ti. Sin metas, barras de progreso ni niveles — eso llega en la
+ * fase Growth Engine; el backend ya registra todo (Referido/InvitacionEvento).
+ */
 export default async function InvitaYGanaPage() {
   const user = await requireRole(['CLIENTE'])
   const clienteId = user.metadata.clienteId as string
@@ -34,20 +47,23 @@ export default async function InvitaYGanaPage() {
     )
   }
 
-  const codigoCorto = await ensureCodigoCorto(clienteId)
-  const progreso = await getProgresoOCrear(campana.id, clienteId, companyId)
+  const [codigoCorto, invitados] = await Promise.all([
+    ensureCodigoCorto(clienteId),
+    getInvitadosPorCliente(clienteId),
+  ])
 
-  const inviteUrl = absoluteUrl(`/invita/${campana.slug}?ref=${codigoCorto}`)
-  const pct = Math.min(100, Math.round((progreso.registrosCompletados / campana.metaRegistros) * 100))
+  // Enlace corto personal: membego.com/invitar/CODIGO.
+  const inviteUrl = absoluteUrl(`/invitar/${codigoCorto}`)
 
-  const beneficioInvitante = campana.beneficioInvitante as {
-    tipo?: string
-    valor?: string
+  const beneficioInvitado = campana.beneficioInvitado as {
     descripcion?: string
   } | null
+  const regalo = beneficioInvitado?.descripcion || 'un regalo de bienvenida'
+
+  const mensajeCompartir = `🎉 Te regalan ${regalo} solo por crear tu cuenta gratis en MembeGo. ¡Aprovéchalo!`
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto max-w-lg space-y-6">
       {/* Header */}
       <div className="text-center space-y-1">
         <h1 className="text-2xl font-bold text-foreground flex items-center justify-center gap-2">
@@ -57,79 +73,75 @@ export default async function InvitaYGanaPage() {
         <p className="text-muted-foreground text-sm">{campana.titulo}</p>
       </div>
 
-      {/* Prize card */}
-      {beneficioInvitante?.descripcion && (
-        <Card className="border-emerald-200 bg-gradient-to-br from-emerald-50 to-white">
-          <CardContent className="py-5 text-center space-y-2">
-            <Trophy className="mx-auto h-10 w-10 text-emerald-600" />
-            <p className="font-semibold text-foreground">Tu premio</p>
-            <p className="text-sm text-muted-foreground">{beneficioInvitante.descripcion}</p>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Progress */}
-      <Card>
-        <CardContent className="py-5 space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Users className="h-5 w-5 text-muted-foreground" />
-              <span className="font-semibold text-foreground">Tu progreso</span>
-            </div>
-            <span className="text-sm text-muted-foreground">
-              {progreso.registrosCompletados} / {campana.metaRegistros} registros
-            </span>
-          </div>
-          <Progress value={pct} className="h-3" />
-
-          {progreso.metaAlcanzada ? (
-            progreso.premioReclamado ? (
-              <div className="space-y-2">
-                <div className="flex items-center gap-2 text-emerald-600 text-sm font-medium">
-                  <CheckCircle2 className="h-5 w-5" />
-                  ¡Meta cumplida! Tu premio fue entregado.
-                </div>
-                <Link
-                  href="/cliente/mis-promociones"
-                  className="inline-flex items-center gap-1.5 text-sm font-medium text-primary underline underline-offset-2"
-                >
-                  <Wallet className="h-4 w-4" />
-                  Ver mi premio en la wallet
-                </Link>
-              </div>
-            ) : (
-              <p className="text-sm text-amber-600 font-medium">
-                Alcanzaste la meta, pero los premios de esta campaña se agotaron.
-              </p>
-            )
-          ) : (
-            <p className="text-xs text-muted-foreground">
-              Te faltan {campana.metaRegistros - progreso.registrosCompletados} amigo
-              {campana.metaRegistros - progreso.registrosCompletados !== 1 ? 's' : ''} para ganar
-              tu premio. Se entrega automáticamente al llegar a la meta.
+      {/* Share hero */}
+      <Card className="border-emerald-200 bg-gradient-to-br from-emerald-50 to-white">
+        <CardContent className="py-7 space-y-4 text-center">
+          <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-100">
+            <Share2 className="h-7 w-7 text-emerald-600" />
+          </span>
+          <div className="space-y-1.5">
+            <p className="text-lg font-bold text-foreground">
+              Comparte esta oportunidad con tus amigos
             </p>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Share */}
-      <Card>
-        <CardContent className="py-5 space-y-4 text-center">
-          <Share2 className="mx-auto h-8 w-8 text-primary" />
-          <p className="font-semibold text-foreground">Comparte tu invitación</p>
-          <p className="text-sm text-muted-foreground">
-            Envía este enlace a tus amigos. Cuando se registren, sumas al progreso.
-          </p>
+            <p className="text-sm text-muted-foreground">
+              Ellos recibirán <span className="font-semibold text-foreground">{regalo}</span>{' '}
+              cuando creen su cuenta.
+            </p>
+          </div>
           <InvitaShareButton
             campanaId={campana.id}
             url={inviteUrl}
             titulo={campana.titulo}
-            descripcion={campana.descripcion}
+            descripcion={mensajeCompartir}
           />
         </CardContent>
       </Card>
 
-      {/* Campaign info */}
+      {/* Personas registradas gracias a ti */}
+      <Card>
+        <CardContent className="py-5 space-y-4">
+          <div className="flex items-center gap-2">
+            <Users className="h-5 w-5 text-muted-foreground" />
+            <span className="font-semibold text-foreground">
+              Personas que se registraron gracias a ti
+            </span>
+            {invitados.length > 0 && (
+              <span className="ml-auto rounded-full bg-muted px-2 py-0.5 text-xs font-semibold text-muted-foreground">
+                {invitados.length}
+              </span>
+            )}
+          </div>
+
+          {invitados.length === 0 ? (
+            <p className="py-4 text-center text-sm text-muted-foreground">
+              Aún nadie se ha registrado con tu enlace. ¡Compártelo y aparecerán aquí!
+            </p>
+          ) : (
+            <ul className="divide-y divide-border/60">
+              {invitados.map((inv) => (
+                <li key={inv.id} className="flex items-center gap-3 py-3">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary">
+                    {(inv.referidoCliente.nombre || '?').charAt(0).toUpperCase()}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-foreground">
+                      {inv.referidoCliente.nombre}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {tiempoRelativo(inv.createdAt)}
+                    </p>
+                  </div>
+                  <Badge variant={inv.estado === 'COMPLETADO' ? 'default' : 'secondary'}>
+                    {inv.estado === 'COMPLETADO' ? 'Cliente activo' : 'Registrado'}
+                  </Badge>
+                </li>
+              ))}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Vigencia */}
       <div className="text-center text-xs text-muted-foreground flex items-center justify-center gap-1">
         <Clock className="h-3.5 w-3.5" />
         Vigente hasta{' '}
