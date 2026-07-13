@@ -1,0 +1,333 @@
+'use client'
+
+import { useActionState, useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { Loader2 } from 'lucide-react'
+import { toast } from 'sonner'
+import {
+  crearCampanaInvitacion,
+  actualizarCampanaInvitacion,
+  type CampanaState,
+} from '@/modules/invitaciones/adminActions'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+
+interface Beneficio {
+  tipo: string
+  valor: string
+  descripcion: string
+  vigenciaDias: number
+}
+
+interface Existing {
+  id: string
+  nombre: string
+  titulo: string
+  descripcion: string
+  textoLanding: string | null
+  imagenUrl: string | null
+  bannerUrl: string | null
+  metaRegistros: number
+  beneficioInvitante: Beneficio
+  beneficioInvitado: Beneficio
+  fechaInicio: string
+  fechaFin: string
+  maxPremios: number | null
+  colorPrimario: string | null
+  colorSecundario: string | null
+}
+
+const BENEFICIO_TIPOS = [
+  { value: 'SERVICIO_GRATIS', label: 'Servicio gratis' },
+  { value: 'DESCUENTO', label: 'Descuento (%)' },
+  { value: 'CREDITO', label: 'Crédito en cuenta' },
+  { value: 'PRODUCTO', label: 'Producto gratis' },
+  { value: 'UPGRADE', label: 'Upgrade de plan' },
+]
+
+const init: CampanaState = {}
+
+function toDateInput(d: string | null) {
+  if (!d) return ''
+  return new Date(d).toISOString().slice(0, 10)
+}
+
+export function CampanaInvitacionForm({ existing }: { existing?: Existing }) {
+  const router = useRouter()
+  const action = existing ? actualizarCampanaInvitacion : crearCampanaInvitacion
+  const [state, formAction, pending] = useActionState(action, init)
+  const [invitanteTipo, setInvitanteTipo] = useState(
+    existing?.beneficioInvitante?.tipo ?? 'SERVICIO_GRATIS'
+  )
+  const [invitadoTipo, setInvitadoTipo] = useState(
+    existing?.beneficioInvitado?.tipo ?? 'SERVICIO_GRATIS'
+  )
+
+  useEffect(() => {
+    if (state.success) {
+      toast.success(existing ? 'Campaña actualizada.' : 'Campaña creada.')
+      router.push('/admin/invitaciones')
+      router.refresh()
+    }
+  }, [state.success, existing, router])
+
+  return (
+    <form action={formAction} className="max-w-2xl space-y-6">
+      {existing && <input type="hidden" name="id" value={existing.id} />}
+
+      {state.error && (
+        <Alert variant="destructive">
+          <AlertDescription>{state.error}</AlertDescription>
+        </Alert>
+      )}
+
+      <div className="space-y-5 rounded-xl border border-border p-5">
+        <h3 className="font-semibold text-foreground">Información básica</h3>
+
+        <div className="space-y-2">
+          <Label htmlFor="nombre">Nombre interno</Label>
+          <Input
+            id="nombre"
+            name="nombre"
+            placeholder="Ej: Campaña verano 2025"
+            defaultValue={existing?.nombre ?? ''}
+            required
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="titulo">Título público</Label>
+          <Input
+            id="titulo"
+            name="titulo"
+            placeholder="Ej: ¡Invita a un amigo y gana!"
+            defaultValue={existing?.titulo ?? ''}
+            required
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="descripcion">Descripción</Label>
+          <Textarea
+            id="descripcion"
+            name="descripcion"
+            placeholder="Describe la campaña a tus clientes..."
+            defaultValue={existing?.descripcion ?? ''}
+            required
+            rows={3}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="textoLanding">Texto adicional del landing (opcional)</Label>
+          <Textarea
+            id="textoLanding"
+            name="textoLanding"
+            placeholder="Texto persuasivo que aparecerá en la página de invitación"
+            defaultValue={existing?.textoLanding ?? ''}
+            rows={2}
+          />
+        </div>
+      </div>
+
+      <div className="space-y-5 rounded-xl border border-border p-5">
+        <h3 className="font-semibold text-foreground">Meta y fechas</h3>
+
+        <div className="grid gap-5 sm:grid-cols-3">
+          <div className="space-y-2">
+            <Label htmlFor="metaRegistros">Registros necesarios</Label>
+            <Input
+              id="metaRegistros"
+              name="metaRegistros"
+              type="number"
+              min={1}
+              defaultValue={existing?.metaRegistros ?? 5}
+              required
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="fechaInicio">Fecha inicio</Label>
+            <Input
+              id="fechaInicio"
+              name="fechaInicio"
+              type="date"
+              defaultValue={toDateInput(existing?.fechaInicio ?? null)}
+              required
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="fechaFin">Fecha fin</Label>
+            <Input
+              id="fechaFin"
+              name="fechaFin"
+              type="date"
+              defaultValue={toDateInput(existing?.fechaFin ?? null)}
+              required
+            />
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="maxPremios">Máximo de premios (dejar vacío = ilimitado)</Label>
+          <Input
+            id="maxPremios"
+            name="maxPremios"
+            type="number"
+            min={1}
+            defaultValue={existing?.maxPremios ?? ''}
+          />
+        </div>
+      </div>
+
+      <div className="space-y-5 rounded-xl border border-border p-5">
+        <h3 className="font-semibold text-foreground">Premio para quien invita</h3>
+        <BeneficioFields
+          prefix="beneficioInvitante"
+          tipo={invitanteTipo}
+          onTipoChange={setInvitanteTipo}
+          defaults={existing?.beneficioInvitante}
+        />
+      </div>
+
+      <div className="space-y-5 rounded-xl border border-border p-5">
+        <h3 className="font-semibold text-foreground">Beneficio para el invitado</h3>
+        <BeneficioFields
+          prefix="beneficioInvitado"
+          tipo={invitadoTipo}
+          onTipoChange={setInvitadoTipo}
+          defaults={existing?.beneficioInvitado}
+        />
+      </div>
+
+      <div className="space-y-5 rounded-xl border border-border p-5">
+        <h3 className="font-semibold text-foreground">Apariencia (opcional)</h3>
+
+        <div className="grid gap-5 sm:grid-cols-2">
+          <div className="space-y-2">
+            <Label htmlFor="imagenUrl">URL de imagen</Label>
+            <Input
+              id="imagenUrl"
+              name="imagenUrl"
+              type="url"
+              placeholder="https://..."
+              defaultValue={existing?.imagenUrl ?? ''}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="bannerUrl">URL de banner</Label>
+            <Input
+              id="bannerUrl"
+              name="bannerUrl"
+              type="url"
+              placeholder="https://..."
+              defaultValue={existing?.bannerUrl ?? ''}
+            />
+          </div>
+        </div>
+
+        <div className="grid gap-5 sm:grid-cols-2">
+          <div className="space-y-2">
+            <Label htmlFor="colorPrimario">Color primario</Label>
+            <Input
+              id="colorPrimario"
+              name="colorPrimario"
+              type="color"
+              defaultValue={existing?.colorPrimario ?? '#6366f1'}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="colorSecundario">Color secundario</Label>
+            <Input
+              id="colorSecundario"
+              name="colorSecundario"
+              type="color"
+              defaultValue={existing?.colorSecundario ?? '#8b5cf6'}
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="flex justify-end gap-3">
+        <Button type="button" variant="outline" onClick={() => router.back()}>
+          Cancelar
+        </Button>
+        <Button type="submit" disabled={pending}>
+          {pending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          {existing ? 'Guardar cambios' : 'Crear campaña'}
+        </Button>
+      </div>
+    </form>
+  )
+}
+
+function BeneficioFields({
+  prefix,
+  tipo,
+  onTipoChange,
+  defaults,
+}: {
+  prefix: string
+  tipo: string
+  onTipoChange: (v: string) => void
+  defaults?: Beneficio
+}) {
+  return (
+    <div className="space-y-4">
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="space-y-2">
+          <Label>Tipo de beneficio</Label>
+          <Select name={`${prefix}Tipo`} value={tipo} onValueChange={onTipoChange}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {BENEFICIO_TIPOS.map((t) => (
+                <SelectItem key={t.value} value={t.value}>
+                  {t.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor={`${prefix}Valor`}>Valor</Label>
+          <Input
+            id={`${prefix}Valor`}
+            name={`${prefix}Valor`}
+            placeholder={tipo === 'DESCUENTO' ? 'Ej: 20' : 'Ej: Lavado premium'}
+            defaultValue={defaults?.valor ?? ''}
+          />
+        </div>
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor={`${prefix}Descripcion`}>Descripción del beneficio</Label>
+        <Input
+          id={`${prefix}Descripcion`}
+          name={`${prefix}Descripcion`}
+          placeholder="Ej: Un lavado completo gratis"
+          defaultValue={defaults?.descripcion ?? ''}
+        />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor={`${prefix}VigenciaDias`}>Vigencia (días)</Label>
+        <Input
+          id={`${prefix}VigenciaDias`}
+          name={`${prefix}VigenciaDias`}
+          type="number"
+          min={1}
+          defaultValue={defaults?.vigenciaDias ?? 30}
+        />
+      </div>
+    </div>
+  )
+}

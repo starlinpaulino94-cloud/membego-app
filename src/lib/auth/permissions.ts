@@ -33,6 +33,7 @@ export const ADMIN_SECTIONS = [
   'empleados',
   'reportes',
   'audiencia',
+  'invitaciones',
 ] as const
 
 // Tipo derivado de la lista: una sola fuente de verdad (evita drift).
