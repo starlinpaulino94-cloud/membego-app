@@ -320,7 +320,7 @@ export async function registrarCuentaGeneral(
         email,
         password,
         email_confirm: !verificarCorreo,
-        user_metadata: { name: nombre },
+        user_metadata: { name: nombre, telefono: telefono || null },
       })
 
     if (createError || !created.user) {
@@ -342,7 +342,6 @@ export async function registrarCuentaGeneral(
           name: nombre,
           role: 'CLIENTE',
           companyId: null,
-          telefono: telefono || null,
           termsAcceptedAt: now,
           termsVersion: TERMS_VERSION,
           marketingConsent,
