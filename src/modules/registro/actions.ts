@@ -6,6 +6,7 @@ import { ensureEmailIdentity } from '@/lib/supabase/identity'
 import { registerLimiter } from '@/lib/rate-limit'
 import { getRequestMeta } from '@/lib/server-utils'
 import { vincularReferido } from '@/lib/referidos-attribution'
+import { ensureCodigoCorto } from '@/lib/referidos'
 import { procesarRegistroGrowth } from '@/modules/growth/registro'
 import { emitirEventoEstrategia } from '@/modules/estrategias/eventos'
 import { TERMS_VERSION } from '@/lib/legal'
@@ -16,6 +17,22 @@ export interface RegistroState {
   success?: boolean
   /** Cuenta creada pero pendiente de confirmar el correo (flag O-1). */
   pendingVerification?: boolean
+  /**
+   * MVP "Invita y Gana": código de invitación propio del cliente recién
+   * creado, para que la pantalla de celebración ofrezca compartir SU enlace
+   * (/invitar/[code]) sin necesitar sesión iniciada.
+   */
+  codigoInvitacion?: string
+}
+
+/** Código de invitación del cliente; nunca bloquea el registro si falla. */
+async function codigoInvitacionDe(clienteId: string): Promise<string | undefined> {
+  try {
+    return await ensureCodigoCorto(clienteId)
+  } catch (e) {
+    console.error('[registro] codigoInvitacion error:', e)
+    return undefined
+  }
 }
 
 export async function registrarCliente(
@@ -157,7 +174,7 @@ export async function registrarCliente(
         payload: { cliente: { nombre: cliente.nombre, compras: 0, visitas: 0 } },
       })
 
-      return { success: true }
+      return { success: true, codigoInvitacion: await codigoInvitacionDe(cliente.id) }
     } catch (e) {
       console.error('[registro] afiliación a nueva empresa error:', e)
       return { error: 'No se pudo completar el registro. Intenta de nuevo.' }
@@ -273,11 +290,12 @@ export async function registrarCliente(
       payload: { cliente: { nombre: result.cliente.nombre, compras: 0, visitas: 0 } },
     })
 
+    const codigoInvitacion = await codigoInvitacionDe(result.cliente.id)
     if (verificarCorreo) {
       await sendVerificationEmail(admin, email, nombre)
-      return { pendingVerification: true }
+      return { pendingVerification: true, codigoInvitacion }
     }
-    return { success: true }
+    return { success: true, codigoInvitacion }
   } catch (e) {
     // Roll back the Supabase user if DB write failed
     await admin.auth.admin.deleteUser(supabaseId).catch(e => console.error('[registro-cleanup]', e))

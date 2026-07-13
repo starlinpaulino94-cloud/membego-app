@@ -2,7 +2,7 @@
 
 import { useActionState, useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { Loader2, Gift, Clock, Shield, CheckCircle2, PartyPopper, Wallet } from 'lucide-react'
+import { Loader2, Gift, Clock, Shield, CheckCircle2, PartyPopper, Wallet, Share2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { registrarCliente, type RegistroState } from '@/modules/registro/actions'
 import { registrarEventoCampana } from '@/modules/invitaciones/clienteActions'
@@ -152,6 +152,30 @@ export function CampanaLanding({ campana, refCode, invitanteNombre }: Props) {
     })
   }
 
+  // MVP "Invita y Gana": el recién registrado comparte SU propio enlace desde
+  // la celebración, sin esperar a iniciar sesión (el código viene en el state
+  // del registro). Cadena viral: registro → celebración → compartir.
+  const compartirCelebracion = async () => {
+    if (!state.codigoInvitacion) return
+    const url = `${window.location.origin}/invitar/${state.codigoInvitacion}`
+    const regalo = campana.beneficioInvitado?.descripcion || 'un regalo de bienvenida'
+    const text = `🎉 ¡A mí ya me regalaron: ${regalo}!\n\nAcabo de registrarme en MembeGo y tú también puedes recibir el tuyo GRATIS al crear tu cuenta.\n\nRegístrate aquí:`
+    const copiar = async () => {
+      await navigator.clipboard.writeText(`${text} ${url}`)
+      toast.success('Enlace copiado. ¡Compártelo con tus amigos!')
+    }
+    try {
+      if (typeof navigator !== 'undefined' && navigator.share) {
+        await navigator.share({ title: campana.titulo, text, url })
+        return
+      }
+      await copiar()
+    } catch (e) {
+      if (e instanceof DOMException && e.name === 'AbortError') return
+      await copiar().catch(() => toast.error('No se pudo compartir.'))
+    }
+  }
+
   // ── Celebración post-registro (pantalla completa + confeti) ──────────────
   if (registrado) {
     return (
@@ -199,6 +223,30 @@ export function CampanaLanding({ campana, refCode, invitanteNombre }: Props) {
             Tu regalo ya está en tu wallet de MembeGo con su código QR. Preséntalo en el
             negocio para usarlo.
           </p>
+
+          {/* Comparte esta oportunidad: momento de máxima emoción → invitar. */}
+          {state.codigoInvitacion && (
+            <div className="rounded-2xl border-2 border-amber-200 bg-gradient-to-br from-amber-50 to-white p-6 text-left shadow-xl space-y-3">
+              <h2 className="text-center text-xl font-bold text-slate-900">
+                Comparte esta oportunidad
+              </h2>
+              <p className="text-center text-sm text-slate-600">
+                Tus amigos también pueden obtener{' '}
+                <span className="font-semibold text-slate-800">
+                  {campana.beneficioInvitado?.descripcion || 'su regalo de bienvenida'}
+                </span>
+                . Invítalos ahora y ayúdalos a aprovechar esta promoción.
+              </p>
+              <Button
+                onClick={compartirCelebracion}
+                className="w-full py-6 text-lg font-bold text-white shadow-lg"
+                style={{ backgroundColor: secondary }}
+              >
+                <Share2 className="mr-2 h-5 w-5" />
+                Compartir
+              </Button>
+            </div>
+          )}
         </div>
       </div>
     )

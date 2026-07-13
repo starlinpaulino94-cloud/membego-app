@@ -149,3 +149,22 @@ export async function getCampanaDashboard(campanaId: string): Promise<CampanaDas
     })),
   }
 }
+
+/**
+ * MVP "Invita y Gana" · Personas que se registraron gracias a un cliente.
+ * Fuente: modelo Referido (auditoría de atribución). Excluye los marcados
+ * sospechosos por el anti-fraude para no inflar la lista.
+ */
+export async function getInvitadosPorCliente(clienteId: string, limit = 50) {
+  return prisma.referido.findMany({
+    where: { referenteClienteId: clienteId, sospechoso: false },
+    orderBy: { createdAt: 'desc' },
+    take: limit,
+    select: {
+      id: true,
+      estado: true,
+      createdAt: true,
+      referidoCliente: { select: { nombre: true } },
+    },
+  })
+}
