@@ -1,6 +1,7 @@
 import { notFound, redirect } from 'next/navigation'
 import { getUser } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { membresiaEstadoUi } from '@/lib/estados'
 import { differenceInCalendarDays } from 'date-fns'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -22,15 +23,6 @@ import { formatMoney } from '@/lib/format'
 
 export const metadata = {
   title: 'Detalles de Membresía',
-}
-
-const ESTADO_LABEL: Record<string, string> = {
-  ACTIVA: 'Activa',
-  PENDIENTE: 'Pendiente',
-  PENDIENTE_PAGO: 'Esperando pago',
-  VENCIDA: 'Vencida',
-  CANCELADA: 'Cancelada',
-  RECHAZADA: 'Rechazada',
 }
 
 const TZ = 'America/Santo_Domingo'
@@ -131,7 +123,7 @@ export default async function MembershipDetail({ params }: { params: Promise<{ m
       })
     : []
 
-  const estadoLabel = ESTADO_LABEL[membership.estado] ?? membership.estado
+  const estadoLabel = membresiaEstadoUi(membership.estado).label
   const company = membership.cliente.company
 
   return (

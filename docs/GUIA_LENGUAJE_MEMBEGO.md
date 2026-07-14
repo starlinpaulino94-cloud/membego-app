@@ -334,15 +334,18 @@ el estado (usar "Activa"), colores sueltos por página (usar tokens del design s
 
 Nada de esto agrega funcionalidad; solo unifica. Se aplica **solo tras aprobación**.
 
-### 🔴 Prioridad ALTA (confunde al cliente / se ve en pantalla)
-1. **Estados de membresía**: unificar labels/colores migrando los mapas inline
-   (`cliente/pagos`, `membresia/[id]`, `superadmin/membresias`, `admin/membresias`)
-   a `EstadoBadge`. Resuelve C2, C3, C7.
-2. **Color de ACTIVA y FINALIZADA en campañas**: verde/gris en vez de azul/rojo
-   (`invitaciones/page.tsx`, `marketing/page.tsx`, `invitaciones/[id]/page.tsx`). C4, C5.
-3. **QR compartido**: quitar "Válido para un solo uso" absoluto (`QRShareCard.tsx`). C1.
-4. **CONSUMIDA → "Usada"** en `compra-estado.ts` y detalle. C6.
-5. **Estado fantasma SOSPECHOSO** en referidos: convertirlo en chip/marca. C8.
+### 🔴 Prioridad ALTA (confunde al cliente / se ve en pantalla) — ✅ HECHA
+Decisiones aprobadas: **Activa = verde**, **Vencida = gris**, **rojo solo para
+errores**. Fuente única creada en **`src/lib/estados.ts`**.
+1. ✅ **Estados de membresía**: mapas inline migrados a la fuente única
+   (`EstadoBadge`, `cliente/pagos`, `membresia/[id]`, `superadmin/membresias`).
+   "Activa" (nunca "Activo"), "En validación" para pago en revisión, "Rechazada". C2, C3, C7.
+2. ✅ **Color de ACTIVA y FINALIZADA en campañas**: verde/gris (los 3 mapas de
+   campaña migrados a `campanaEstadoUi`). C4, C5.
+3. ✅ **QR compartido**: quitado "Válido para un solo uso" absoluto (`QRShareCard.tsx`). C1.
+4. ✅ **CONSUMIDA → "Usada"** (+ RECHAZADA→"Rechazada", EXPIRADA→"Vencida", gris) en `compra-estado.ts`. C6.
+5. ✅ **Estado fantasma SOSPECHOSO** en referidos: eliminado del mapa (era código
+   muerto); el chip de marca queda como follow-up (requiere llevar el boolean). C8.
 
 ### 🟡 Prioridad MEDIA (consistencia, menos visible)
 6. **Verbo de plan**: unificar a "Elegir este plan" / "Cambiar de plan". C10.
