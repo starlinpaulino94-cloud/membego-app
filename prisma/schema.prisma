@@ -2488,6 +2488,10 @@ model CampanaInvitacion {
   // Si es true, el enlace muestra la página de presentación (banner/hero) antes
   // del formulario. Si es false (por defecto), lleva directo al registro.
   usarBanner     Boolean                  @default(false)
+  // Textos editables del módulo "Invita y Gana" del cliente (subtítulo,
+  // etiquetas, mensaje de compartir, títulos, nombres de estadísticas, etc.).
+  // Ausente = se usan los textos por defecto (ver src/lib/invitaContenido.ts).
+  contenido      Json?
   createdAt      DateTime                 @default(now())
   updatedAt      DateTime                 @updatedAt
 
