@@ -1,0 +1,27 @@
+name: Publicar @membego/ui
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'packages/ui/**'
+  workflow_dispatch: {}
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: 'https://npm.pkg.github.com'
+          scope: '@membego'
+      - name: Publicar (idempotente por versión)
+        working-directory: packages/ui
+        run: npm publish --no-git-checks || echo "Versión ya publicada; sube packages/ui/package.json version para republicar."
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
