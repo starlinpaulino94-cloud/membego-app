@@ -6,11 +6,15 @@ import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { Menu, X, ArrowRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { landingUrlFor } from '@/lib/site'
 
+// Fase 0 · Separación web/app: las páginas de marketing viven en membego-web
+// (membego.com); desde la app se enlazan cross-dominio. Los flujos (registro
+// de empresa) siguen siendo rutas locales de la app.
 const LINKS = [
-  { href: '/empresas', label: 'Explorar empresas' },
-  { href: '/promociones', label: 'Promociones' },
-  { href: '/caracteristicas', label: 'Características' },
+  { href: landingUrlFor('/empresas'), label: 'Explorar empresas' },
+  { href: landingUrlFor('/promociones'), label: 'Promociones' },
+  { href: landingUrlFor('/caracteristicas'), label: 'Características' },
   { href: '/registro-empresa', label: 'Para empresas' },
 ]
 

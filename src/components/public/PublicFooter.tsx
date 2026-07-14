@@ -1,30 +1,33 @@
 import Link from 'next/link'
 import Image from 'next/image'
+import { landingUrlFor } from '@/lib/site'
 
+// Fase 0 · Separación web/app: el marketing (características, directorios,
+// blog, contacto) vive en membego-web; se enlaza cross-dominio.
 const COLUMNAS = [
   {
     titulo: 'Producto',
     links: [
-      { href: '/caracteristicas', label: 'Características' },
-      { href: '/empresas', label: 'Empresas' },
-      { href: '/promociones', label: 'Promociones' },
-      { href: '/descargar', label: 'Descargar la app' },
+      { href: landingUrlFor('/caracteristicas'), label: 'Características' },
+      { href: landingUrlFor('/empresas'), label: 'Empresas' },
+      { href: landingUrlFor('/promociones'), label: 'Promociones' },
+      { href: landingUrlFor('/descargar'), label: 'Descargar la app' },
     ],
   },
   {
     titulo: 'Para empresas',
     links: [
       { href: '/registro-empresa', label: 'Registrar mi empresa' },
-      { href: '/empresas', label: 'Ver empresas' },
+      { href: landingUrlFor('/empresas'), label: 'Ver empresas' },
       { href: '/login', label: 'Ingresar' },
     ],
   },
   {
     titulo: 'Recursos',
     links: [
-      { href: '/faq', label: 'Preguntas frecuentes' },
-      { href: '/blog', label: 'Blog' },
-      { href: '/contact', label: 'Contacto' },
+      { href: landingUrlFor('/faq'), label: 'Preguntas frecuentes' },
+      { href: landingUrlFor('/blog'), label: 'Blog' },
+      { href: landingUrlFor('/contact'), label: 'Contacto' },
     ],
   },
   {

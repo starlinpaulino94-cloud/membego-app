@@ -1,3 +1,4 @@
+import { landingUrlFor } from '@/lib/site'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 
@@ -60,7 +61,7 @@ export default function TermsPage() {
                 contacto@membego.com
               </a>{' '}
               o visita nuestra página de{' '}
-              <Link href="/contact" className="text-primary hover:underline">
+              <Link href={landingUrlFor('/contact')} className="text-primary hover:underline">
                 contacto
               </Link>
               .

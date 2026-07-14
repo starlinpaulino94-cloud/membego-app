@@ -1,3 +1,4 @@
+import { landingUrlFor } from '@/lib/site'
 import Link from 'next/link'
 import { Building2 } from 'lucide-react'
 import type { CompanyPublic } from '@/modules/marketplace/types'
@@ -38,7 +39,7 @@ export function CompanyGrid({
         description="Prueba con otra búsqueda o explora todas las categorías disponibles."
         action={
           <Button asChild variant="outline">
-            <Link href="/empresas">Ver todas las empresas</Link>
+            <Link href={landingUrlFor('/empresas')}>Ver todas las empresas</Link>
           </Button>
         }
       />

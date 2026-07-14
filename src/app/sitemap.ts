@@ -2,26 +2,22 @@ import type { MetadataRoute } from 'next'
 import { getAppUrl } from '@/lib/site'
 
 /**
- * Sitemap de rutas de la LANDING de MembeGo. Solo páginas indexables
- * (marketing + marketplace); nunca paneles privados ni entradas de app
- * (/login, /registro), que además `robots.ts` marca como Disallow.
+ * Sitemap de la APLICACIÓN (app.membego.com). Tras la separación web/app
+ * (Fase 0), el marketing indexable (home, directorios, blog, FAQ) vive en
+ * membego-web con su propio sitemap. Aquí solo quedan las pocas rutas
+ * públicas de flujo con valor de indexación; los paneles privados y las
+ * entradas de app (/login) los excluye además `robots.ts`.
  */
 export default function sitemap(): MetadataRoute.Sitemap {
   const base = getAppUrl()
   const now = new Date()
 
-  // Prioridad alta: home + marketplace. Media: marketing. Baja: legal.
-  const alta = ['', '/empresas', '/promociones']
-  const media = ['/caracteristicas', '/registro-empresa', '/faq', '/descargar', '/blog', '/contact']
-  const baja = ['/terms', '/privacy']
+  const rutas = ['/registro', '/registro-empresa', '/terms', '/privacy']
 
-  const build = (paths: string[], priority: number) =>
-    paths.map((path) => ({
-      url: `${base}${path}`,
-      lastModified: now,
-      changeFrequency: 'daily' as const,
-      priority: path === '' ? 1 : priority,
-    }))
-
-  return [...build(alta, 0.8), ...build(media, 0.6), ...build(baja, 0.3)]
+  return rutas.map((path) => ({
+    url: `${base}${path}`,
+    lastModified: now,
+    changeFrequency: 'weekly' as const,
+    priority: 0.4,
+  }))
 }

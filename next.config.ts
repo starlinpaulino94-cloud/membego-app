@@ -15,7 +15,28 @@ const nextConfig: NextConfig = {
   },
   transpilePackages: ['@membego/ui'],
   redirects: async () => {
+    // Fase 0 · Separación web/app: el marketing vive en la landing
+    // (NEXT_PUBLIC_LANDING_URL). Los paths eliminados de la app redirigen
+    // allá; sin la env (dev de dominio único) no se generan redirects.
+    const landing = (process.env.NEXT_PUBLIC_LANDING_URL ?? '').replace(/\/+$/, '')
+    const marketingPaths = [
+      '/empresas',
+      '/promociones',
+      '/caracteristicas',
+      '/faq',
+      '/contact',
+      '/blog',
+      '/descargar',
+    ]
+    const marketingRedirects = landing
+      ? marketingPaths.map((p) => ({
+          source: p,
+          destination: `${landing}${p}`,
+          permanent: false,
+        }))
+      : []
     return [
+      ...marketingRedirects,
       // Alias amigable del perfil público (membego.com/empresa/slug).
       {
         source: '/empresa/:slug*',

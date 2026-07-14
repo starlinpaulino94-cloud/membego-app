@@ -1,3 +1,4 @@
+import { landingUrlFor } from '@/lib/site'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -54,7 +55,7 @@ export default async function PlanPublicPage({ params }: PlanPageProps) {
   return (
     <div className="min-h-screen bg-card">
       <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6 lg:px-8">
-        <Link href="/empresas" className="flex items-center gap-2 text-primary hover:underline">
+        <Link href={landingUrlFor('/empresas')} className="flex items-center gap-2 text-primary hover:underline">
           ← Ver empresas
         </Link>
 
