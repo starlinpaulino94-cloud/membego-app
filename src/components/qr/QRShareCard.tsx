@@ -132,7 +132,7 @@ export function QRShareCard({
       // Pie
       ctx.fillStyle = '#94a3b8'
       ctx.font = '24px system-ui, -apple-system, Segoe UI, sans-serif'
-      ctx.fillText('Válido para un solo uso · MembeGo', W / 2, badgeY + 96)
+      ctx.fillText('Preséntalo en el negocio para canjear · MembeGo', W / 2, badgeY + 96)
 
       return await new Promise<Blob | null>((resolve) =>
         canvas.toBlob((b) => resolve(b), 'image/png', 0.95)
@@ -165,7 +165,7 @@ export function QRShareCard({
         (blob ? new File([blob], 'mi-qr-membresia.png', { type: 'image/png' }) : null)
       if (file) shareFileRef.current = file
 
-      const texto = `Mi QR de membresía de ${companyName} · ${vigencia.texto}. Válido para un solo uso.`
+      const texto = `Mi código de ${companyName} · ${vigencia.texto}. Preséntalo en el negocio para canjear.`
 
       const nav = navigator as Navigator & {
         canShare?: (data?: ShareData) => boolean
@@ -262,7 +262,7 @@ export function QRShareCard({
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={dataUrl}
-              alt="Código QR de membresía"
+              alt="Tu código para canjear"
               width={size}
               height={size}
               className="animate-scale-in"
