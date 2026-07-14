@@ -394,6 +394,11 @@ model Promocion {
   esComprable            Boolean       @default(false)
   precio                 Decimal?      @db.Decimal(10, 2) // 0 = gratis (activación directa)
   usosPorCompra          Int           @default(1)
+  // Cuántas veces puede un mismo cliente adquirir esta promoción en total.
+  // null = sin límite. 1 = un solo uso por cliente (ej: "primer lavado gratis").
+  // Cuenta toda adquisición entregada (activa, usada o vencida), no solo las
+  // vivas: una vez consumida, no se puede volver a adquirir.
+  limitePorCliente       Int?
   beneficioVigenciaDias  Int?
   beneficioVigenciaHasta DateTime?
   // Restricciones de consumo (0=domingo … 6=sábado; vacío = todos los días).
@@ -2488,6 +2493,10 @@ model CampanaInvitacion {
   // Si es true, el enlace muestra la página de presentación (banner/hero) antes
   // del formulario. Si es false (por defecto), lleva directo al registro.
   usarBanner     Boolean                  @default(false)
+  // Textos editables del módulo "Invita y Gana" del cliente (subtítulo,
+  // etiquetas, mensaje de compartir, títulos, nombres de estadísticas, etc.).
+  // Ausente = se usan los textos por defecto (ver src/lib/invitaContenido.ts).
+  contenido      Json?
   createdAt      DateTime                 @default(now())
   updatedAt      DateTime                 @updatedAt
 
