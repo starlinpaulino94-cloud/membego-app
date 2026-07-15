@@ -15,6 +15,9 @@ const CHIP_IDLE =
   'bg-muted text-muted-foreground hover:bg-muted/70 hover:text-foreground'
 
 export function CategoryTabs({ categories, isLoading = false }: CategoryTabsProps) {
+  // Lanzamiento gradual: sin categorías (lista de empresas visibles activa),
+  // la franja no se muestra.
+  if (!isLoading && categories.length === 0) return null
   const router = useRouter()
   const searchParams = useSearchParams()
   const activeCategory = searchParams.get('category')

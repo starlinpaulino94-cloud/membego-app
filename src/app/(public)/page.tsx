@@ -10,10 +10,17 @@ export const dynamic = 'force-dynamic'
  * La raíz manda a cada quien a su casa: sesión → su panel; sin sesión → login.
  */
 export default async function AppRootPage() {
-  const user = await getUser()
-  if (user) {
-    const home = ROLE_HOME[user.metadata.role as keyof typeof ROLE_HOME]
-    redirect(home ?? '/login')
+  // getUser va en try/catch: si Supabase no responde (o falta una env en el
+  // proyecto de Vercel), la raíz JAMÁS debe mostrar "Algo salió mal" — como
+  // mínimo siempre aterriza en /login.
+  let destino = '/login'
+  try {
+    const user = await getUser()
+    if (user) {
+      destino = ROLE_HOME[user.metadata.role as keyof typeof ROLE_HOME] ?? '/login'
+    }
+  } catch (e) {
+    console.error('[app-root] getUser falló, redirigiendo a /login:', e)
   }
-  redirect('/login')
+  redirect(destino)
 }
